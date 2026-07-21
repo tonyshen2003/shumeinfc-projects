@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>树莓社活动签到</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, "SF Pro", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #F5F6F7;
+      color: #1F2329;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .app {
+      display: flex; flex-direction: column; align-items: center;
+      min-height: 100%; padding: 32px 20px 24px;
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+
+    /* Header */
+    .header { text-align: center; margin-bottom: 24px; flex-shrink: 0; }
+    .header-icon {
+      width: 56px; height: 56px; border-radius: 14px;
+      margin: 0 auto 12px; overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .header-icon img { width: 100%; height: 100%; object-fit: cover; }
+    .header h1 { font-size: 18px; font-weight: 600; color: #1F2329; letter-spacing: 0.5px; }
+    .header .subtitle { font-size: 13px; color: #8F959E; margin-top: 4px; line-height: 1.4; }
+
+    /* Main content area */
+    .main-content {
+      width: 100%; display: flex; flex-direction: column; align-items: center;
+      flex-shrink: 0;
+    }
+
+    /* Input fields */
+    .input-group { width: 100%; max-width: 360px; margin-bottom: 12px; }
+    .activity-input {
+      width: 100%; height: 44px; border-radius: 8px;
+      border: 1px solid #DEE0E3; background: #FFFFFF; color: #1F2329;
+      font-size: 15px; padding: 0 14px; outline: none;
+      transition: border-color 200ms, box-shadow 200ms; box-sizing: border-box;
+    }
+    .activity-input::placeholder { color: #8F959E; }
+    .activity-input:focus { border-color: #3370FF; box-shadow: 0 0 0 2px rgba(51,112,255,0.12); }
+
+    /* Scan button */
+    .scan-btn {
+      position: relative; width: 100%; max-width: 360px; height: 48px;
+      border: none; border-radius: 8px; background: #3370FF; color: #fff;
+      font-size: 16px; font-weight: 500; cursor: pointer;
+      transition: background 200ms, opacity 200ms, transform 100ms;
+      -webkit-user-select: none; user-select: none; touch-action: manipulation;
+      margin-top: 4px;
+    }
+    .scan-btn:active:not(:disabled) { background: #2860E6; transform: scale(0.98); }
+    .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .scan-btn.scanning { background: #3370FF; animation: pulse-shadow 1.5s ease-in-out infinite; }
+    @keyframes pulse-shadow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(51,112,255,0.3); }
+      50% { box-shadow: 0 0 0 12px rgba(51,112,255,0); }
+    }
+    .scan-btn.error { background: #FFF; border: 1px solid #F54A4A; color: #F54A4A; }
+
+    /* Status card */
+    .status-card {
+      width: 100%; max-width: 360px; margin-top: 20px; padding: 20px;
+      border-radius: 12px; background: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      opacity: 0; transform: translateY(8px) scale(0.97);
+      transition: opacity 250ms ease-out, transform 250ms ease-out;
+      will-change: opacity, transform; display: none;
+    }
+    .status-card.visible { display: block; opacity: 1; transform: translateY(0) scale(1); }
+    .status-card.success { border-top: 3px solid #34C724; }
+    .status-card.fail { border-top: 3px solid #F54A4A; }
+    .status-card .card-title {
+      font-size: 15px; font-weight: 600; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .status-card.success .card-title { color: #34C724; }
+    .status-card.fail .card-title { color: #F54A4A; }
+    .status-card .card-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; font-size: 14px; border-bottom: 1px solid #F0F1F2;
+    }
+    .status-card .card-row:last-of-type { border-bottom: none; }
+    .status-card .card-row .label { color: #8F959E; flex-shrink: 0; }
+    .status-card .card-row .value {
+      color: #1F2329; font-size: 14px;
+      word-break: break-all; text-align: right; max-width: 65%;
+    }
+    .status-card .retry-btn {
+      margin-top: 16px; width: 100%; height: 40px;
+      border: 1px solid #DEE0E3; border-radius: 8px;
+      background: #FFFFFF; color: #1F2329; font-size: 14px; cursor: pointer;
+      transition: background 200ms, border-color 200ms;
+    }
+    .status-card .retry-btn:active { background: #F5F6F7; }
+
+    /* Footer */
+    .footer {
+      margin-top: auto; padding-top: 24px;
+      text-align: center; flex-shrink: 0; width: 100%;
+    }
+    .footer-banner {
+      width: 160px; margin: 0 auto 10px; opacity: 0.6;
+      border-radius: 6px; overflow: hidden;
+    }
+    .footer-banner img { width: 100%; height: auto; display: block; }
+    .footer-tip {
+      font-size: 12px; color: #8F959E; line-height: 1.6;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      display: none; align-items: center; justify-content: center;
+      z-index: 100; opacity: 0; transition: opacity 200ms ease-out;
+      pointer-events: none;
+    }
+    .modal-overlay.visible { opacity: 1; pointer-events: auto; }
+    .modal-box {
+      width: 300px; background: #FFFFFF; border-radius: 12px;
+      padding: 28px 24px 20px; text-align: center;
+      transform: scale(0.92); transition: transform 200ms ease-out; will-change: transform;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    .modal-overlay.visible .modal-box { transform: scale(1); }
+    .modal-box .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 10px; color: #1F2329; }
+    .modal-box .modal-msg {
+      font-size: 14px; color: #646A73; line-height: 1.5;
+      margin-bottom: 20px; word-break: break-word; white-space: pre-line;
+    }
+    .modal-box .modal-btn {
+      width: 100%; height: 44px; border: none; border-radius: 8px;
+      background: #3370FF; color: #fff; font-size: 15px; font-weight: 500; cursor: pointer;
+    }
+    .modal-box .modal-btn:active { background: #2860E6; }
+
+    /* Loading dots */
+    .loading-dots { display: inline-flex; gap: 4px; align-items: center; }
+    .loading-dots span {
+      width: 6px; height: 6px; border-radius: 50%; background: #fff;
+      animation: dot-bounce 1.2s ease-in-out infinite;
+    }
+    .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    /* Feishu redirect overlay */
+    .feishu-overlay {
+      position: fixed; inset: 0; background: #F5F6F7;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 200; padding: 32px 24px; text-align: center;
+    }
+    .feishu-overlay.visible { display: flex; }
+    .feishu-overlay .feishu-icon {
+      width: 64px; height: 64px; border-radius: 16px;
+      background: #3370FF; display: flex; align-items: center; justify-content: center;
+      margin-bottom: 24px; box-shadow: 0 4px 12px rgba(51,112,255,0.25);
+    }
+    .feishu-overlay .feishu-icon svg { width: 32px; height: 32px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .feishu-overlay .feishu-title { font-size: 18px; font-weight: 600; color: #1F2329; margin-bottom: 12px; }
+    .feishu-overlay .feishu-desc { font-size: 14px; color: #646A73; line-height: 1.6; margin-bottom: 8px; }
+    .feishu-overlay .feishu-steps {
+      font-size: 13px; color: #8F959E; line-height: 1.8;
+      background: #FFFFFF; border-radius: 10px; padding: 16px 20px;
+      margin: 16px 0 24px; width: 100%; max-width: 300px; text-align: left;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .feishu-overlay .feishu-steps span { color: #3370FF; font-weight: 500; }
+    .feishu-overlay .copy-btn {
+      width: 100%; max-width: 300px; height: 44px;
+      border: 1px solid #DEE0E3; border-radius: 8px;
+      background: #FFFFFF; color: #1F2329; font-size: 14px; cursor: pointer;
+      transition: background 200ms;
+    }
+    .feishu-overlay .copy-btn:active { background: #F0F1F2; }
+    .feishu-overlay .copy-btn.copied { background: #34C724; color: #fff; border-color: #34C724; }
+
+    /* Register modal */
+    .register-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 150; opacity: 0; transition: opacity 200ms ease-out;
+      pointer-events: none;
+    }
+    .register-overlay.visible { opacity: 1; pointer-events: auto; }
+    .register-box {
+      width: 300px; background: #FFFFFF; border-radius: 12px;
+      padding: 28px 24px 20px; text-align: center;
+      transform: scale(0.92); transition: transform 200ms ease-out; will-change: transform;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    .register-overlay.visible .register-box { transform: scale(1); }
+    .register-box .reg-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2329; }
+    .register-box .reg-subtitle { font-size: 13px; color: #8F959E; margin-bottom: 20px; }
+    .register-box .reg-input {
+      width: 100%; height: 44px; border-radius: 8px;
+      border: 1px solid #DEE0E3; background: #FFFFFF; color: #1F2329;
+      font-size: 15px; padding: 0 14px; outline: none; text-align: center;
+      transition: border-color 200ms, box-shadow 200ms; box-sizing: border-box;
+    }
+    .register-box .reg-input::placeholder { color: #8F959E; }
+    .register-box .reg-input:focus { border-color: #3370FF; box-shadow: 0 0 0 2px rgba(51,112,255,0.12); }
+    .register-box .reg-info {
+      background: #F5F6F7; border-radius: 8px; padding: 14px 16px;
+      margin: 16px 0; text-align: left; font-size: 13px; line-height: 1.8; color: #1F2329;
+    }
+    .register-box .reg-info .reg-label { color: #8F959E; }
+    .register-box .reg-error { font-size: 13px; color: #F54A4A; margin-top: 8px; min-height: 20px; }
+    .register-box .reg-btn {
+      width: 100%; height: 44px; border: none; border-radius: 8px;
+      background: #3370FF; color: #fff; font-size: 15px; font-weight: 500; cursor: pointer;
+      margin-top: 8px;
+    }
+    .register-box .reg-btn:active { background: #2860E6; }
+    .register-box .reg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .register-box .reg-btn.secondary {
+      background: #FFFFFF; color: #1F2329; border: 1px solid #DEE0E3; margin-top: 8px;
+    }
+    .register-box .reg-btn.secondary:active { background: #F5F6F7; }
+    @keyframes dot-bounce {
+      0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+      40% { opacity: 1; transform: scale(1.1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div class="header-icon">
+        <img src="https://szzxshumei.com/wp-content/uploads/2026/04/0000102a-58bd-79f7-4f11-3f504ceaf79f.png" alt="树莓社" />
+      </div>
+      <h1>树莓社活动签到</h1>
+      <p class="subtitle" id="subtitle">正在初始化...</p>
+    </div>
+    <div class="main-content">
+      <div class="input-group">
+        <input class="activity-input" id="activityInput" type="text" placeholder="输入活动名称（如：周三例会）" />
+      </div>
+      <div class="input-group">
+        <input class="activity-input" id="durationInput" type="number" step="0.5" min="0" placeholder="活动时长（小时）" />
+      </div>
+      <button class="scan-btn" id="scanBtn" disabled>开始刷卡签到</button>
+      <div class="status-card" id="statusCard">
+        <div class="card-title" id="cardTitle"></div>
+        <div id="cardContent"></div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="footer-banner">
+        <img src="https://szzxshumei.com/wp-content/uploads/2025/01/banner-dark.png" alt="树莓社" />
+      </div>
+      <div class="footer-tip" id="footerTip">需要 Android Chrome 浏览器支持 Web NFC<br/>iOS 设备暂不支持</div>
+      <div class="footer-clear" onclick="clearLocalCache()" style="margin-top:12px;font-size:12px;color:#8F959E;cursor:pointer;text-decoration:underline;">清除本地卡号缓存</div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-box">
+      <div class="modal-title" id="modalTitle">提示</div>
+      <div class="modal-msg" id="modalMsg"></div>
+      <button class="modal-btn" id="modalBtn" onclick="hideModal()">确定</button>
+    </div>
+  </div>
+  <div class="feishu-overlay" id="feishuOverlay">
+    <div class="feishu-icon">
+      <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    </div>
+    <div class="feishu-title">请在系统浏览器中打开</div>
+    <div class="feishu-desc">飞书内置浏览器不支持 NFC 功能<br/>请跳转到系统浏览器使用</div>
+    <div class="feishu-steps">
+      1. 点击右上角 <span>「···」</span><br/>
+      2. 选择 <span>「在浏览器中打开」</span><br/>
+      3. 使用 Android Chrome 浏览器访问
+    </div>
+    <button class="copy-btn" id="copyUrlBtn" onclick="copyPageUrl()">复制链接地址</button>
+  </div>
+  <div class="register-overlay" id="registerOverlay">
+    <div class="register-box">
+      <div class="reg-title" id="regTitle">首次刷卡登记</div>
+      <div class="reg-subtitle" id="regSubtitle">请输入你的姓名，关联社员信息</div>
+      <div id="regContent">
+        <input class="reg-input" id="regNameInput" type="text" placeholder="输入姓名" autocomplete="off" />
+        <div class="reg-error" id="regError"></div>
+        <button class="reg-btn" id="regSearchBtn" onclick="searchMember()">查找社员</button>
+      </div>
+      <div id="regConfirmContent" style="display:none;">
+        <div class="reg-info" id="regMemberInfo"></div>
+        <button class="reg-btn" id="regConfirmBtn" onclick="confirmRegistration()">确认关联</button>
+        <button class="reg-btn secondary" onclick="cancelRegistration()">重新输入</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/public/members.js"></script>
+  <script>
+  // ============================================================
+  // [配置区] 全局常量 — 按需修改
+  // ============================================================
+
+  // 扣子工作流 Webhook 地址（接收签到数据，写入飞书多维表）
+  var COZE_WEBHOOK = "https://kg4p9tj9xx.coze.site/async_run";
+
+  // 飞书机器人 Webhook 地址（可选，签到成功后发送群通知）
+  var FEISHU_BOT = "https://open.feishu.cn/open-apis/bot/v2/hook/4a066c69-8cbe-47c8-aff1-7bc45261f9f7";
+  //var FEISHU_BOT = "https://open.feishu.cn/open-apis/bot/v2/hook/672c1594-5193-438e-8a43-083d47d8df25";
+  // WPS 多维表 Webhook 地址（可选，签到数据同步写入 WPS 多维表）
+  var WPS_WEBHOOK = "https://www.kdocs.cn/chatflow/api/v2/func/webhook/3GmmETkUsF28c2TNQ2VYxpzNihl";
+
+  // ============================================================
+  // [模块] 状态管理
+  // ============================================================
+  var state = {
+    isScanning: false,
+    ndefReader: null,
+    lastUid: "",
+    debounceTimer: null
+  };
+
+  // ============================================================
+  // [模块] 工具函数
+  // ============================================================
+
+  // 节流锁：防止快速重复点击
+  function tryAcquire() {
+    if (state.debounceTimer) return false;
+    state.debounceTimer = setTimeout(function () { state.debounceTimer = null; }, 800);
+    return true;
+  }
+
+  // 格式化时间
+  function formatTime(ts) {
+    var d = new Date(ts);
+    var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+  }
+
+  // ============================================================
+  // [模块] UI 交互
+  // ============================================================
+  var btnScan = document.getElementById("scanBtn");
+  var elSubtitle = document.getElementById("subtitle");
+  var elStatusCard = document.getElementById("statusCard");
+  var elCardTitle = document.getElementById("cardTitle");
+  var elCardContent = document.getElementById("cardContent");
+  var elModal = document.getElementById("modalOverlay");
+  var elModalTitle = document.getElementById("modalTitle");
+  var elModalMsg = document.getElementById("modalMsg");
+
+  function setButtonIdle() {
+    btnScan.disabled = false;
+    btnScan.textContent = "开始刷卡签到";
+    btnScan.classList.remove("scanning", "error");
+    state.isScanning = false;
+  }
+
+  function setButtonScanning() {
+    btnScan.disabled = true;
+    btnScan.textContent = "请贴近NFC卡片";
+    btnScan.classList.add("scanning");
+    btnScan.classList.remove("error");
+    state.isScanning = true;
+  }
+
+  function setButtonError(msg) {
+    btnScan.disabled = false;
+    btnScan.textContent = msg || "重新刷卡";
+    btnScan.classList.add("error");
+    btnScan.classList.remove("scanning");
+    state.isScanning = false;
+  }
+
+  function showSuccessCard(uid, extra) {
+    elStatusCard.className = "status-card success visible";
+    elCardTitle.textContent = "读卡成功";
+    var html = '<div class="card-row"><span class="label">卡号</span><span class="value">' + uid + '</span></div>';
+    html += '<div class="card-row"><span class="label">时间</span><span class="value">' + formatTime(Date.now()) + '</span></div>';
+    if (extra) {
+      for (var key in extra) {
+        html += '<div class="card-row"><span class="label">' + key + '</span><span class="value">' + extra[key] + '</span></div>';
+      }
+    }
+    elCardContent.innerHTML = html;
+    setTimeout(function() { elStatusCard.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
+  }
+
+  function showFailCard(msg) {
+    elStatusCard.className = "status-card fail visible";
+    elCardTitle.textContent = "读卡失败";
+    elCardContent.innerHTML = '<div class="card-row"><span class="label" style="color:#F54A4A;">' + msg + '</span></div>' +
+      '<button class="retry-btn" onclick="startScan()">重新刷卡</button>';
+    setTimeout(function() { elStatusCard.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
+  }
+
+  function showModal(title, msg) {
+    elModalTitle.textContent = title;
+    elModalMsg.textContent = msg;
+    elModal.style.display = "flex";
+    requestAnimationFrame(function () { elModal.classList.add("visible"); });
+  }
+
+  function hideModal() {
+    elModal.classList.remove("visible");
+    setTimeout(function () { elModal.style.display = "none"; }, 200);
+  }
+
+  function copyPageUrl() {
+    var url = window.location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function () {
+        var btn = document.getElementById("copyUrlBtn");
+        btn.textContent = "已复制，去浏览器打开";
+        btn.classList.add("copied");
+      }).catch(function () {
+        fallbackCopy(url);
+      });
+    } else {
+      fallbackCopy(url);
+    }
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+    var btn = document.getElementById("copyUrlBtn");
+    btn.textContent = "已复制，去浏览器打开";
+    btn.classList.add("copied");
+  }
+
+  function clearLocalCache() {
+    var map = getLocalCardMap();
+    var count = Object.keys(map).length;
+    if (count === 0) {
+      showModal("提示", "当前没有本地卡号缓存记录");
+      return;
+    }
+    if (confirm("确定清除所有本地卡号关联记录吗？（共 " + count + " 条）\n\n清除后，已登记的卡号需要重新输入姓名关联。")) {
+      localStorage.removeItem(LOCAL_CARD_MAP_KEY);
+      showModal("已清除", "已成功清除 " + count + " 条本地卡号缓存记录");
+      console.log("[Cache] 已清除本地卡号缓存，共", count, "条");
+    }
+}
+
+
+  // ============================================================
+  // [模块] 卡号登记（首次刷卡关联社员）
+  // ============================================================
+  var LOCAL_CARD_MAP_KEY = "shumei_card_members";
+  var pendingMatchedName = "";  // 存储模糊匹配到的精确姓名
+  var pendingUid = "";
+
+  function getLocalCardMap() {
+    try {
+      var data = localStorage.getItem(LOCAL_CARD_MAP_KEY);
+      return data ? JSON.parse(data) : {};
+    } catch (e) { return {}; }
+  }
+
+  function saveLocalCardMap(map) {
+    try { localStorage.setItem(LOCAL_CARD_MAP_KEY, JSON.stringify(map)); } catch (e) {}
+  }
+
+  function showRegisterModal(uid) {
+    pendingUid = uid;
+    document.getElementById("regTitle").textContent = "首次刷卡登记";
+    document.getElementById("regSubtitle").textContent = "请输入你的姓名，关联社员信息";
+    document.getElementById("regContent").style.display = "block";
+    document.getElementById("regConfirmContent").style.display = "none";
+    document.getElementById("regNameInput").value = "";
+    document.getElementById("regError").textContent = "";
+    document.getElementById("registerOverlay").classList.add("visible");
+    setTimeout(function () {
+      var input = document.getElementById("regNameInput");
+      input.focus();
+      input.onkeydown = function (e) {
+        if (e.key === "Enter" || e.keyCode === 13) { searchMember(); }
+      };
+    }, 300);
+  }
+
+  function hideRegisterModal() {
+    document.getElementById("registerOverlay").classList.remove("visible");
+    pendingUid = "";
+    pendingMatchedName = "";  // ★ 新增
+  }
+
+  function searchMember() {
+    var name = document.getElementById("regNameInput").value.trim();
+    if (!name) {
+      document.getElementById("regError").textContent = "请输入姓名";
+      return;
+    }
+
+    // 在 MEMBER_INFO 中查找（支持模糊匹配）
+    var matched = null;
+    var matchedName = "";
+    if (typeof MEMBER_INFO !== "undefined") {
+      for (var key in MEMBER_INFO) {
+        if (key.indexOf(name) !== -1) {
+          matched = MEMBER_INFO[key];
+          matchedName = key;
+          break;
+        }
+      }
+    }
+
+    if (!matched) {
+      document.getElementById("regError").textContent = "未找到该社员，请检查姓名";
+      return;
+    }
+    
+        // ★ 新增：保存精确匹配到的姓名
+    pendingMatchedName = matchedName;
+
+    // 解析社员信息
+    var infoText = matched;
+    var lines = infoText.split("\n");
+    var memberId = "", department = "", className = "";
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (line.indexOf("登记序号") === 0) {
+        var no = line.split(/[：:]/)[1];
+        if (no) memberId = no.trim();
+      } else if (line.indexOf("所属部门") === 0) {
+        var dept = line.split(/[：:]/)[1];
+        if (dept) department = dept.trim();
+      } else if (line.indexOf("班级") === 0) {
+        var cls = line.split(/[：:]/)[1];
+        if (cls) className = cls.trim();
+      }
+    }
+
+    // 显示确认信息
+    document.getElementById("regContent").style.display = "none";
+    document.getElementById("regConfirmContent").style.display = "block";
+    document.getElementById("regTitle").textContent = "确认社员信息";
+    document.getElementById("regSubtitle").textContent = "卡号 " + pendingUid + " 将关联到以下社员";
+
+    var infoHtml = '<div><span class="reg-label">姓名：</span>' + matchedName + '</div>';
+    if (memberId) infoHtml += '<div><span class="reg-label">社员号：</span>' + memberId + '</div>';
+    if (department) infoHtml += '<div><span class="reg-label">部门：</span>' + department + '</div>';
+    if (className) infoHtml += '<div><span class="reg-label">班级：</span>' + className + '</div>';
+    document.getElementById("regMemberInfo").innerHTML = infoHtml;
+  }
+
+  function confirmRegistration() {
+    if (!pendingUid || !pendingMatchedName) return;
+    var uid = pendingUid;
+    var name = pendingMatchedName;  // ★ 修改：使用精确匹配到的姓名，而非输入框的值
+
+    // 保存到 localStorage
+    var map = getLocalCardMap();
+    map[pendingUid] = name;
+    saveLocalCardMap(map);
+
+    console.log("[Register] 卡号关联成功:", uid, "->", name);
+    pendingMatchedName = "";  // ★ 新增：清空
+    hideRegisterModal();
+
+    // 重新处理当前卡号（带上社员信息）
+    processCardWithMember(uid, name);
+  }
+
+  function cancelRegistration() {
+    document.getElementById("regContent").style.display = "block";
+    document.getElementById("regConfirmContent").style.display = "none";
+    document.getElementById("regTitle").textContent = "首次刷卡登记";
+    document.getElementById("regSubtitle").textContent = "请输入你的姓名，关联社员信息";
+    document.getElementById("regNameInput").value = "";
+    document.getElementById("regError").textContent = "";
+    pendingMatchedName = "";  // ★ 新增
+    document.getElementById("regNameInput").focus();
+  }
+
+  function processCardWithMember(uid, memberName) {
+    var extra = {};
+    if (typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[memberName]) {
+      var infoText = MEMBER_INFO[memberName];
+      var lines = infoText.split("\n");
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line.indexOf("登记序号") === 0) {
+          var no = line.split(/[：:]/)[1];
+          if (no) extra["社员号"] = no.trim();
+        } else if (line.indexOf("所属部门") === 0) {
+          var dept = line.split(/[：:]/)[1];
+          if (dept) extra["部门"] = dept.trim();
+        } else if (line.indexOf("班级") === 0) {
+          var cls = line.split(/[：:]/)[1];
+          if (cls) extra["班级"] = cls.trim();
+        }
+      }
+    }
+    extra["姓名"] = memberName;
+
+    var activity = document.getElementById("activityInput").value.trim();
+    var durationVal = document.getElementById("durationInput").value.trim();
+    var duration = durationVal ? durationVal + "小时" : "";
+    if (activity) extra["活动"] = activity;
+    if (duration) extra["时长"] = duration;
+
+    showSuccessCard(uid, extra);
+    setButtonIdle();
+  //  submitToWebhook(uid, memberName, extra);
+    sendToFeishuBot(uid, memberName, extra);
+    submitToWps(uid, memberName, extra);
+  }
+
+  // ============================================================
+  // [模块] Web NFC 检测
+  // ============================================================
+  function checkWebNFCSupport() {
+    if (!("NDEFReader" in window)) {
+      return false;
+    }
+    // Web NFC 要求安全上下文 (HTTPS)
+    if (!window.isSecureContext) {
+      console.log("[NFC] 非安全上下文，Web NFC 不可用");
+      return false;
+    }
+    return true;
+  }
+
+  // ============================================================
+  // [模块] NFC 读卡（Web NFC API）
+  // ============================================================
+  function startScan() {
+    if (!tryAcquire()) return;
+    if (state.isScanning) return;
+
+    // 隐藏上次的结果卡片
+    elStatusCard.className = "status-card";
+
+    try {
+      console.log("[NFC] 创建 NDEFReader");
+      state.ndefReader = new NDEFReader();
+
+      setButtonScanning();
+      console.log("[NFC] 开始扫描...");
+
+      state.ndefReader.scan().then(function () {
+        console.log("[NFC] 扫描已启动，等待贴卡");
+
+        state.ndefReader.onreading = function (event) {
+          console.log("[NFC] 检测到卡片!");
+          console.log("[NFC] serialNumber:", event.serialNumber);
+          console.log("[NFC] message:", JSON.stringify(event.message));
+
+          // 提取卡号：serialNumber 已经是十六进制字符串（冒号分隔）
+          var uid = event.serialNumber || "UNKNOWN";
+          // 统一格式：去掉冒号，转大写
+          var uidClean = uid.replace(/:/g, "").toUpperCase();
+          state.lastUid = uidClean;
+
+          console.log("[NFC] 卡号:", uidClean);
+
+          // 停止扫描
+          stopScan();
+
+          // 查找社员信息（优先级：localStorage > CARD_MEMBERS）
+          var extra = {};
+          var memberName = "";
+          var localMap = getLocalCardMap();
+          if (localMap[uidClean]) {
+            memberName = localMap[uidClean];
+            console.log("[NFC] 本地缓存匹配:", memberName);
+          } else if (typeof CARD_MEMBERS !== "undefined" && CARD_MEMBERS[uidClean]) {
+            memberName = CARD_MEMBERS[uidClean];
+            console.log("[NFC] 预置映射匹配:", memberName);
+          }
+
+          if (memberName) {
+            // 查找详细信息中的社员号、部门和班级
+            if (typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[memberName]) {
+              var infoText = MEMBER_INFO[memberName];
+              var lines = infoText.split("\n");
+              for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim();
+                if (line.indexOf("登记序号") === 0) {
+                  var no = line.split(/[：:]/)[1];
+                  if (no) extra["社员号"] = no.trim();
+                } else if (line.indexOf("所属部门") === 0) {
+                  var dept = line.split(/[：:]/)[1];
+                  if (dept) extra["部门"] = dept.trim();
+                } else if (line.indexOf("班级") === 0) {
+                  var cls = line.split(/[：:]/)[1];
+                  if (cls) extra["班级"] = cls.trim();
+                }
+              }
+            }
+            extra["姓名"] = memberName;
+            console.log("[NFC] 匹配社员:", memberName, extra);
+
+            // 展示结果并推送
+            var activity = document.getElementById("activityInput").value.trim();
+            var durationVal = document.getElementById("durationInput").value.trim();
+            var duration = durationVal ? durationVal + "小时" : "";
+            if (activity) extra["活动"] = activity;
+            if (duration) extra["时长"] = duration;
+            showSuccessCard(uidClean, extra);
+            setButtonIdle();
+    //        submitToWebhook(uidClean, memberName, extra);
+            sendToFeishuBot(uidClean, memberName, extra);
+            submitToWps(uidClean, memberName, extra);
+          } else {
+            // 未匹配到社员，弹出登记窗口
+            console.log("[NFC] 未匹配到社员，弹出登记窗口");
+            setButtonIdle();
+            showRegisterModal(uidClean);
+          }
+        };
+
+        state.ndefReader.onreadingerror = function (error) {
+          console.log("[NFC] 读卡错误:", error.message || error);
+          // 读卡错误不中断扫描，用户可以再次贴卡
+        };
+
+      }).catch(function (err) {
+        console.error("[NFC] startDiscovery 失败:", err.message || err);
+        setButtonError("重新刷卡");
+
+        var msg = "NFC启动失败";
+        if (err.name === "NotAllowedError") {
+          msg = "NFC权限被拒绝，请在浏览器设置中允许NFC";
+        } else if (err.name === "NotSupportedError") {
+          msg = "设备不支持NFC";
+        } else if (err.name === "NotFoundError") {
+          msg = "未找到NFC适配器";
+        } else if (err.name === "AbortError") {
+          msg = "扫描被中止";
+        } else {
+          msg = "NFC错误: " + (err.message || err.name || "未知");
+        }
+        showFailCard(msg);
+      });
+
+    } catch (err) {
+      console.error("[NFC] 创建 NDEFReader 异常:", err);
+      setButtonError("重新刷卡");
+      showFailCard("NFC初始化失败: " + (err.message || "未知错误"));
+    }
+  }
+
+  function stopScan() {
+    if (state.ndefReader) {
+      try {
+        // abort() 停止扫描
+        if (typeof state.ndefReader.abort === "function") {
+          state.ndefReader.abort();
+        }
+      } catch (e) {
+        console.log("[NFC] stopScan:", e.message);
+      }
+      state.ndefReader.onreading = null;
+      state.ndefReader.onreadingerror = null;
+      state.ndefReader = null;
+    }
+    state.isScanning = false;
+  }
+
+  btnScan.addEventListener("click", function () {
+    startScan();
+  });
+
+  // ============================================================
+  // [模块] 接口请求 — Webhook 推送
+  // ============================================================
+function submitToWebhook(uid, memberName, extra) {
+    // ===== 测试配置 =====
+    var COZE_WEBHOOK = "https://kg4p9tj9xx.coze.site/run";  // 用 /run 同步看结果
+    var TEST_MODE = true;
+    
+    var activity = document.getElementById("activityInput").value.trim();
+    var durationVal = document.getElementById("durationInput").value.trim();
+    var duration = durationVal ? durationVal + "小时" : "";
+    
+    var payload = {
+      card_uid: uid || "TEST_NFC_001",
+      timestamp: Date.now().toString(),
+      user_name: memberName || "测试用户",
+      activity: activity || "测试活动",
+      duration: duration || "1小时",
+      department: (extra && extra["部门"]) || "测试部门",
+      class_name: (extra && extra["班级"]) || "测试班级"
+    };
+
+    console.log("[Webhook] 测试模式:", TEST_MODE);
+    console.log("[Webhook] 推送:", JSON.stringify(payload, null, 2));
+
+    fetch(COZE_WEBHOOK, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6ImNlODNjMDUzLWM5MjYtNDliYS04M2RmLTc4ODU5MjI4MzAwZCJ9.eyJpc3MiOiJodHRwczovL2FwaS5jb3plLmNuIiwiYXVkIjpbIklEMndwaVp3MWdNZlM5R2NXbUFUaVRzQ1FoMTllalFJIl0sImV4cCI6ODIxMDI2Njg3Njc5OSwiaWF0IjoxNzg0NjIyMjg2LCJzdWIiOiJzcGlmZmU6Ly9hcGkuY296ZS5jbi93b3JrbG9hZF9pZGVudGl0eS9pZDo3NjY0ODg2MzA3NTkxNTUzMDUxIiwic3JjIjoiaW5ib3VuZF9hdXRoX2FjY2Vzc190b2tlbl9pZDo3NjY0ODk0MzU2Mjg0NzY4MzA3In0.eKJHp8Fma1JL0f6KRUoGVhgJYB8riV9xDTkG26DIz-B_KCZ3Tzwma85R5PFaLcCiHoQKIAIA5OMBHTMkzON1zDn_i0FiCbLmKwStrjYogK_eqKkVn-Le17fYOwPjoaQjX5SFqn4DryxLfKzaBGxFhJP7pt_aEJpAzl70qg4hzkK42_qBGz0rWcceJvEOC_jJxWa-6i9fDxKFwCkboP9SZP-nIHrZ5htSoM8dItHAIwwsp0tuCErpM0vP_Y8D_BdDTVkCD07JyJ_RI7K2T0zUIwdhMLzA7JDPFeae8YBe5y37-pcc1kBHJMj6EaAvlVRJC9LnCuq0mWQCaCl-pGwt4Q"
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(function (res) {
+      console.log("[Webhook] 状态码:", res.status);
+      return res.text();
+    })
+    .then(function (text) {
+      console.log("[Webhook] 响应内容:", text);
+      try {
+        var data = JSON.parse(text);
+        if (data.success) {
+          console.log("✅ 签到成功:", data.message);
+        } else {
+          console.error("❌ 签到失败:", data.message);
+        }
+      } catch (e) {
+        console.error("❌ 解析响应失败:", e);
+      }
+    })
+    .catch(function (err) {
+      console.error("[Webhook] 网络错误:", err);
+    });
+  }
+
+
+  // ============================================================
+  // [模块] 飞书机器人通知
+  // ============================================================
+  function sendToFeishuBot(uid, memberName, extra) {
+    if (!FEISHU_BOT) return;
+
+    var activity = document.getElementById("activityInput").value.trim();
+    var durationVal = document.getElementById("durationInput").value.trim();
+    var duration = durationVal ? durationVal + "小时" : "";
+    var now = new Date();
+    var timeStr = now.getFullYear() + "-" +
+      String(now.getMonth() + 1).padStart(2, "0") + "-" +
+      String(now.getDate()).padStart(2, "0") + " " +
+      String(now.getHours()).padStart(2, "0") + ":" +
+      String(now.getMinutes()).padStart(2, "0") + ":" +
+      String(now.getSeconds()).padStart(2, "0");
+
+    var lines = [];
+    lines.push("📋 树莓社 NFC 签到通知");
+    if (activity) lines.push("活动：" + activity);
+    if (duration) lines.push("时长：" + duration);
+    lines.push("姓名：" + (memberName || "未知"));
+    if (extra && extra["社员号"]) lines.push("社员号：" + extra["社员号"]);
+    if (extra && extra["部门"]) lines.push("部门：" + extra["部门"]);
+    if (extra && extra["班级"]) lines.push("班级：" + extra["班级"]);
+    lines.push("卡号：" + uid);
+    lines.push("时间：" + timeStr);
+
+    var body = {
+      msg_type: "text",
+      content: { text: lines.join("\n") }
+    };
+
+    fetch(FEISHU_BOT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function (res) {
+      console.log("[FeishuBot] 响应:", res.status);
+    }).catch(function (err) {
+      console.error("[FeishuBot] 发送失败:", err);
+    });
+  }
+
+  // ============================================================
+  // [模块] WPS 多维表推送
+  // ============================================================
+  function submitToWps(uid, memberName, extra) {
+    if (!WPS_WEBHOOK) return;
+
+    var now = new Date();
+    var pad = function (n) { return n < 10 ? "0" + n : "" + n; };
+    var timeStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) +
+      " " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+
+    var payload = {
+      "cardUid": uid,
+      "timestamp": timeStr,
+      "userName": memberName || "",
+      "department": (extra && extra["部门"]) || "",
+      "className": (extra && extra["班级"]) || "",
+      "activity": (extra && extra["活动"]) || "",
+      "duration": (extra && extra["时长"]) || ""
+    };
+
+    fetch(WPS_WEBHOOK, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    }).then(function (res) {
+      console.log("[WPS] 响应:", res.status);
+    }).catch(function (err) {
+      console.error("[WPS] 推送失败:", err);
+    });
+  }
+
+  // ============================================================
+  // [模块] 初始化流程
+  // ============================================================
+  function init() {
+    console.log("[Init] 开始初始化...");
+
+    // 优先检测飞书内置浏览器
+    var ua = navigator.userAgent.toLowerCase();
+    if (/feishu|lark/.test(ua)) {
+      console.log("[Init] 检测到飞书内置浏览器，显示跳转提示");
+      document.getElementById("feishuOverlay").classList.add("visible");
+      return;
+    }
+
+    console.log("[Init] Web NFC 支持:", "NDEFReader" in window);
+    console.log("[Init] 安全上下文:", window.isSecureContext);
+
+    if (!checkWebNFCSupport()) {
+      // Web NFC 不可用
+      console.log("[Init] Web NFC 不可用");
+      elSubtitle.textContent = "当前设备/浏览器不支持";
+      btnScan.disabled = true;
+      btnScan.textContent = "NFC不可用";
+
+      // 判断具体原因
+      var ua = navigator.userAgent.toLowerCase();
+      var isIOS = /iphone|ipad|ipod/.test(ua);
+      var isSafari = /safari/.test(ua) && !/chrome/.test(ua);
+
+      if (isIOS) {
+        showModal("不支持", "iOS 设备暂不支持 Web NFC\n请使用 Android 手机（Chrome 浏览器）");
+        document.getElementById("footerTip").innerHTML = "Web NFC 仅支持 Android Chrome 浏览器<br/>iOS 设备暂不支持";
+      } else if (isSafari) {
+        showModal("不支持", "Safari 浏览器不支持 Web NFC\n请使用 Chrome 浏览器");
+        document.getElementById("footerTip").innerHTML = "请使用 Chrome 浏览器打开<br/>Safari 不支持 Web NFC";
+      } else if (!window.isSecureContext) {
+        showModal("需要HTTPS", "Web NFC 需要在 HTTPS 环境下使用");
+        document.getElementById("footerTip").innerHTML = "需要 HTTPS 安全连接";
+      } else {
+        showModal("不支持", "当前浏览器不支持 Web NFC\n请使用 Android Chrome 浏览器（版本 89+）");
+        document.getElementById("footerTip").innerHTML = "需要 Android Chrome 89+ 浏览器";
+      }
+      return;
+    }
+
+    // Web NFC 可用
+    console.log("[Init] Web NFC 可用，就绪");
+    elSubtitle.textContent = COZE_WEBHOOK ? "就绪，请点击下方按钮刷卡" : "就绪（仅读卡模式）";
+    btnScan.disabled = false;
+  }
+
+  // 页面加载后初始化
+  init();
+  </script>
+</body>
+</html>
