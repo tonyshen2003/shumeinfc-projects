@@ -363,7 +363,7 @@
       <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
     </div>
     <div class="feishu-title">请在系统浏览器中打开</div>
-    <div class="feishu-desc">飞书内置浏览器不支持 NFC 功能<br/>请跳转到系统浏览器使用</div>
+    <div class="feishu-desc">飞书内置浏览器无法访问摄像头<br/>请在系统浏览器中打开后使用扫码签到</div>
     <div class="feishu-steps">
       1. 点击右上角 <span>「···」</span><br/>
       2. 选择 <span>「在浏览器中打开」</span><br/>
@@ -1152,7 +1152,14 @@ function submitToWebhook(uid, memberName, extra) {
         qrState.isScanning = false;
         document.getElementById("qrLoading").style.display = "none";
         
-        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        var ua = navigator.userAgent.toLowerCase();
+        var isFeishu = /feishu|lark/.test(ua);
+        
+        if (isFeishu) {
+          // 飞书浏览器摄像头不可用，显示跳转提示
+          stopQRScan();
+          document.getElementById("feishuOverlay").classList.add("visible");
+        } else if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
           showPermissionDenied();
         } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
           document.getElementById("qrError").textContent = "未检测到摄像头";
@@ -1249,41 +1256,38 @@ function submitToWebhook(uid, memberName, extra) {
   function init() {
     console.log("[Init] 开始初始化...");
 
-    // 优先检测飞书内置浏览器
     var ua = navigator.userAgent.toLowerCase();
-    if (/feishu|lark/.test(ua)) {
-      console.log("[Init] 检测到飞书内置浏览器，显示跳转提示");
-      document.getElementById("feishuOverlay").classList.add("visible");
-      return;
-    }
+    var isFeishu = /feishu|lark/.test(ua);
+    var isIOS = /iphone|ipad|ipod/.test(ua);
 
     console.log("[Init] Web NFC 支持:", "NDEFReader" in window);
     console.log("[Init] 安全上下文:", window.isSecureContext);
+    console.log("[Init] 飞书浏览器:", isFeishu);
 
     if (!checkWebNFCSupport()) {
       // Web NFC 不可用
       console.log("[Init] Web NFC 不可用");
-      elSubtitle.textContent = "当前设备/浏览器不支持";
       btnScan.disabled = true;
       btnScan.textContent = "NFC不可用";
 
-      // 判断具体原因
-      var ua = navigator.userAgent.toLowerCase();
-      var isIOS = /iphone|ipad|ipod/.test(ua);
-      var isSafari = /safari/.test(ua) && !/chrome/.test(ua);
-
-      if (isIOS) {
-        showModal("不支持", "iOS 设备暂不支持 Web NFC\n请使用 Android 手机（Chrome 浏览器）");
-        document.getElementById("footerTip").innerHTML = "Web NFC 仅支持 Android Chrome 浏览器<br/>iOS 设备暂不支持";
-      } else if (isSafari) {
-        showModal("不支持", "Safari 浏览器不支持 Web NFC\n请使用 Chrome 浏览器");
-        document.getElementById("footerTip").innerHTML = "请使用 Chrome 浏览器打开<br/>Safari 不支持 Web NFC";
-      } else if (!window.isSecureContext) {
-        showModal("需要HTTPS", "Web NFC 需要在 HTTPS 环境下使用");
-        document.getElementById("footerTip").innerHTML = "需要 HTTPS 安全连接";
+      if (isFeishu) {
+        // 飞书内置浏览器：NFC 不可用，但可以扫码
+        elSubtitle.textContent = "请点击下方扫码签到";
+        document.getElementById("footerTip").innerHTML = "飞书浏览器不支持 NFC 刷卡<br/>请使用「扫码签到」功能";
+        showModal("提示", "飞书浏览器不支持 NFC 刷卡\n\n请点击绿色「扫码签到」按钮\n通过扫描条形码完成签到");
+      } else if (isIOS) {
+        elSubtitle.textContent = "请使用扫码签到";
+        document.getElementById("footerTip").innerHTML = "iOS 不支持 NFC 刷车<br/>请使用「扫码签到」功能";
       } else {
-        showModal("不支持", "当前浏览器不支持 Web NFC\n请使用 Android Chrome 浏览器（版本 89+）");
-        document.getElementById("footerTip").innerHTML = "需要 Android Chrome 89+ 浏览器";
+        elSubtitle.textContent = "当前设备/浏览器不支持 NFC";
+        var isSafari = /safari/.test(ua) && !/chrome/.test(ua);
+        if (isSafari) {
+          document.getElementById("footerTip").innerHTML = "Safari 不支持 NFC<br/>请使用 Chrome 或扫码签到";
+        } else if (!window.isSecureContext) {
+          document.getElementById("footerTip").innerHTML = "需要 HTTPS 安全连接";
+        } else {
+          document.getElementById("footerTip").innerHTML = "需要 Android Chrome 89+<br/>或使用扫码签到";
+        }
       }
       return;
     }
