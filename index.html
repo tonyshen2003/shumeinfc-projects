@@ -230,6 +230,91 @@
       0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
       40% { opacity: 1; transform: scale(1.1); }
     }
+
+    /* QR Scanner */
+    .qr-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: none; align-items: center; justify-content: center;
+      z-index: 300; opacity: 0; transition: opacity 200ms ease-out;
+      pointer-events: none;
+    }
+    .qr-overlay.visible { opacity: 1; pointer-events: auto; }
+    .qr-box {
+      width: 320px; background: #FFFFFF; border-radius: 16px;
+      overflow: hidden; box-shadow: 0 12px 48px rgba(0,0,0,0.2);
+    }
+    .qr-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 20px; background: #F5F6F7; border-bottom: 1px solid #E5E6E7;
+    }
+    .qr-title { font-size: 17px; font-weight: 600; color: #1F2329; }
+    .qr-close-btn {
+      width: 32px; height: 32px; border: none; border-radius: 50%;
+      background: #DEE0E3; color: #646A73; font-size: 20px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .qr-close-btn:active { background: #C4C6CA; }
+    .qr-video-container {
+      position: relative; width: 100%; height: 280px;
+      background: #000; overflow: hidden;
+    }
+    #qrVideo {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .qr-scan-line {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: #34C724; box-shadow: 0 0 8px #34C724;
+      animation: scan-move 2s linear infinite;
+    }
+    @keyframes scan-move {
+      0% { top: 20%; }
+      100% { top: 80%; }
+    }
+    .qr-corner {
+      position: absolute; width: 24px; height: 24px;
+      border: 3px solid #34C724;
+    }
+    .qr-corner.tl { top: 30px; left: 30px; border-right: none; border-bottom: none; }
+    .qr-corner.tr { top: 30px; right: 30px; border-left: none; border-bottom: none; }
+    .qr-corner.bl { bottom: 30px; left: 30px; border-right: none; border-top: none; }
+    .qr-corner.br { bottom: 30px; right: 30px; border-left: none; border-top: none; }
+    .qr-hint {
+      position: absolute; bottom: 16px; left: 0; right: 0;
+      text-align: center; font-size: 14px; color: rgba(255,255,255,0.8);
+    }
+    .qr-loading {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.6);
+    }
+    .qr-spinner {
+      width: 40px; height: 40px;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top-color: #34C724;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .qr-loading p {
+      color: #fff; font-size: 14px; margin-top: 12px;
+    }
+    .qr-permission-tip {
+      padding: 24px; text-align: center;
+    }
+    .qr-permission-tip p { font-size: 15px; color: #646A73; margin-bottom: 12px; }
+    .qr-permission-btn {
+      width: 100%; height: 44px; border: none; border-radius: 8px;
+      background: #34C724; color: #fff; font-size: 15px; font-weight: 500;
+      cursor: pointer;
+    }
+    .qr-permission-btn:active { background: #28A020; }
+    .qr-error {
+      padding: 12px 20px; text-align: center;
+      font-size: 13px; color: #F54A4A; min-height: 40px;
+    }
   </style>
 </head>
 <body>
@@ -249,6 +334,7 @@
         <input class="activity-input" id="durationInput" type="number" step="0.5" min="0" placeholder="活动时长（小时）" />
       </div>
       <button class="scan-btn" id="scanBtn" disabled>开始刷卡签到</button>
+      <button class="scan-btn qr-btn" id="qrBtn" onclick="startQRScan()" style="margin-top: 10px; background: #34C724;">扫码签到</button>
       <div class="status-card" id="statusCard">
         <div class="card-title" id="cardTitle"></div>
         <div id="cardContent"></div>
@@ -259,7 +345,10 @@
         <img src="https://szzxshumei.com/wp-content/uploads/2025/01/banner-dark.png" alt="树莓社" />
       </div>
       <div class="footer-tip" id="footerTip">需要 Android Chrome 浏览器支持 Web NFC<br/>iOS 设备暂不支持</div>
-      <div class="footer-clear" onclick="clearLocalCache()" style="margin-top:12px;font-size:12px;color:#8F959E;cursor:pointer;text-decoration:underline;">清除本地卡号缓存</div>
+      <div class="footer-clear" style="margin-top:12px;font-size:12px;color:#8F959E;cursor:pointer;display:flex;gap:16px;justify-content:center;">
+      <span onclick="viewLocalCache()" style="text-decoration:underline;">查看本地缓存</span>
+      <span onclick="clearLocalCache()" style="text-decoration:underline;">清除本地卡号缓存</span>
+    </div>
     </div>
   </div>
   <div class="modal-overlay" id="modalOverlay">
@@ -299,6 +388,37 @@
     </div>
   </div>
 
+  <!-- QR Scanner Overlay -->
+  <div class="qr-overlay" id="qrOverlay">
+    <div class="qr-box">
+      <div class="qr-header">
+        <div class="qr-title">扫码签到</div>
+        <button class="qr-close-btn" onclick="stopQRScan()">×</button>
+      </div>
+      <div class="qr-video-container">
+        <video id="qrVideo" autoplay playsinline muted></video>
+        <canvas id="qrCanvas" style="display:none;"></canvas>
+        <div class="qr-scan-line"></div>
+        <div class="qr-corner tl"></div>
+        <div class="qr-corner tr"></div>
+        <div class="qr-corner bl"></div>
+        <div class="qr-corner br"></div>
+        <div class="qr-hint">将条码/二维码对准框内</div>
+        <div class="qr-loading" id="qrLoading" style="display:none;">
+          <div class="qr-spinner"></div>
+          <p>正在启动摄像头...</p>
+        </div>
+      </div>
+      <div class="qr-permission-tip" id="qrPermissionTip" style="display:none;">
+        <p>需要摄像头权限</p>
+        <p style="font-size:12px; color:#909399; margin-top:4px;">请允许浏览器访问摄像头以进行扫码</p>
+        <button class="qr-permission-btn" onclick="requestCameraPermission()">允许访问摄像头</button>
+      </div>
+      <div class="qr-error" id="qrError"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/index.min.js"></script>
   <script src="/public/members.js"></script>
   <script>
   // ============================================================
@@ -454,6 +574,21 @@
       console.log("[Cache] 已清除本地卡号缓存，共", count, "条");
     }
 }
+
+  function viewLocalCache() {
+    var map = getLocalCardMap();
+    var keys = Object.keys(map);
+    if (keys.length === 0) {
+      showModal("本地缓存", "当前没有缓存记录");
+      return;
+    }
+    var lines = ["共 " + keys.length + " 条记录：", ""];
+    keys.sort();
+    for (var i = 0; i < keys.length; i++) {
+      lines.push((i + 1) + ". " + keys[i] + " → " + map[keys[i]]);
+    }
+    showModal("本地卡号缓存", lines.join("\n"));
+  }
 
 
   // ============================================================
@@ -908,6 +1043,204 @@ function submitToWebhook(uid, memberName, extra) {
     }).catch(function (err) {
       console.error("[WPS] 推送失败:", err);
     });
+  }
+
+  // ============================================================
+  // [模块] QR 扫码
+  // ============================================================
+  var qrState = {
+    isScanning: false,
+    video: null,
+    reader: null,
+    controls: null
+  };
+
+  function startQRScan() {
+    if (qrState.isScanning) return;
+    
+    var overlay = document.getElementById("qrOverlay");
+    overlay.style.display = "flex";
+    requestAnimationFrame(function() { overlay.classList.add("visible"); });
+    
+    document.getElementById("qrPermissionTip").style.display = "none";
+    document.getElementById("qrError").textContent = "";
+    document.getElementById("qrLoading").style.display = "flex";
+    
+    qrState.video = document.getElementById("qrVideo");
+    qrState.isScanning = true;
+    
+    if (typeof ZXing === 'undefined') {
+      document.getElementById("qrLoading").style.display = "none";
+      document.getElementById("qrError").textContent = "扫描库加载失败，请刷新页面";
+      qrState.isScanning = false;
+      return;
+    }
+    
+    startCamera();
+  }
+
+  function stopQRScan() {
+    qrState.isScanning = false;
+    
+    var overlay = document.getElementById("qrOverlay");
+    overlay.classList.remove("visible");
+    setTimeout(function() { overlay.style.display = "none"; }, 200);
+    
+    if (qrState.controls) {
+      try { qrState.controls.stop(); } catch(e) {}
+      qrState.controls = null;
+    }
+    
+    if (qrState.reader) {
+      try { qrState.reader.reset(); } catch(e) {}
+      qrState.reader = null;
+    }
+    
+    if (qrState.video) {
+      qrState.video.srcObject = null;
+    }
+  }
+
+  function startCamera() {
+    var hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.QR_CODE,
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8
+    ]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    
+    qrState.reader = new ZXing.BrowserMultiFormatReader(hints);
+    
+    var constraints = {
+      video: { facingMode: "environment" },
+      audio: false
+    };
+    
+    qrState.reader.decodeFromConstraints(constraints, qrState.video, function(result, err, controls) {
+      if (result && qrState.isScanning) {
+        console.log("[QR] 扫描成功:", result.getText());
+        console.log("[QR] 条码类型:", result.getBarcodeFormat());
+        qrState.controls = controls;
+        handleQRCode(result.getText());
+      }
+    })
+    .then(function(controls) {
+      console.log("[QR] 后置摄像头解码已启动");
+      qrState.controls = controls;
+      document.getElementById("qrLoading").style.display = "none";
+    })
+    .catch(function(err) {
+      console.warn("[QR] 后置摄像头失败，尝试默认摄像头:", err);
+      qrState.reader.decodeFromVideoDevice(undefined, qrState.video, function(result, err, controls) {
+        if (result && qrState.isScanning) {
+          console.log("[QR] 扫描成功:", result.getText());
+          console.log("[QR] 条码类型:", result.getBarcodeFormat());
+          qrState.controls = controls;
+          handleQRCode(result.getText());
+        }
+      })
+      .then(function(controls) {
+        console.log("[QR] 默认摄像头解码已启动");
+        qrState.controls = controls;
+        document.getElementById("qrLoading").style.display = "none";
+      })
+      .catch(function(err) {
+        console.error("[QR] 摄像头访问失败:", err);
+        qrState.isScanning = false;
+        document.getElementById("qrLoading").style.display = "none";
+        
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          showPermissionDenied();
+        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+          document.getElementById("qrError").textContent = "未检测到摄像头";
+        } else if (err.name === "NotReadableError") {
+          document.getElementById("qrError").textContent = "摄像头被其他应用占用";
+        } else if (err.name === "SecurityError") {
+          document.getElementById("qrError").textContent = "安全限制：需要HTTPS环境";
+        } else {
+          document.getElementById("qrError").textContent = "无法访问摄像头: " + (err.message || err.name);
+        }
+      });
+    });
+  }
+
+  function showPermissionDenied() {
+    document.getElementById("qrPermissionTip").style.display = "block";
+    document.getElementById("qrError").textContent = "";
+  }
+
+  function requestCameraPermission() {
+    document.getElementById("qrPermissionTip").style.display = "none";
+    document.getElementById("qrError").textContent = "";
+    document.getElementById("qrLoading").style.display = "flex";
+    qrState.isScanning = true;
+    startCamera();
+  }
+
+  function handleQRCode(data) {
+    stopQRScan();
+    
+    var uid = data.trim().toUpperCase().replace(/:/g, "");
+    
+    if (!uid) {
+      showModal("扫码失败", "未能识别条码内容");
+      return;
+    }
+    
+    processQRResult(uid);
+  }
+
+  function processQRResult(uid) {
+    elStatusCard.className = "status-card";
+    
+    var extra = {};
+    var memberName = "";
+    var localMap = getLocalCardMap();
+    
+    if (localMap[uid]) {
+      memberName = localMap[uid];
+      console.log("[QR] 本地缓存匹配:", memberName);
+    } else if (typeof CARD_MEMBERS !== "undefined" && CARD_MEMBERS[uid]) {
+      memberName = CARD_MEMBERS[uid];
+      console.log("[QR] 预置映射匹配:", memberName);
+    }
+    
+    if (memberName) {
+      if (typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[memberName]) {
+        var infoText = MEMBER_INFO[memberName];
+        var lines = infoText.split("\n");
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (line.indexOf("登记序号") === 0) {
+            var no = line.split(/[：:]/)[1];
+            if (no) extra["社员号"] = no.trim();
+          } else if (line.indexOf("所属部门") === 0) {
+            var dept = line.split(/[：:]/)[1];
+            if (dept) extra["部门"] = dept.trim();
+          } else if (line.indexOf("班级") === 0) {
+            var cls = line.split(/[：:]/)[1];
+            if (cls) extra["班级"] = cls.trim();
+          }
+        }
+      }
+      extra["姓名"] = memberName;
+      
+      var activity = document.getElementById("activityInput").value.trim();
+      var durationVal = document.getElementById("durationInput").value.trim();
+      var duration = durationVal ? durationVal + "小时" : "";
+      if (activity) extra["活动"] = activity;
+      if (duration) extra["时长"] = duration;
+      
+      showSuccessCard(uid, extra);
+      sendToFeishuBot(uid, memberName, extra);
+      submitToWps(uid, memberName, extra);
+    } else {
+      pendingUid = uid;
+      showRegisterModal(uid);
+    }
   }
 
   // ============================================================
