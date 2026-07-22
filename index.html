@@ -117,6 +117,12 @@
     .footer-tip {
       font-size: 12px; color: #8F959E; line-height: 1.6;
     }
+    .footer-meta {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #8F959E;
+      line-height: 1.5;
+    }
 
     /* Modal */
     .modal-overlay {
@@ -360,6 +366,7 @@
         <img src="https://szzxshumei.com/wp-content/uploads/2025/01/banner-dark.png" alt="树莓社" />
       </div>
       <div class="footer-tip" id="footerTip">需要 Android Chrome 浏览器支持 Web NFC<br/>iOS 设备暂不支持</div>
+      <div class="footer-meta" id="footerMeta">Version 1.0.1 · 更新 2026-07-23</div>
       <div class="footer-clear" style="margin-top:12px;font-size:12px;color:#8F959E;cursor:pointer;display:flex;gap:16px;justify-content:center;">
       <span onclick="viewLocalCache()" style="text-decoration:underline;">查看本地缓存</span>
       <span onclick="clearLocalCache()" style="text-decoration:underline;">清除本地卡号缓存</span>
@@ -443,6 +450,8 @@
 
   // 扣子工作流 Webhook 地址（接收签到数据，写入飞书多维表）
   var COZE_WEBHOOK = "https://kg4p9tj9xx.coze.site/async_run";
+  var APP_VERSION = "1.0.1";
+  var APP_UPDATED_AT = "2026-07-23";
 
   // 飞书机器人 Webhook 地址（可选，签到成功后发送群通知）
   var FEISHU_BOT = "https://open.feishu.cn/open-apis/bot/v2/hook/4a066c69-8cbe-47c8-aff1-7bc45261f9f7";
@@ -490,6 +499,13 @@
   var elModal = document.getElementById("modalOverlay");
   var elModalTitle = document.getElementById("modalTitle");
   var elModalMsg = document.getElementById("modalMsg");
+
+  function renderFooterMeta() {
+    var meta = document.getElementById("footerMeta");
+    if (meta) {
+      meta.textContent = "Version " + APP_VERSION + " · 更新 " + APP_UPDATED_AT;
+    }
+  }
 
   function setButtonIdle() {
     btnScan.disabled = false;
@@ -1540,6 +1556,8 @@ function submitToWebhook(uid, memberName, extra) {
     var ua = navigator.userAgent.toLowerCase();
     var isFeishu = /feishu|lark/.test(ua);
     var isIOS = /iphone|ipad|ipod/.test(ua);
+
+    renderFooterMeta();
 
     console.log("[Init] Web NFC 支持:", "NDEFReader" in window);
     console.log("[Init] 安全上下文:", window.isSecureContext);
