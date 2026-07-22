@@ -349,7 +349,7 @@
         <input class="activity-input" id="durationInput" type="number" step="0.5" min="0" placeholder="活动时长（小时）" />
       </div>
       <button class="scan-btn" id="scanBtn" disabled>开始刷卡签到</button>
-      <button class="scan-btn qr-btn" id="qrBtn" onclick="startQRScan()" style="margin-top: 10px; background: #34C724;">扫码签到</button>
+      <button class="scan-btn qr-btn" id="qrBtn" onclick="unlockAudioContext(); startQRScan()" style="margin-top: 10px; background: #34C724;">扫码签到</button>
       <div class="status-card" id="statusCard">
         <div class="card-title" id="cardTitle"></div>
         <div id="cardContent"></div>
@@ -935,6 +935,7 @@
   }
 
   btnScan.addEventListener("click", function () {
+    unlockAudioContext();
     startScan();
   });
 
@@ -1398,13 +1399,29 @@ function submitToWebhook(uid, memberName, extra) {
   }
 
   var audioCtx = null;
-  function playBeep() {
+  var audioUnlocked = false;
+
+  function unlockAudioContext() {
+    if (audioUnlocked) return;
     try {
       if (!audioCtx) {
         var AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return;
         audioCtx = new AC();
       }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume().catch(function () {});
+      }
+      audioUnlocked = true;
+    } catch (e) {
+      console.log("[Beep] 音频解锁失败:", e);
+    }
+  }
+
+  function playBeep() {
+    try {
+      unlockAudioContext();
+      if (!audioCtx) return;
       if (audioCtx.state === "suspended") {
         audioCtx.resume();
       }
@@ -1516,6 +1533,9 @@ function submitToWebhook(uid, memberName, extra) {
   // ============================================================
   function init() {
     console.log("[Init] 开始初始化...");
+
+    document.addEventListener("touchstart", unlockAudioContext, { once: true });
+    document.addEventListener("click", unlockAudioContext, { once: true });
 
     var ua = navigator.userAgent.toLowerCase();
     var isFeishu = /feishu|lark/.test(ua);
