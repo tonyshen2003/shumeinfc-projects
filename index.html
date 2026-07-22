@@ -1012,20 +1012,61 @@ function submitToWebhook(uid, memberName, extra) {
       String(now.getMinutes()).padStart(2, "0") + ":" +
       String(now.getSeconds()).padStart(2, "0");
 
-    var lines = [];
-    lines.push("📋 树莓社 NFC 签到通知");
-    if (activity) lines.push("活动：" + activity);
-    if (duration) lines.push("时长：" + duration);
-    lines.push("姓名：" + (memberName || "未知"));
-    if (extra && extra["社员号"]) lines.push("社员号：" + extra["社员号"]);
-    if (extra && extra["部门"]) lines.push("部门：" + extra["部门"]);
-    if (extra && extra["班级"]) lines.push("班级：" + extra["班级"]);
-    lines.push("卡号：" + uid);
-    lines.push("时间：" + timeStr);
+    var name = memberName || "未知";
+    var memberId = (extra && extra["社员号"]) || "-";
+    var dept = (extra && extra["部门"]) || "-";
+    var cls = (extra && extra["班级"]) || "-";
+    var act = activity || "-";
+    var dur = duration || "-";
 
     var body = {
-      msg_type: "text",
-      content: { text: lines.join("\n") }
+      msg_type: "interactive",
+      card: {
+        header: {
+          title: { tag: "plain_text", content: "树莓社签到通知" },
+          template: "blue"
+        },
+        elements: [
+          {
+            tag: "div",
+            text: { tag: "lark_md", content: "签到成功" }
+          },
+          {
+            tag: "div",
+            fields: [
+              { is_short: true, text: { tag: "lark_md", content: "**姓名：**\n" + name } },
+              { is_short: true, text: { tag: "lark_md", content: "**社员号：**\n" + memberId } }
+            ]
+          },
+          {
+            tag: "div",
+            fields: [
+              { is_short: true, text: { tag: "lark_md", content: "**部门：**\n" + dept } },
+              { is_short: true, text: { tag: "lark_md", content: "**班级：**\n" + cls } }
+            ]
+          },
+          { tag: "hr" },
+          { tag: "div", text: { tag: "lark_md", content: "**活动：**" + act + "\n**时长：**" + dur } },
+          { tag: "hr" },
+          {
+            tag: "action",
+            actions: [
+              {
+                tag: "button",
+                text: { tag: "plain_text", content: "查看数据" },
+                type: "primary",
+                url: "https://szzxshumei.feishu.cn/share/base/view/shrcnkvV0PaPSTcQj7FnDXFw2If"
+              }
+            ]
+          },
+          {
+            tag: "note",
+            elements: [
+              { tag: "plain_text", content: "卡号：" + uid + "  |  " + timeStr }
+            ]
+          }
+        ]
+      }
     };
 
     fetch(FEISHU_BOT, {
@@ -1033,7 +1074,9 @@ function submitToWebhook(uid, memberName, extra) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
     }).then(function (res) {
-      console.log("[FeishuBot] 响应:", res.status);
+      return res.text();
+    }).then(function (text) {
+      console.log("[FeishuBot] 响应:", text);
     }).catch(function (err) {
       console.error("[FeishuBot] 发送失败:", err);
     });
