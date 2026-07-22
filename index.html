@@ -419,120 +419,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/index.min.js"></script>
-  <script>
-  var CARD_MEMBERS = {};
-  var BARCODE_MEMBERS = {};
-  var BARCODE_READABLE = {};
-  var MEMBER_INFO = {};
-
-  function parseCSV(text) {
-    text = text.replace(/^\uFEFF/, '');
-    var lines = text.split(/\r\n|\n|\r/);
-    var rows = [];
-    var currentRow = [];
-    var currentCell = '';
-    var inQuotes = false;
-
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i];
-      currentCell = '';
-      inQuotes = false;
-
-      for (var j = 0; j < line.length; j++) {
-        var char = line[j];
-
-        if (char === '"' && !inQuotes) {
-          inQuotes = true;
-        } else if (char === '"' && inQuotes) {
-          if (line[j + 1] === '"') {
-            currentCell += '"';
-            j++;
-          } else {
-            inQuotes = false;
-          }
-        } else if (char === ',' && !inQuotes) {
-          currentRow.push(currentCell.trim());
-          currentCell = '';
-        } else {
-          currentCell += char;
-        }
-      }
-
-      currentRow.push(currentCell.trim());
-
-      if (currentRow.length > 0 && !(currentRow.length === 1 && currentRow[0] === '')) {
-        rows.push(currentRow);
-      }
-      currentRow = [];
-    }
-
-    return rows;
-  }
-
-  function loadCardMembersCSV() {
-    return fetch('public/card-members.csv')
-      .then(function(res) {
-        if (!res.ok) throw new Error('加载 card-members.csv 失败');
-        return res.text();
-      })
-      .then(function(text) {
-        var rows = parseCSV(text);
-        if (rows.length < 2) return;
-
-        for (var i = 1; i < rows.length; i++) {
-          var row = rows[i];
-          if (row.length >= 2 && row[0]) {
-            CARD_MEMBERS[row[0].toUpperCase().replace(/:/g, '')] = row[1];
-          }
-        }
-        console.log('[CSV] 已加载 ' + Object.keys(CARD_MEMBERS).length + ' 条卡号映射');
-      })
-      .catch(function(err) {
-        console.error('[CSV] card-members.csv 加载失败:', err);
-      });
-  }
-
-  function loadMembersCSV() {
-    return fetch('public/members.csv')
-      .then(function(res) {
-        if (!res.ok) throw new Error('加载 members.csv 失败');
-        return res.text();
-      })
-      .then(function(text) {
-        var rows = parseCSV(text);
-        if (rows.length < 2) return;
-
-        for (var i = 1; i < rows.length; i++) {
-          var row = rows[i];
-          if (row.length < 2 || !row[0]) continue;
-
-          var barcode = row[0].toUpperCase().replace(/:/g, '');
-          var name = row[1] || '';
-          var memberId = row[2] || '';
-          var className = row[3] || '';
-          var department = row[4] || '';
-          var readable = row[5] || '';
-
-          BARCODE_MEMBERS[barcode] = name;
-          if (readable) BARCODE_READABLE[barcode] = readable;
-
-          if (name) {
-            var infoLines = [];
-            if (memberId) infoLines.push('登记序号: ' + memberId);
-            if (name) infoLines.push('姓名: ' + name);
-            if (className) infoLines.push('班级: ' + className);
-            if (department) infoLines.push('所属部门：' + department);
-            MEMBER_INFO[name] = infoLines.join('\n');
-          }
-        }
-        console.log('[CSV] 已加载 ' + Object.keys(BARCODE_MEMBERS).length + ' 条条码映射');
-        console.log('[CSV] 已加载 ' + Object.keys(MEMBER_INFO).length + ' 条社员信息');
-      })
-      .catch(function(err) {
-        console.error('[CSV] members.csv 加载失败:', err);
-      });
-  }
-  </script>
+  <script src="/public/members.js?v=20260722"></script>
   <script>
   // ============================================================
   // [配置区] 全局常量 — 按需修改
@@ -1322,16 +1209,32 @@ function submitToWebhook(uid, memberName, extra) {
       if (audioCtx.state === "suspended") {
         audioCtx.resume();
       }
-      var osc = audioCtx.createOscillator();
-      var gain = audioCtx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = 1800;
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.15);
+      var now = audioCtx.currentTime;
+
+      // 第一段：高频短滴（模拟 iOS "ding" 音头）
+      var osc1 = audioCtx.createOscillator();
+      var gain1 = audioCtx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(1900, now);
+      osc1.frequency.exponentialRampToValueAtTime(1600, now + 0.08);
+      gain1.gain.setValueAtTime(0.4, now);
+      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.12);
+
+      // 第二段：低频共鸣（模拟 iOS 提示音的温润感）
+      var osc2 = audioCtx.createOscillator();
+      var gain2 = audioCtx.createGain();
+      osc2.type = "triangle";
+      osc2.frequency.setValueAtTime(1200, now + 0.02);
+      gain2.gain.setValueAtTime(0.15, now + 0.02);
+      gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.start(now + 0.02);
+      osc2.stop(now + 0.2);
     } catch (e) {
       console.log("[Beep] 播放失败:", e);
     }
@@ -1424,11 +1327,13 @@ function submitToWebhook(uid, memberName, extra) {
     console.log("[Init] 飞书浏览器:", isFeishu);
 
     if (!checkWebNFCSupport()) {
+      // Web NFC 不可用
       console.log("[Init] Web NFC 不可用");
       btnScan.disabled = true;
       btnScan.textContent = "NFC不可用";
 
       if (isFeishu) {
+        // 飞书内置浏览器：NFC 不可用，但可以扫码
         elSubtitle.textContent = "请点击下方扫码签到";
         document.getElementById("footerTip").innerHTML = "飞书浏览器不支持 NFC 刷卡<br/>请使用「扫码签到」功能";
         showModal("提示", "飞书浏览器不支持 NFC 刷卡\n\n请点击绿色「扫码签到」按钮\n通过扫描条形码完成签到");
@@ -1449,14 +1354,14 @@ function submitToWebhook(uid, memberName, extra) {
       return;
     }
 
+    // Web NFC 可用
     console.log("[Init] Web NFC 可用，就绪");
     elSubtitle.textContent = COZE_WEBHOOK ? "就绪，请点击下方按钮刷卡" : "就绪（仅读卡模式）";
     btnScan.disabled = false;
   }
 
-  Promise.all([loadCardMembersCSV(), loadMembersCSV()]).then(function() {
-    init();
-  });
+  // 页面加载后初始化
+  init();
   </script>
 </body>
 </html>
