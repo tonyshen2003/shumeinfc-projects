@@ -261,6 +261,21 @@
     #qrVideo {
       width: 100%; height: 100%; object-fit: cover;
     }
+    .qr-torch-btn {
+      position: absolute; top: 16px; right: 16px;
+      min-width: 96px; height: 36px; padding: 0 12px;
+      border: none; border-radius: 18px;
+      background: rgba(0,0,0,0.55); color: #fff;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    .qr-torch-btn.active {
+      background: rgba(52,199,36,0.88);
+    }
+    .qr-torch-btn:disabled {
+      opacity: 0.6; cursor: default;
+    }
     .qr-scan-line {
       position: absolute; left: 0; right: 0; height: 2px;
       background: #34C724; box-shadow: 0 0 8px #34C724;
@@ -398,6 +413,7 @@
       <div class="qr-video-container">
         <video id="qrVideo" autoplay playsinline muted></video>
         <canvas id="qrCanvas" style="display:none;"></canvas>
+        <button class="qr-torch-btn" id="qrTorchBtn" type="button" onclick="toggleQRTorch()">打开手电筒</button>
         <div class="qr-scan-line"></div>
         <div class="qr-corner tl"></div>
         <div class="qr-corner tr"></div>
@@ -1065,7 +1081,9 @@ function submitToWebhook(uid, memberName, extra) {
     reader: null,
     controls: null,
     compatibilityTimer: null,
-    sessionId: 0
+    sessionId: 0,
+    torchEnabled: false,
+    torchAvailable: false
   };
 
   function startQRScan() {
@@ -1078,6 +1096,9 @@ function submitToWebhook(uid, memberName, extra) {
     document.getElementById("qrPermissionTip").style.display = "none";
     document.getElementById("qrError").textContent = "";
     document.getElementById("qrLoading").style.display = "flex";
+    qrState.torchEnabled = false;
+    qrState.torchAvailable = false;
+    updateQRTorchButton();
     
     qrState.video = document.getElementById("qrVideo");
     qrState.isScanning = true;
@@ -1095,6 +1116,7 @@ function submitToWebhook(uid, memberName, extra) {
   function stopQRScan() {
     qrState.isScanning = false;
     clearQRCompatibilityTimer();
+    disableQRTorch();
     
     var overlay = document.getElementById("qrOverlay");
     overlay.classList.remove("visible");
@@ -1113,6 +1135,9 @@ function submitToWebhook(uid, memberName, extra) {
     if (qrState.video) {
       qrState.video.srcObject = null;
     }
+     
+    qrState.torchAvailable = false;
+    updateQRTorchButton();
   }
 
   function clearQRCompatibilityTimer() {
@@ -1166,22 +1191,90 @@ function submitToWebhook(uid, memberName, extra) {
       qrState.reader = null;
     }
   }
-
-  function scheduleCompatibilityMode(useDefaultCamera, sessionId) {
-    clearQRCompatibilityTimer();
-    qrState.compatibilityTimer = setTimeout(function () {
-      if (!qrState.isScanning || sessionId !== qrState.sessionId) return;
-      console.log("[QR] 快速模式未命中，切换到兼容模式");
-      startQRDecode(useDefaultCamera, getCompatibleQRFormats(), sessionId, "兼容模式", false).catch(function (err) {
-        console.warn("[QR] 兼容模式切换失败，恢复快速模式:", err);
-        startQRDecode(useDefaultCamera, getPrimaryQRFormats(), sessionId, "快速模式", false).catch(function (retryErr) {
-          console.error("[QR] 恢复快速模式失败:", retryErr);
-        });
-      });
-    }, 1200);
+  function getQRVideoTrack() {
+    if (!qrState.video || !qrState.video.srcObject || typeof qrState.video.srcObject.getVideoTracks !== "function") {
+      return null;
+    }
+    var tracks = qrState.video.srcObject.getVideoTracks();
+    return tracks && tracks[0] ? tracks[0] : null;
   }
-
-  function startQRDecode(useDefaultCamera, formats, sessionId, modeLabel, enableCompatibilityFallback) {
+ 
+  function updateQRTorchButton() {
+    var btn = document.getElementById("qrTorchBtn");
+    if (!btn) return;
+    btn.style.display = (qrState.isScanning && qrState.torchAvailable) ? "flex" : "none";
+    btn.textContent = qrState.torchEnabled ? "关闭手电筒" : "打开手电筒";
+    if (qrState.torchEnabled) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  }
+ 
+  function refreshQRTorchAvailability() {
+    var track = getQRVideoTrack();
+    var caps = track && typeof track.getCapabilities === "function" ? track.getCapabilities() : null;
+    qrState.torchAvailable = !!(caps && caps.torch);
+    updateQRTorchButton();
+ 
+    if (qrState.torchAvailable && qrState.torchEnabled) {
+      applyQRTorch(true).catch(function (err) {
+        console.warn("[QR] 恢复手电筒状态失败:", err);
+      });
+    }
+  }
+ 
+  function scheduleQRTorchRefresh() {
+    refreshQRTorchAvailability();
+    setTimeout(refreshQRTorchAvailability, 200);
+    setTimeout(refreshQRTorchAvailability, 600);
+  }
+ 
+  function applyQRTorch(enabled) {
+    var track = getQRVideoTrack();
+    if (!track || typeof track.applyConstraints !== "function") {
+      return Promise.reject(new Error("当前摄像头轨道不支持手电筒控制"));
+    }
+ 
+    var caps = typeof track.getCapabilities === "function" ? track.getCapabilities() : null;
+    if (!caps || !caps.torch) {
+      qrState.torchAvailable = false;
+      updateQRTorchButton();
+      return Promise.reject(new Error("当前设备不支持手电筒"));
+    }
+ 
+    return track.applyConstraints({ advanced: [{ torch: enabled }] }).then(function () {
+      qrState.torchAvailable = true;
+      qrState.torchEnabled = enabled;
+      updateQRTorchButton();
+    });
+  }
+ 
+  function disableQRTorch() {
+    var wasEnabled = qrState.torchEnabled;
+    qrState.torchEnabled = false;
+    updateQRTorchButton();
+    if (!wasEnabled) return;
+    applyQRTorch(false).catch(function (err) {
+      console.warn("[QR] 关闭手电筒失败:", err);
+    });
+  }
+ 
+  function toggleQRTorch() {
+    if (!qrState.isScanning) return;
+    if (!qrState.torchAvailable) {
+      document.getElementById("qrError").textContent = "当前设备或浏览器不支持手电筒";
+      return;
+    }
+ 
+    document.getElementById("qrError").textContent = "";
+    applyQRTorch(!qrState.torchEnabled).catch(function (err) {
+      console.warn("[QR] 切换手电筒失败:", err);
+      document.getElementById("qrError").textContent = "手电筒切换失败，请尝试重新打开扫码";
+    });
+  }
+ 
+   function startQRDecode(useDefaultCamera, formats, sessionId, modeLabel) {
     stopQRDecoder();
     qrState.reader = createQRReader(formats);
 
@@ -1207,9 +1300,7 @@ function submitToWebhook(uid, memberName, extra) {
       qrState.controls = controls;
       document.getElementById("qrLoading").style.display = "none";
       console.log("[QR] " + modeLabel + "已启动");
-      if (enableCompatibilityFallback) {
-        scheduleCompatibilityMode(useDefaultCamera, sessionId);
-      }
+      scheduleQRTorchRefresh();
     });
   }
 
@@ -1240,10 +1331,10 @@ function submitToWebhook(uid, memberName, extra) {
 
   function startCamera() {
     var sessionId = ++qrState.sessionId;
-    startQRDecode(false, getPrimaryQRFormats(), sessionId, "快速模式（二维码 + Code128）", true)
+    startQRDecode(false, getCompatibleQRFormats(), sessionId, "稳定模式（全格式）")
       .catch(function(err) {
         console.warn("[QR] 后置摄像头失败，尝试默认摄像头:", err);
-        return startQRDecode(true, getPrimaryQRFormats(), sessionId, "快速模式（默认摄像头）", true);
+        return startQRDecode(true, getCompatibleQRFormats(), sessionId, "稳定模式（默认摄像头）");
       })
       .catch(function(err) {
         handleQRStartFailure(err);
