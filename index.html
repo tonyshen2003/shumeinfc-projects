@@ -1063,7 +1063,9 @@ function submitToWebhook(uid, memberName, extra) {
     isScanning: false,
     video: null,
     reader: null,
-    controls: null
+    controls: null,
+    compatibilityTimer: null,
+    sessionId: 0
   };
 
   function startQRScan() {
@@ -1092,6 +1094,7 @@ function submitToWebhook(uid, memberName, extra) {
 
   function stopQRScan() {
     qrState.isScanning = false;
+    clearQRCompatibilityTimer();
     
     var overlay = document.getElementById("qrOverlay");
     overlay.classList.remove("visible");
@@ -1112,77 +1115,141 @@ function submitToWebhook(uid, memberName, extra) {
     }
   }
 
-  function startCamera() {
-    var hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+  function clearQRCompatibilityTimer() {
+    if (qrState.compatibilityTimer) {
+      clearTimeout(qrState.compatibilityTimer);
+      qrState.compatibilityTimer = null;
+    }
+  }
+
+  function getPrimaryQRFormats() {
+    return [
+      ZXing.BarcodeFormat.QR_CODE,
+      ZXing.BarcodeFormat.CODE_128
+    ];
+  }
+
+  function getCompatibleQRFormats() {
+    return [
+      ZXing.BarcodeFormat.QR_CODE,
       ZXing.BarcodeFormat.CODE_128,
       ZXing.BarcodeFormat.CODE_39,
-      ZXing.BarcodeFormat.QR_CODE,
       ZXing.BarcodeFormat.EAN_13,
       ZXing.BarcodeFormat.EAN_8
-    ]);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    
-    qrState.reader = new ZXing.BrowserMultiFormatReader(hints);
-    
-    var constraints = {
-      video: { facingMode: "environment" },
+    ];
+  }
+
+  function createQRReader(formats) {
+    var hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+    return new ZXing.BrowserMultiFormatReader(hints);
+  }
+
+  function getQRConstraints() {
+    return {
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 24, max: 30 }
+      },
       audio: false
     };
-    
-    qrState.reader.decodeFromConstraints(constraints, qrState.video, function(result, err, controls) {
-      if (result && qrState.isScanning) {
+  }
+
+  function stopQRDecoder() {
+    clearQRCompatibilityTimer();
+    if (qrState.controls) {
+      try { qrState.controls.stop(); } catch (e) {}
+      qrState.controls = null;
+    }
+    if (qrState.reader) {
+      try { qrState.reader.reset(); } catch (e) {}
+      qrState.reader = null;
+    }
+  }
+
+  function scheduleCompatibilityMode(useDefaultCamera, sessionId) {
+    clearQRCompatibilityTimer();
+    qrState.compatibilityTimer = setTimeout(function () {
+      if (!qrState.isScanning || sessionId !== qrState.sessionId) return;
+      console.log("[QR] 快速模式未命中，切换到兼容模式");
+      startQRDecode(useDefaultCamera, getCompatibleQRFormats(), sessionId, "兼容模式", false).catch(function (err) {
+        console.warn("[QR] 兼容模式切换失败，恢复快速模式:", err);
+        startQRDecode(useDefaultCamera, getPrimaryQRFormats(), sessionId, "快速模式", false).catch(function (retryErr) {
+          console.error("[QR] 恢复快速模式失败:", retryErr);
+        });
+      });
+    }, 1200);
+  }
+
+  function startQRDecode(useDefaultCamera, formats, sessionId, modeLabel, enableCompatibilityFallback) {
+    stopQRDecoder();
+    qrState.reader = createQRReader(formats);
+
+    var decodeCallback = function(result, err, controls) {
+      if (sessionId !== qrState.sessionId || !qrState.isScanning) return;
+      if (result) {
         console.log("[QR] 扫描成功:", result.getText());
         console.log("[QR] 条码类型:", result.getBarcodeFormat());
         qrState.controls = controls;
         handleQRCode(result.getText());
       }
-    })
-    .then(function(controls) {
-      console.log("[QR] 后置摄像头解码已启动");
+    };
+
+    var decodePromise = useDefaultCamera
+      ? qrState.reader.decodeFromVideoDevice(undefined, qrState.video, decodeCallback)
+      : qrState.reader.decodeFromConstraints(getQRConstraints(), qrState.video, decodeCallback);
+
+    return decodePromise.then(function(controls) {
+      if (sessionId !== qrState.sessionId || !qrState.isScanning) {
+        try { controls.stop(); } catch (e) {}
+        return;
+      }
       qrState.controls = controls;
       document.getElementById("qrLoading").style.display = "none";
-    })
-    .catch(function(err) {
-      console.warn("[QR] 后置摄像头失败，尝试默认摄像头:", err);
-      qrState.reader.decodeFromVideoDevice(undefined, qrState.video, function(result, err, controls) {
-        if (result && qrState.isScanning) {
-          console.log("[QR] 扫描成功:", result.getText());
-          console.log("[QR] 条码类型:", result.getBarcodeFormat());
-          qrState.controls = controls;
-          handleQRCode(result.getText());
-        }
-      })
-      .then(function(controls) {
-        console.log("[QR] 默认摄像头解码已启动");
-        qrState.controls = controls;
-        document.getElementById("qrLoading").style.display = "none";
+      console.log("[QR] " + modeLabel + "已启动");
+      if (enableCompatibilityFallback) {
+        scheduleCompatibilityMode(useDefaultCamera, sessionId);
+      }
+    });
+  }
+
+  function handleQRStartFailure(err) {
+    console.error("[QR] 摄像头访问失败:", err);
+    qrState.isScanning = false;
+    document.getElementById("qrLoading").style.display = "none";
+    
+    var ua = navigator.userAgent.toLowerCase();
+    var isFeishu = /feishu|lark/.test(ua);
+    
+    if (isFeishu) {
+      // 飞书浏览器摄像头不可用，显示跳转提示
+      stopQRScan();
+      document.getElementById("feishuOverlay").classList.add("visible");
+    } else if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+      showPermissionDenied();
+    } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+      document.getElementById("qrError").textContent = "未检测到摄像头";
+    } else if (err.name === "NotReadableError") {
+      document.getElementById("qrError").textContent = "摄像头被其他应用占用";
+    } else if (err.name === "SecurityError") {
+      document.getElementById("qrError").textContent = "安全限制：需要HTTPS环境";
+    } else {
+      document.getElementById("qrError").textContent = "无法访问摄像头: " + (err.message || err.name);
+    }
+  }
+
+  function startCamera() {
+    var sessionId = ++qrState.sessionId;
+    startQRDecode(false, getPrimaryQRFormats(), sessionId, "快速模式（二维码 + Code128）", true)
+      .catch(function(err) {
+        console.warn("[QR] 后置摄像头失败，尝试默认摄像头:", err);
+        return startQRDecode(true, getPrimaryQRFormats(), sessionId, "快速模式（默认摄像头）", true);
       })
       .catch(function(err) {
-        console.error("[QR] 摄像头访问失败:", err);
-        qrState.isScanning = false;
-        document.getElementById("qrLoading").style.display = "none";
-        
-        var ua = navigator.userAgent.toLowerCase();
-        var isFeishu = /feishu|lark/.test(ua);
-        
-        if (isFeishu) {
-          // 飞书浏览器摄像头不可用，显示跳转提示
-          stopQRScan();
-          document.getElementById("feishuOverlay").classList.add("visible");
-        } else if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-          showPermissionDenied();
-        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-          document.getElementById("qrError").textContent = "未检测到摄像头";
-        } else if (err.name === "NotReadableError") {
-          document.getElementById("qrError").textContent = "摄像头被其他应用占用";
-        } else if (err.name === "SecurityError") {
-          document.getElementById("qrError").textContent = "安全限制：需要HTTPS环境";
-        } else {
-          document.getElementById("qrError").textContent = "无法访问摄像头: " + (err.message || err.name);
-        }
+        handleQRStartFailure(err);
       });
-    });
   }
 
   function showPermissionDenied() {
