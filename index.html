@@ -453,7 +453,7 @@
 
   // 扣子工作流 Webhook 地址（接收签到数据，写入飞书多维表）
   var COZE_WEBHOOK = "https://kg4p9tj9xx.coze.site/async_run";
-  var APP_VERSION = "1.0.6";
+  var APP_VERSION = "1.0.7";
   var APP_UPDATED_AT = "2026-07-24";
 
   // 飞书机器人 Webhook 地址（可选，签到成功后发送群通知）
@@ -533,16 +533,18 @@
     state.isScanning = false;
   }
 
-  function showSuccessCard(uid, extra, mode) {
+  function showSuccessCard(uid, extra, mode, cardNo) {
     elStatusCard.className = "status-card success visible";
     var labelText = "识别码";
     var titleText = "扫码成功";
     if (mode === "nfc") {
-      labelText = "卡号";
       titleText = "读卡成功";
     }
     elCardTitle.textContent = titleText;
     var html = '<div class="card-row"><span class="label">' + labelText + '</span><span class="value">' + uid + '</span></div>';
+    if (cardNo && cardNo !== uid) {
+      html += '<div class="card-row"><span class="label">卡号</span><span class="value">' + cardNo + '</span></div>';
+    }
     html += '<div class="card-row"><span class="label">时间</span><span class="value">' + formatTime(Date.now()) + '</span></div>';
     if (extra) {
       for (var key in extra) {
@@ -638,6 +640,7 @@
   var LOCAL_CARD_MAP_KEY = "shumei_card_members";
   var pendingMatchedName = "";  // 存储模糊匹配到的精确姓名
   var pendingUid = "";
+  var pendingMode = "";
 
   function getLocalCardMap() {
     try {
@@ -652,6 +655,7 @@
 
   function showRegisterModal(uid, mode) {
     pendingUid = uid;
+    pendingMode = mode || "";
     var titleText = "首次扫码登记";
     var subtitleText = "请输入你的姓名，关联社员信息";
     if (mode === "nfc") {
@@ -676,6 +680,7 @@
   function hideRegisterModal() {
     document.getElementById("registerOverlay").classList.remove("visible");
     pendingUid = "";
+    pendingMode = "";
     pendingMatchedName = "";  // ★ 新增
   }
 
@@ -753,7 +758,7 @@
     hideRegisterModal();
 
     // 重新处理当前卡号（带上社员信息）
-    processCardWithMember(uid, name);
+    processCardWithMember(uid, name, pendingMode);
   }
 
   function cancelRegistration() {
@@ -767,7 +772,7 @@
     document.getElementById("regNameInput").focus();
   }
 
-  function processCardWithMember(uid, memberName) {
+  function processCardWithMember(uid, memberName, mode) {
     var extra = {};
     if (typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[memberName]) {
       var infoText = MEMBER_INFO[memberName];
@@ -794,7 +799,12 @@
     if (activity) extra["活动"] = activity;
     if (duration) extra["时长"] = duration;
 
-    showSuccessCard(uid, extra, "nfc");
+    var displayUid = uid;
+    if (typeof BARCODE_READABLE !== "undefined" && BARCODE_READABLE[uid]) {
+      displayUid = BARCODE_READABLE[uid];
+    }
+    var cardNo = (mode === "nfc") ? uid : undefined;
+    showSuccessCard(displayUid, extra, mode, cardNo);
     setButtonIdle();
   //  submitToWebhook(uid, memberName, extra);
     sendToFeishuBot(uid, memberName, extra);
@@ -892,7 +902,11 @@
             var duration = durationVal ? durationVal + "小时" : "";
             if (activity) extra["活动"] = activity;
             if (duration) extra["时长"] = duration;
-            showSuccessCard(uidClean, extra, "nfc");
+            var displayUid = uidClean;
+            if (typeof BARCODE_READABLE !== "undefined" && BARCODE_READABLE[uidClean]) {
+              displayUid = BARCODE_READABLE[uidClean];
+            }
+            showSuccessCard(displayUid, extra, "nfc", uidClean);
             setButtonIdle();
     //        submitToWebhook(uidClean, memberName, extra);
             sendToFeishuBot(uidClean, memberName, extra);
