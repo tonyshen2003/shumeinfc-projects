@@ -93,3 +93,9 @@ logs/
 # CodeGraph index
 .codegraph
 .codegraph/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
