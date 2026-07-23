@@ -453,7 +453,7 @@
 
   // 扣子工作流 Webhook 地址（接收签到数据，写入飞书多维表）
   var COZE_WEBHOOK = "https://kg4p9tj9xx.coze.site/async_run";
-  var APP_VERSION = "1.0.2";
+  var APP_VERSION = "1.0.3";
   var APP_UPDATED_AT = "2026-07-24";
 
   // 飞书机器人 Webhook 地址（可选，签到成功后发送群通知）
@@ -1305,12 +1305,20 @@ function submitToWebhook(uid, memberName, extra) {
     }
 
     var caps = typeof track.getCapabilities === "function" ? track.getCapabilities() : null;
-    if (!caps || !caps.focusMode || caps.focusMode.indexOf("continuous") === -1) {
-      return Promise.reject(new Error("当前设备不支持连续自动对焦"));
-    }
+    var settings = typeof track.getSettings === "function" ? track.getSettings() : null;
+    console.log("[QR] 摄像头能力:", caps ? { focusMode: caps.focusMode, exposureMode: caps.exposureMode } : "不支持getCapabilities");
+    console.log("[QR] 当前设置:", settings ? { focusMode: settings.focusMode, exposureMode: settings.exposureMode } : "不支持getSettings");
 
     return track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).then(function() {
       console.log("[QR] 连续自动对焦已启用");
+    }).catch(function(err) {
+      console.warn("[QR] continuous模式失败:", err.message);
+      return track.applyConstraints({ advanced: [{ focusMode: "auto" }] }).then(function() {
+        console.log("[QR] auto对焦模式已启用");
+      }).catch(function(err2) {
+        console.warn("[QR] auto模式也失败:", err2.message);
+        return Promise.reject(err2);
+      });
     });
   }
 
