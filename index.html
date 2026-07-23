@@ -453,7 +453,7 @@
 
   // 扣子工作流 Webhook 地址（接收签到数据，写入飞书多维表）
   var COZE_WEBHOOK = "https://kg4p9tj9xx.coze.site/async_run";
-  var APP_VERSION = "1.0.5";
+  var APP_VERSION = "1.0.6";
   var APP_UPDATED_AT = "2026-07-24";
 
   // 飞书机器人 Webhook 地址（可选，签到成功后发送群通知）
@@ -1146,10 +1146,7 @@ function submitToWebhook(uid, memberName, extra) {
     compatibilityTimer: null,
     sessionId: 0,
     torchEnabled: false,
-    torchAvailable: false,
-    focusSweepTimer: null,
-    focusSweepIndex: 0,
-    focusDistances: [0, 1, 2.5, 5, 2.5]
+    torchAvailable: false
   };
 
   function startQRScan() {
@@ -1183,7 +1180,6 @@ function submitToWebhook(uid, memberName, extra) {
     qrState.isScanning = false;
     clearQRCompatibilityTimer();
     disableQRTorch();
-    stopFocusSweep();
     
     var overlay = document.getElementById("qrOverlay");
     overlay.classList.remove("visible");
@@ -1241,12 +1237,7 @@ function submitToWebhook(uid, memberName, extra) {
         facingMode: { ideal: "environment" },
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        frameRate: { ideal: 24, max: 30 },
-        advanced: [
-          { focusMode: "continuous" },
-          { exposureMode: "continuous" },
-          { whiteBalanceMode: "continuous" }
-        ]
+        frameRate: { ideal: 24, max: 30 }
       },
       audio: false
     };
@@ -1254,7 +1245,6 @@ function submitToWebhook(uid, memberName, extra) {
 
   function stopQRDecoder() {
     clearQRCompatibilityTimer();
-    stopFocusSweep();
     if (qrState.controls) {
       try { qrState.controls.stop(); } catch (e) {}
       qrState.controls = null;
@@ -1303,79 +1293,6 @@ function submitToWebhook(uid, memberName, extra) {
     setTimeout(refreshQRTorchAvailability, 600);
   }
 
-  function applyQRAutoFocus() {
-    var track = getQRVideoTrack();
-    if (!track || typeof track.applyConstraints !== "function") {
-      return Promise.reject(new Error("当前摄像头轨道不支持对焦控制"));
-    }
-
-    var caps = typeof track.getCapabilities === "function" ? track.getCapabilities() : null;
-    var settings = typeof track.getSettings === "function" ? track.getSettings() : null;
-    console.log("[QR] 摄像头能力:", caps ? JSON.stringify({ focusMode: caps.focusMode, exposureMode: caps.exposureMode, focusDistance: caps.focusDistance }) : "不支持getCapabilities");
-    console.log("[QR] 当前设置:", settings ? JSON.stringify({ focusMode: settings.focusMode, exposureMode: settings.exposureMode, focusDistance: settings.focusDistance }) : "不支持getSettings");
-
-    // 先尝试设置 continuous 模式
-    return track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).then(function() {
-      console.log("[QR] 连续自动对焦已启用");
-    }).catch(function(err) {
-      console.warn("[QR] 不支持continuous对焦，启用周期性焦距扫描:", err.message);
-      // 设备只支持 manual 对焦，启动周期性焦距扫描
-      startFocusSweep();
-    });
-  }
-
-  function startFocusSweep() {
-    stopFocusSweep();
-    var track = getQRVideoTrack();
-    if (!track) return;
-
-    var caps = typeof track.getCapabilities === "function" ? track.getCapabilities() : null;
-    if (!caps || !caps.focusDistance) {
-      console.warn("[QR] 设备不支持focusDistance，无法模拟自动对焦");
-      return;
-    }
-
-    console.log("[QR] 启动周期性焦距扫描，距离序列:", qrState.focusDistances);
-    qrState.focusSweepIndex = 0;
-
-    // 立即执行第一次对焦
-    doFocusSweep();
-
-    // 每600ms切换一次焦距
-    qrState.focusSweepTimer = setInterval(doFocusSweep, 600);
-  }
-
-  function doFocusSweep() {
-    if (!qrState.isScanning) {
-      stopFocusSweep();
-      return;
-    }
-
-    var track = getQRVideoTrack();
-    if (!track || typeof track.applyConstraints !== "function") return;
-
-    var distance = qrState.focusDistances[qrState.focusSweepIndex];
-    qrState.focusSweepIndex = (qrState.focusSweepIndex + 1) % qrState.focusDistances.length;
-
-    track.applyConstraints({ advanced: [{ focusDistance: distance }] }).then(function() {
-      console.log("[QR] 焦距扫描:", distance);
-    }).catch(function(err) {
-      console.warn("[QR] 焦距设置失败:", distance, err.message);
-    });
-  }
-
-  function stopFocusSweep() {
-    if (qrState.focusSweepTimer) {
-      clearInterval(qrState.focusSweepTimer);
-      qrState.focusSweepTimer = null;
-      console.log("[QR] 焦距扫描已停止");
-    }
-  }
-
-  function scheduleQRAutoFocus() {
-    applyQRAutoFocus();
-  }
- 
   function applyQRTorch(enabled) {
     var track = getQRVideoTrack();
     if (!track || typeof track.applyConstraints !== "function") {
@@ -1447,7 +1364,6 @@ function submitToWebhook(uid, memberName, extra) {
       document.getElementById("qrLoading").style.display = "none";
       console.log("[QR] " + modeLabel + "已启动");
       scheduleQRTorchRefresh();
-      scheduleQRAutoFocus();
     });
   }
 
