@@ -453,8 +453,8 @@
 
   // 扣子工作流 Webhook 地址（接收签到数据，写入飞书多维表）
   var COZE_WEBHOOK = "https://kg4p9tj9xx.coze.site/async_run";
-  var APP_VERSION = "1.0.1";
-  var APP_UPDATED_AT = "2026-07-23";
+  var APP_VERSION = "1.0.2";
+  var APP_UPDATED_AT = "2026-07-24";
 
   // 飞书机器人 Webhook 地址（可选，签到成功后发送群通知）
   var FEISHU_BOT = "https://open.feishu.cn/open-apis/bot/v2/hook/4a066c69-8cbe-47c8-aff1-7bc45261f9f7";
@@ -1237,7 +1237,12 @@ function submitToWebhook(uid, memberName, extra) {
         facingMode: { ideal: "environment" },
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        frameRate: { ideal: 24, max: 30 }
+        frameRate: { ideal: 24, max: 30 },
+        advanced: [
+          { focusMode: "continuous" },
+          { exposureMode: "continuous" },
+          { whiteBalanceMode: "continuous" }
+        ]
       },
       audio: false
     };
@@ -1291,6 +1296,34 @@ function submitToWebhook(uid, memberName, extra) {
     refreshQRTorchAvailability();
     setTimeout(refreshQRTorchAvailability, 200);
     setTimeout(refreshQRTorchAvailability, 600);
+  }
+
+  function applyQRAutoFocus() {
+    var track = getQRVideoTrack();
+    if (!track || typeof track.applyConstraints !== "function") {
+      return Promise.reject(new Error("当前摄像头轨道不支持对焦控制"));
+    }
+
+    var caps = typeof track.getCapabilities === "function" ? track.getCapabilities() : null;
+    if (!caps || !caps.focusMode || caps.focusMode.indexOf("continuous") === -1) {
+      return Promise.reject(new Error("当前设备不支持连续自动对焦"));
+    }
+
+    return track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).then(function() {
+      console.log("[QR] 连续自动对焦已启用");
+    });
+  }
+
+  function scheduleQRAutoFocus() {
+    applyQRAutoFocus().catch(function(err) {
+      console.warn("[QR] 启用自动对焦失败:", err.message);
+    });
+    setTimeout(function() {
+      applyQRAutoFocus().catch(function(err) {});
+    }, 300);
+    setTimeout(function() {
+      applyQRAutoFocus().catch(function(err) {});
+    }, 800);
   }
  
   function applyQRTorch(enabled) {
@@ -1364,6 +1397,7 @@ function submitToWebhook(uid, memberName, extra) {
       document.getElementById("qrLoading").style.display = "none";
       console.log("[QR] " + modeLabel + "已启动");
       scheduleQRTorchRefresh();
+      scheduleQRAutoFocus();
     });
   }
 
@@ -1579,7 +1613,7 @@ function submitToWebhook(uid, memberName, extra) {
         showModal("提示", "飞书浏览器不支持 NFC 刷卡\n\n请点击绿色「扫码签到」按钮\n通过扫描条形码完成签到");
       } else if (isIOS) {
         elSubtitle.textContent = "请使用扫码签到";
-        document.getElementById("footerTip").innerHTML = "iOS 不支持 NFC 刷车<br/>请使用「扫码签到」功能";
+        document.getElementById("footerTip").innerHTML = "iOS 不支持 NFC 刷卡<br/>请使用「扫码签到」功能";
       } else {
         elSubtitle.textContent = "当前设备/浏览器不支持 NFC";
         var isSafari = /safari/.test(ua) && !/chrome/.test(ua);
