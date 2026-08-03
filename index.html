@@ -479,7 +479,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@latest/umd/index.min.js"></script>
-  <script src="./public/members.js?v=2026072301"></script>
   <script>
   // ============================================================
   // [配置区] 全局常量 — 按需修改
@@ -495,19 +494,6 @@
   //var FEISHU_BOT = "https://open.feishu.cn/open-apis/bot/v2/hook/672c1594-5193-438e-8a43-083d47d8df25";
   // WPS 多维表 Webhook 地址（可选，签到数据同步写入 WPS 多维表）
   var WPS_WEBHOOK = "https://www.kdocs.cn/chatflow/api/v2/func/webhook/3GmmETkUsF28c2TNQ2VYxpzNihl";
-
-  // 构建「姓名 → 社员识别码」反查表：NFC 卡 UID 无法直接映射识别码，
-  // 通过 BARCODE_MEMBERS(条码→姓名) + BARCODE_READABLE(条码→识别码) 自动反查
-  var nameToReadable = {};
-  (function buildNameToReadable() {
-    if (typeof BARCODE_MEMBERS === "undefined" || typeof BARCODE_READABLE === "undefined") return;
-    for (var code in BARCODE_MEMBERS) {
-      var name = BARCODE_MEMBERS[code];
-      if (BARCODE_READABLE[code] && !nameToReadable[name]) {
-        nameToReadable[name] = BARCODE_READABLE[code];
-      }
-    }
-  })();
 
   // ============================================================
   // [模块] API 成员查询（优先飞书多维表，本地文件兜底）
@@ -525,36 +511,13 @@
     };
   }
 
-  // 将本地 MEMBER_INFO 文本转为 extra 格式
-  function localInfoToExtra(memberName, infoText) {
-    var extra = { "姓名": memberName };
-    var lines = infoText.split("\n");
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i].trim();
-      if (line.indexOf("登记序号") === 0) {
-        var no = line.split(/[：:]/)[1];
-        if (no) extra["社员号"] = no.trim();
-      } else if (line.indexOf("所属部门") === 0) {
-        var dept = line.split(/[：:]/)[1];
-        if (dept) extra["部门"] = dept.trim();
-      } else if (line.indexOf("班级") === 0) {
-        var cls = line.split(/[：:]/)[1];
-        if (cls) extra["班级"] = cls.trim();
-      }
-    }
-    return extra;
-  }
-
-  // 按卡号/条码查成员：API 优先，本地数据兜底
+  // 按卡号查成员：localStorage 缓存 → 飞书多维表 API
   async function lookupMemberByUid(uid) {
-    // 1) 先查 localStorage
+    // 1) 先查 localStorage 缓存
     var localMap = getLocalCardMap();
     if (localMap[uid]) {
-      var cachedName = localMap[uid];
-      if (typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[cachedName]) {
-        return localInfoToExtra(cachedName, MEMBER_INFO[cachedName]);
-      }
-      return { "姓名": cachedName };
+      console.log("[Lookup] localStorage 命中:", uid);
+      return { "姓名": localMap[uid] };
     }
 
     // 2) 调 Cloudflare Function → 飞书多维表
@@ -562,31 +525,23 @@
       var resp = await fetch(API_MEMBER_ENDPOINT + "?uid=" + encodeURIComponent(uid));
       if (resp.ok) {
         var data = await resp.json();
-        if (data.found) return apiMemberToExtra(data.member);
+        if (data.found) {
+          var extra = apiMemberToExtra(data.member);
+          // 缓存到 localStorage 加速后续查询
+          var map = getLocalCardMap();
+          map[uid] = extra["姓名"];
+          saveLocalCardMap(map);
+          return extra;
+        }
       }
     } catch (e) {
-      console.log("[API] 卡号查询失败，回退本地:", e.message);
-    }
-
-    // 3) 本地 CARD_MEMBERS / BARCODE_MEMBERS 兜底
-    var memberName = "";
-    if (typeof CARD_MEMBERS !== "undefined" && CARD_MEMBERS[uid]) {
-      memberName = CARD_MEMBERS[uid];
-    } else if (typeof BARCODE_MEMBERS !== "undefined" && BARCODE_MEMBERS[uid]) {
-      memberName = BARCODE_MEMBERS[uid];
-    }
-    if (memberName && typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[memberName]) {
-      return localInfoToExtra(memberName, MEMBER_INFO[memberName]);
-    }
-    if (memberName) {
-      return { "姓名": memberName };
+      console.log("[API] 卡号查询失败:", e.message);
     }
     return null;
   }
 
-  // 按姓名/别名/编号搜索成员：API 优先，本地 MEMBER_INFO 兜底
+  // 按姓名/别名/编号搜索成员：飞书多维表 API
   async function lookupMemberByName(query) {
-    // 1) 调 Cloudflare Function
     try {
       var resp = await fetch(API_MEMBER_ENDPOINT + "?q=" + encodeURIComponent(query));
       if (resp.ok) {
@@ -594,16 +549,7 @@
         if (data.found) return apiMemberToExtra(data.member);
       }
     } catch (e) {
-      console.log("[API] 姓名搜索失败，回退本地:", e.message);
-    }
-
-    // 2) 本地 MEMBER_INFO 模糊匹配兜底
-    if (typeof MEMBER_INFO !== "undefined") {
-      for (var key in MEMBER_INFO) {
-        if (key.indexOf(query) !== -1) {
-          return localInfoToExtra(key, MEMBER_INFO[key]);
-        }
-      }
+      console.log("[API] 姓名搜索失败:", e.message);
     }
     return null;
   }
@@ -821,6 +767,7 @@
   // ============================================================
   var LOCAL_CARD_MAP_KEY = "shumei_card_members";
   var pendingMatchedName = "";  // 存储模糊匹配到的精确姓名
+  var pendingMemberExtra = null;  // 存储 searchMember 返回的完整成员信息
   var pendingUid = "";
   var pendingMode = "";
 
@@ -863,7 +810,8 @@
     document.getElementById("registerOverlay").classList.remove("visible");
     pendingUid = "";
     pendingMode = "";
-    pendingMatchedName = "";  // ★ 新增
+    pendingMatchedName = "";
+    pendingMemberExtra = null;
   }
 
   async function searchMember() {
@@ -873,7 +821,7 @@
       return;
     }
 
-    // API 优先查飞书多维表，本地 MEMBER_INFO 兜底
+    // 查飞书多维表
     var extra = await lookupMemberByName(name);
 
     if (!extra) {
@@ -883,6 +831,7 @@
 
     var matchedName = extra["姓名"] || "";
     pendingMatchedName = matchedName;
+    pendingMemberExtra = extra;
     var memberId = extra["社员号"] || "";
     var department = extra["部门"] || "";
     var className = extra["班级"] || "";
@@ -903,7 +852,7 @@
   function confirmRegistration() {
     if (!pendingUid || !pendingMatchedName) return;
     var uid = pendingUid;
-    var name = pendingMatchedName;  // ★ 修改：使用精确匹配到的姓名，而非输入框的值
+    var name = pendingMatchedName;
 
     // 保存到 localStorage
     var map = getLocalCardMap();
@@ -911,11 +860,25 @@
     saveLocalCardMap(map);
 
     console.log("[Register] 卡号关联成功:", uid, "->", name);
-    pendingMatchedName = "";  // ★ 新增：清空
     hideRegisterModal();
 
-    // 重新处理当前卡号（带上社员信息）
-    processCardWithMember(uid, name, pendingMode);
+    // 优先使用 searchMember 返回的完整信息
+    if (pendingMemberExtra) {
+      var extra = pendingMemberExtra;
+      var activity = document.getElementById("activityInput").value.trim();
+      var durationVal = document.getElementById("durationInput").value.trim();
+      var duration = durationVal ? durationVal + "小时" : "";
+      if (activity) extra["活动"] = activity;
+      if (duration) extra["时长"] = duration;
+      var displayUid = extra["识别码"] || uid;
+      var cardNo = (pendingMode === "nfc") ? uid : undefined;
+      showSuccessCard(displayUid, extra, pendingMode, cardNo);
+      setButtonIdle();
+      sendToFeishuBot(uid, name, extra);
+      submitToWps(uid, name, extra);
+    } else {
+      processCardWithMember(uid, name, pendingMode);
+    }
   }
 
   function cancelRegistration() {
@@ -930,25 +893,7 @@
   }
 
   function processCardWithMember(uid, memberName, mode) {
-    var extra = {};
-    if (typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[memberName]) {
-      var infoText = MEMBER_INFO[memberName];
-      var lines = infoText.split("\n");
-      for (var i = 0; i < lines.length; i++) {
-        var line = lines[i].trim();
-        if (line.indexOf("登记序号") === 0) {
-          var no = line.split(/[：:]/)[1];
-          if (no) extra["社员号"] = no.trim();
-        } else if (line.indexOf("所属部门") === 0) {
-          var dept = line.split(/[：:]/)[1];
-          if (dept) extra["部门"] = dept.trim();
-        } else if (line.indexOf("班级") === 0) {
-          var cls = line.split(/[：:]/)[1];
-          if (cls) extra["班级"] = cls.trim();
-        }
-      }
-    }
-    extra["姓名"] = memberName;
+    var extra = { "姓名": memberName };
 
     var activity = document.getElementById("activityInput").value.trim();
     var durationVal = document.getElementById("durationInput").value.trim();
@@ -957,15 +902,9 @@
     if (duration) extra["时长"] = duration;
 
     var displayUid = uid;
-    if (nameToReadable[memberName]) {
-      displayUid = nameToReadable[memberName];
-    } else if (typeof BARCODE_READABLE !== "undefined" && BARCODE_READABLE[uid]) {
-      displayUid = BARCODE_READABLE[uid];
-    }
     var cardNo = (mode === "nfc") ? uid : undefined;
     showSuccessCard(displayUid, extra, mode, cardNo);
     setButtonIdle();
-  //  submitToWebhook(uid, memberName, extra);
     sendToFeishuBot(uid, memberName, extra);
     submitToWps(uid, memberName, extra);
   }
@@ -1034,11 +973,6 @@
             if (activity) extra["活动"] = activity;
             if (duration) extra["时长"] = duration;
             var displayUid = extra["识别码"] || uidClean;
-            if (!extra["识别码"] && nameToReadable[memberName]) {
-              displayUid = nameToReadable[memberName];
-            } else if (!extra["识别码"] && typeof BARCODE_READABLE !== "undefined" && BARCODE_READABLE[uidClean]) {
-              displayUid = BARCODE_READABLE[uidClean];
-            }
             showSuccessCard(displayUid, extra, "nfc", uidClean);
             setButtonIdle();
     //        submitToWebhook(uidClean, memberName, extra);
@@ -1602,9 +1536,6 @@
       if (duration) extra["时长"] = duration;
       
       var displayUid = extra["识别码"] || uid;
-      if (!extra["识别码"] && typeof BARCODE_READABLE !== "undefined" && BARCODE_READABLE[uid]) {
-        displayUid = BARCODE_READABLE[uid];
-      }
       
       showSuccessCard(displayUid, extra);
       playBeep();
