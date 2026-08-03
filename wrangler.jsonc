@@ -2,6 +2,23 @@
   "name": "shumeinfc-checkin",
   "compatibility_date": "2026-08-04",
   "assets": {
-    "directory": "."
-  }
+    "directory": ".",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
+  "upload": {
+    "exclude": [
+      ".git/**",
+      ".wrangler/**",
+      "node_modules/**",
+      "*.md",
+      "*.csv"
+    ]
+  },
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": false
 }
+
+
