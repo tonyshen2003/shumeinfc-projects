@@ -68,16 +68,9 @@ async function handleMember(request, env) {
 
     const apiURL = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?filter=${encodeURIComponent(filter)}&page_size=1`;
     const resp = await fetch(apiURL, { headers: { Authorization: `Bearer ${token}` } });
-    if (!resp.ok) {
-      return Response.json({ found: false, _debug: `Feishu HTTP ${resp.status}`, _filter: filter }, { status: 502 });
-    }
+    if (!resp.ok) return Response.json({ found: false }, { status: 502 });
     const data = await resp.json();
-    if (data.code !== 0) {
-      return Response.json({ found: false, _debug: `Feishu code=${data.code} msg=${data.msg}`, _filter: filter });
-    }
-    if (!data.data?.items?.length) {
-      return Response.json({ found: false, _debug: "No items", _filter: filter, _total: data.data?.total });
-    }
+    if (data.code !== 0 || !data.data?.items?.length) return Response.json({ found: false });
 
     return Response.json({ found: true, member: buildMember(data.data.items[0].fields) });
   } catch (e) {
