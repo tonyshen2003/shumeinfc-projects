@@ -1,54 +1,98 @@
-# 树莓社活动签到 H5 页面
+# 树莓社活动签到系统
 
-这是一个基于 Web NFC 和二维码扫描的签到 H5 页面，适用于树莓社活动签到场景。
+树莓社（苏州中学）的 NFC 刷卡 + 二维码扫码签到 H5 应用，部署于 Cloudflare Workers 边缘网络。
 
-## 功能特点
+## 架构
 
-- 支持 NFC 刷卡签到
-- 支持二维码扫码签到
-- 支持社员信息登记与本地缓存
-- 支持签到结果推送到飞书机器人 / WPS 多维表 / 扣子工作流
+```
+浏览器 (index.html)
+  ├─ localStorage 缓存层（毫秒级）
+  │    ├─ 单条登记缓存 (shumei_card_members)
+  │    └─ 批量离线缓存 (shumei_member_cache) · 24h TTL
+  │
+  └─ Cloudflare Worker (worker.js)
+       ├─ GET /api/member?uid=X  → 飞书多维表实时查询
+       ├─ GET /api/member?q=X    → 姓名/编号模糊搜索
+       └─ GET /api/members       → 全量成员数据（供离线缓存）
+```
 
-## 兼容情况
+数据源为飞书多维表（Bitable），通过 Worker 安全代理，凭据存储在 Cloudflare 环境变量中，不暴露到前端。
 
-- Android Chrome 89+：支持 Web NFC
-- iOS Safari：不支持 Web NFC
-- 飞书内置浏览器：不支持 NFC，建议使用系统浏览器
-- 需要 HTTPS 安全上下文访问
+## 功能
+
+- **NFC 刷卡签到** — Android Chrome 89+，读取 NFC 卡片 UID 自动匹配社员
+- **二维码扫码签到** — 扫描社员识别码（如 `SM201809A00100201`）
+- **离线可用** — 首次访问自动缓存全量成员数据，后续无网络也能识别已入库成员
+- **新卡登记** — 未匹配卡片弹窗输入姓名，关联后自动缓存
+- **飞书通知** — 签到成功自动推送飞书机器人卡片消息
+- **WPS 同步** — 签到记录同步写入 WPS 多维表
 
 ## 项目结构
 
-- index.html：主页面，包含样式、交互和逻辑
-- start.sh：启动脚本，用于本地预览或部署启动
-- public/members.js：社员映射数据
-- AGENTS.md：项目说明
-- DESIGN.md：设计规范
-- CHANGELOG.md：更新日志
-
-## 使用方式
-
-1. 在支持 NFC 的 Android Chrome 浏览器中打开页面
-2. 输入活动名称和时长（可选）
-3. 点击“开始刷卡签到”进行 NFC 刷卡
-4. 或点击“扫码签到”进行二维码扫码
+```
+├── index.html          # 主页面（样式 + 交互 + 逻辑）
+├── worker.js           # Cloudflare Worker（API 代理 + 静态资源）
+├── wrangler.jsonc      # Wrangler 部署配置
+├── .wranglerignore     # 部署排除规则
+├── start.sh            # 本地开发启动脚本
+├── public/
+│   ├── members.js      # 社员数据（已废弃，仅保留作为历史参考）
+│   ├── members.csv     # 社员登记表源数据
+│   └── card-members.csv # 卡号映射源数据
+└── assets/             # 静态资源
+```
 
 ## 本地运行
 
-在项目根目录执行：
-
 ```bash
-sh start.sh
+sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上下文）
 ```
 
-默认端口为 5000。
+本地开发时 API 不可用，自动降级到 `public/members.js`（如存在）。
 
-## 版本维护
+## 部署
 
-每次修改页面内容、样式或交互时，请同步更新：
+项目通过 Git 推送到 GitHub 后由 Cloudflare Workers Builds 自动部署。
 
-- 页面底部的版本号和更新时间
-- CHANGELOG.md 中的更新记录
+部署前需在 Cloudflare Dashboard → Workers & Pages → shumeinfc-projects → Settings → Variables 配置：
 
-## 说明
+| 环境变量 | 说明 |
+|---|---|
+| `FEISHU_APP_ID` | 飞书应用 ID |
+| `FEISHU_APP_SECRET` | 飞书应用密钥 |
+| `FEISHU_APP_TOKEN` | 飞书多维表 App Token |
+| `FEISHU_TABLE_ID` | 飞书多维表 ID |
 
-如果你需要修改 Webhook 地址、飞书机器人地址或其他配置，请在 index.html 的顶部配置区域中修改。
+## 版本历史
+
+| 版本 | 日期 | 里程碑 |
+|---|---|---|
+| **1.1.1** | 2026-08-04 | 支持多卡号（分号分隔），Worker 改用 CONTAINS 匹配 |
+| **1.1.0** | 2026-08-04 | 重大重构：数据源从本地 members.js 切换为飞书多维表 API，新增 Worker 后端、离线批量缓存、刷新按钮 |
+| **1.0.7** | 2026-07-24 | 重构签到页面 UI，适配 iOS 安全规范 |
+| **1.0.5** | 2026-07-23 | 优化摄像头对焦逻辑，添加降级方案 |
+| **1.0.2** | 2026-07-22 | 更新成员数据与脚本版本 |
+| **1.0.1** | 2026-07-23 | 新增版本号显示、README 和 CHANGELOG |
+| **1.0.0** | 2026-07-22 | 项目初始化：NFC 签到、扫码签到、本地缓存、飞书/WPS 推送 |
+
+## 多卡号支持
+
+飞书多维表的「社员卡号」字段支持用分号分隔多个卡号：
+
+```
+0430ACC3100389;04932421CE2A81;21D6E774
+```
+
+查询时 Worker 使用 `CONTAINS` 子串匹配，任意一张卡均能命中。
+
+## 兼容性
+
+| 平台 | NFC | 扫码 |
+|---|---|---|
+| Android Chrome 89+ | ✓ | ✓ |
+| iOS Safari | ✗ | ✓（需授权摄像头） |
+| 飞书内置浏览器 | ✗ | ✓ |
+
+## 维护
+
+修改功能后请同步更新 `index.html` 中的 `APP_VERSION` 和 `APP_UPDATED_AT`。
