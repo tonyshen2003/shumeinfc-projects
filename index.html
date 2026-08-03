@@ -1180,39 +1180,45 @@
     var title = "树莓社签到";
     if (activity) title += " · " + activity;
 
-    // 构建两列布局的元素数组
-    var infoElements = [];
-    if (act || dur) {
-      var colEls = [];
-      if (act) colEls.push({
-        tag: "column", width: "weighted", weight: 1,
-        elements: [{ tag: "markdown", content: "📋 活动\n**" + act + "**" }]
-      });
-      if (dur) colEls.push({
-        tag: "column", width: "weighted", weight: 1,
-        elements: [{ tag: "markdown", content: "⏱ 时长\n**" + dur + "**" }]
-      });
-      infoElements.push({ tag: "column_set", flex_mode: "bisect", columns: colEls });
-    }
+    var elements = [];
 
-    // 成员基础信息
-    var deptLine = [dept, cls].filter(Boolean).join(" · ");
-    infoElements.push({
-      tag: "markdown",
-      content: "**" + name + "**  " + memberId + (deptLine ? "\n" + deptLine : "")
+    // 签到方式 + 时间
+    elements.push({
+      tag: "div",
+      fields: [{ is_short: true, text: { tag: "lark_md", content: modeLabel + "\n" + timeStr } }]
+    });
+    elements.push({ tag: "hr" });
+
+    // 姓名 + 社员号
+    elements.push({
+      tag: "div",
+      fields: [
+        { is_short: true, text: { tag: "lark_md", content: "**👤 " + name + "**\n" + memberId } },
+        { is_short: true, text: { tag: "lark_md", content: "**📂 部门**\n" + (dept || "-") } }
+      ]
     });
 
+    // 活动 + 时长
+    if (act || dur) {
+      var activityField = { is_short: true, text: { tag: "lark_md", content: "**📋 活动**\n" + (act || "-") } };
+      var durationField = { is_short: true, text: { tag: "lark_md", content: "**⏱ 时长**\n" + (dur || "-") } };
+      elements.push({ tag: "div", fields: [activityField, durationField] });
+    }
+
+    elements.push({ tag: "hr" });
+
     // 审计信息
-    infoElements.push({ tag: "divider" });
-    infoElements.push({
-      tag: "markdown",
-      content: "🔍 **识别码**  " + readable + "\n💳 **卡号**  " + uid
+    elements.push({
+      tag: "div",
+      fields: [
+        { is_short: false, text: { tag: "lark_md", content: "🔍 识别码：" + readable } },
+        { is_short: false, text: { tag: "lark_md", content: "💳 卡号：" + uid } }
+      ]
     });
 
     // 按钮
-    infoElements.push({
+    elements.push({
       tag: "action",
-      layout: "flow",
       actions: [{
         tag: "button",
         text: { tag: "plain_text", content: "📊 查看签到记录" },
@@ -1221,23 +1227,27 @@
       }]
     });
 
-    var body = {
-      schema: "2.0",
-      config: { width_mode: "compact" },
-      header: {
-        title: { tag: "plain_text", content: title },
-        subtitle: { tag: "plain_text", content: modeLabel + "  |  " + timeStr },
-        template: "blue"
-      },
-      body: {
-        elements: infoElements
+    // 审计说明
+    elements.push({
+      tag: "note",
+      elements: [{ tag: "plain_text", content: "🔒 卡号用于审计追溯" }]
+    });
+
+    var card = {
+      msg_type: "interactive",
+      card: {
+        header: {
+          title: { tag: "plain_text", content: title },
+          template: "blue"
+        },
+        elements: elements
       }
     };
 
     fetch(FEISHU_BOT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ msg_type: "interactive", card: body })
+      body: JSON.stringify(card)
     }).then(function (res) {
       return res.text();
     }).then(function (text) {
