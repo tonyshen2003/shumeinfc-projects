@@ -1157,7 +1157,18 @@
   // ============================================================
   // [模块] 飞书机器人通知
   // ============================================================
-  function sendToFeishuBot(uid, memberName, extra, mode) {
+  function getPosition() {
+    return new Promise(function (resolve) {
+      if (!("geolocation" in navigator)) return resolve(null);
+      navigator.geolocation.getCurrentPosition(
+        function (pos) { resolve(pos); },
+        function () { resolve(null); },
+        { timeout: 5000, maximumAge: 60000 }
+      );
+    });
+  }
+
+  async function sendToFeishuBot(uid, memberName, extra, mode) {
     if (!FEISHU_BOT) return;
 
     var activity = document.getElementById("activityInput").value.trim();
@@ -1215,6 +1226,21 @@
         { is_short: false, text: { tag: "lark_md", content: "💳 卡号：" + uid } }
       ]
     });
+
+    // 地理位置
+    var pos = await getPosition();
+    if (pos) {
+      var lat = pos.coords.latitude.toFixed(4);
+      var lng = pos.coords.longitude.toFixed(4);
+      var mapsUrl = "https://www.google.com/maps?q=" + lat + "," + lng;
+      elements.push({ tag: "hr" });
+      elements.push({
+        tag: "div",
+        fields: [
+          { is_short: false, text: { tag: "lark_md", content: "📍 " + lat + ", " + lng + "  [查看地图](" + mapsUrl + ")" } }
+        ]
+      });
+    }
 
     // 按钮
     elements.push({
