@@ -1,6 +1,5 @@
 {
   "name": "shumeinfc-projects",
-  "main": "worker.js",
   "compatibility_date": "2025-08-03",
   "assets": {
     "directory": ".",
