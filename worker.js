@@ -60,7 +60,7 @@ async function handleMember(request, env) {
     let filter;
     if (uid) {
       const n = uid.trim().toUpperCase().replace(/:/g, "");
-      filter = `OR(CurrentValue.[社员卡号]="${n}",CurrentValue.[社员识别码]="${n}",CurrentValue.[社员身份编码（认读码）]="${n}")`;
+      filter = `OR(CurrentValue.[社员卡号].CONTAINS("${n}"),CurrentValue.[社员识别码]="${n}",CurrentValue.[社员身份编码（认读码）]="${n}")`;
     } else {
       const q = query.trim();
       filter = `OR(CurrentValue.[姓名]="${q}",CurrentValue.[别名]="${q}",CurrentValue.[社员编号]="${q}",CurrentValue.[社员识别码]="${q}",CurrentValue.[社员身份编码（认读码）]="${q}",CurrentValue.[社员序号]="${q}")`;
@@ -105,7 +105,12 @@ async function handleMembers(env) {
         const cid = text(f, "社员卡号");
         const bid = text(f, "社员识别码");
         const rid = text(f, "社员身份编码（认读码）");
-        if (cid) cardMap[cid] = name;
+        if (cid) {
+          cid.split(";").forEach(function(id) {
+            var trimmed = id.trim();
+            if (trimmed) cardMap[trimmed] = name;
+          });
+        }
         if (bid) barcodeMap[bid] = name;
         if (rid) barcodeMap[rid] = name;
         if (!infoMap[name]) {
