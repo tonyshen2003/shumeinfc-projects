@@ -1,8 +1,9 @@
 /**
  * Cloudflare Worker — 静态站点 + 成员查询 API
+ * GET /api/member?uid=<卡号>   → 查询飞书多维表
+ * GET /api/member?q=<姓名>     → 搜索飞书多维表
  * GET /api/members              → 返回全部成员（供前端离线缓存）
- * GET /api/member?uid=<卡号>     → 查询飞书多维表
- * GET /api/member?q=<姓名>       → 搜索飞书多维表
+ * 其他请求 → 走静态资源
  */
 
 let cachedToken = null;
@@ -38,65 +39,29 @@ function text(fields, key) {
   return (v && v.text) || "";
 }
 
-async function fetchAllMembers(env) {
-  const token = await getToken(env);
-  const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
-  const baseURL = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?page_size=500`;
-
-  const cardMap = {};
-  const barcodeMap = {};
-  const infoMap = {};
-
-  let pageToken = null;
-  do {
-    let url = baseURL;
-    if (pageToken) url += `&page_token=${pageToken}`;
-
-    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!resp.ok) break;
-
-    const data = await resp.json();
-    if (data.code !== 0) break;
-
-    const items = data.data?.items || [];
-    for (const item of items) {
-      const f = item.fields;
-      const name = text(f, "姓名");
-      if (!name) continue;
-
-      const cardId = text(f, "社员卡号");
-      const barcode = text(f, "社员识别码");
-      const readable = text(f, "社员身份编码（认读码）");
-
-      if (cardId) cardMap[cardId] = name;
-      if (barcode) barcodeMap[barcode] = name;
-      if (readable) barcodeMap[readable] = name;
-
-      if (!infoMap[name]) {
-        infoMap[name] = {
-          idCode: text(f, "社员编号"),
-          dept: text(f, "社团部门"),
-          cls: text(f, "班级（分班后）"),
-          readable: readable,
-        };
-      }
-    }
-
-    pageToken = data.data?.page_token || null;
-  } while (pageToken);
-
-  return { updatedAt: Date.now(), cardMap, barcodeMap, infoMap };
-}
-
-async function handleMembers(env) {
-  try {
-    const data = await fetchAllMembers(env);
-    return Response.json(data, {
-      headers: { "Cache-Control": "public, max-age=3600" },
-    });
-  } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
-  }
+function buildMemberResponse(fields) {
+  return {
+    found: true,
+    member: {
+      name: text(fields, "姓名"),
+      alias: text(fields, "别名"),
+      idCode: text(fields, "社员编号"),
+      generation: text(fields, "年级"),
+      className: text(fields, "班级（分班后）"),
+      birthday: text(fields, "生日"),
+      contactQQ: text(fields, "QQ"),
+      department: text(fields, "社团部门"),
+      roles: text(fields, "社团职务"),
+      rating: text(fields, "社员评级"),
+      honors: text(fields, "其他职务或荣誉"),
+      college: text(fields, "升学去向"),
+      joinDate: text(fields, "入社日期"),
+      description: text(fields, "详细介绍"),
+      cardId: text(fields, "社员卡号"),
+      readableCode: text(fields, "社员身份编码（认读码）"),
+      memberSeq: text(fields, "社员序号"),
+    },
+  };
 }
 
 async function handleMember(request, env) {
@@ -105,12 +70,12 @@ async function handleMember(request, env) {
   const query = url.searchParams.get("q");
 
   if (!uid && !query) {
-    return Response.json({ found: false }, { status: 400 });
+    return Response.json({ found: false, error: "Missing uid or q" }, { status: 400 });
   }
 
   const { FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
   if (!FEISHU_APP_ID) {
-    return Response.json({ found: false, error: e.message || String(e) }, { status: 500 });
+    return Response.json({ found: false, error: "Missing env vars" }, { status: 500 });
   }
 
   try {
@@ -127,45 +92,86 @@ async function handleMember(request, env) {
 
     const apiURL = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?filter=${encodeURIComponent(filter)}&page_size=1`;
 
-    const resp = await fetch(apiURL, { headers: { Authorization: `Bearer ${token}` } });
+    const resp = await fetch(apiURL, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
     if (!resp.ok) {
       const errText = await resp.text();
-      return Response.json({ found: false, debug: `Feishu HTTP ${resp.status}: ${errText}` }, { status: 502 });
+      return Response.json({ found: false, error: `Feishu HTTP ${resp.status}: ${errText}` }, { status: 502 });
     }
 
     const data = await resp.json();
     if (data.code !== 0) {
-      return Response.json({ found: false, debug: `Feishu API code=${data.code} msg=${data.msg}` });
+      return Response.json({ found: false, error: `Feishu API code=${data.code} msg=${data.msg}` });
     }
     if (!data.data?.items?.length) {
-      return Response.json({ found: false, debug: `No items, filter was: ${filter}` });
+      return Response.json({ found: false, error: `No match: ${filter}` });
     }
 
-    const f = data.data.items[0].fields;
-    return Response.json({
-      found: true,
-      member: {
-        name: text(f, "姓名"),
-        alias: text(f, "别名"),
-        idCode: text(f, "社员编号"),
-        generation: text(f, "年级"),
-        className: text(f, "班级（分班后）"),
-        birthday: text(f, "生日"),
-        contactQQ: text(f, "QQ"),
-        department: text(f, "社团部门"),
-        roles: text(f, "社团职务"),
-        rating: text(f, "社员评级"),
-        honors: text(f, "其他职务或荣誉"),
-        college: text(f, "升学去向"),
-        joinDate: text(f, "入社日期"),
-        description: text(f, "详细介绍"),
-        cardId: text(f, "社员卡号"),
-        readableCode: text(f, "社员身份编码（认读码）"),
-        memberSeq: text(f, "社员序号"),
-      },
-    });
+    return Response.json(buildMemberResponse(data.data.items[0].fields));
   } catch (e) {
     return Response.json({ found: false, error: e.message || String(e) }, { status: 500 });
+  }
+}
+
+async function handleMembers(env) {
+  const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
+  if (!env.FEISHU_APP_ID) {
+    return Response.json({ error: "Missing env vars" }, { status: 500 });
+  }
+  try {
+    const token = await getToken(env);
+    const baseURL = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?page_size=500`;
+
+    const cardMap = {};
+    const barcodeMap = {};
+    const infoMap = {};
+
+    let pageToken = null;
+    do {
+      let url = baseURL;
+      if (pageToken) url += `&page_token=${pageToken}`;
+
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!resp.ok) break;
+
+      const data = await resp.json();
+      if (data.code !== 0) break;
+
+      const items = data.data?.items || [];
+      for (const item of items) {
+        const f = item.fields;
+        const name = text(f, "姓名");
+        if (!name) continue;
+
+        const cardId = text(f, "社员卡号");
+        const barcode = text(f, "社员识别码");
+        const readable = text(f, "社员身份编码（认读码）");
+
+        if (cardId) cardMap[cardId] = name;
+        if (barcode) barcodeMap[barcode] = name;
+        if (readable) barcodeMap[readable] = name;
+
+        if (!infoMap[name]) {
+          infoMap[name] = {
+            idCode: text(f, "社员编号"),
+            dept: text(f, "社团部门"),
+            cls: text(f, "班级（分班后）"),
+            readable: readable,
+          };
+        }
+      }
+
+      pageToken = data.data?.page_token || null;
+    } while (pageToken);
+
+    return Response.json(
+      { updatedAt: Date.now(), cardMap, barcodeMap, infoMap },
+      { headers: { "Cache-Control": "public, max-age=3600" } }
+    );
+  } catch (e) {
+    return Response.json({ error: e.message || String(e) }, { status: 500 });
   }
 }
 
@@ -181,4 +187,3 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
-
