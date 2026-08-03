@@ -1,8 +1,8 @@
 /**
  * Cloudflare Worker — 静态站点 + 成员查询 API
- * GET /api/member?uid=<卡号>   → 查询飞书多维表
- * GET /api/member?q=<姓名>     → 搜索飞书多维表
- * 其他请求 → 走静态资源
+ * GET /api/members              → 返回全部成员（供前端离线缓存）
+ * GET /api/member?uid=<卡号>     → 查询飞书多维表
+ * GET /api/member?q=<姓名>       → 搜索飞书多维表
  */
 
 let cachedToken = null;
@@ -38,7 +38,68 @@ function text(fields, key) {
   return (v && v.text) || "";
 }
 
-async function handleApi(request, env) {
+async function fetchAllMembers(env) {
+  const token = await getToken(env);
+  const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
+  const baseURL = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?page_size=500`;
+
+  const cardMap = {};
+  const barcodeMap = {};
+  const infoMap = {};
+
+  let pageToken = null;
+  do {
+    let url = baseURL;
+    if (pageToken) url += `&page_token=${pageToken}`;
+
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!resp.ok) break;
+
+    const data = await resp.json();
+    if (data.code !== 0) break;
+
+    const items = data.data?.items || [];
+    for (const item of items) {
+      const f = item.fields;
+      const name = text(f, "姓名");
+      if (!name) continue;
+
+      const cardId = text(f, "社员卡号");
+      const barcode = text(f, "社员识别码");
+      const readable = text(f, "社员身份编码（认读码）");
+
+      if (cardId) cardMap[cardId] = name;
+      if (barcode) barcodeMap[barcode] = name;
+      if (readable) barcodeMap[readable] = name;
+
+      if (!infoMap[name]) {
+        infoMap[name] = {
+          idCode: text(f, "社员编号"),
+          dept: text(f, "社团部门"),
+          cls: text(f, "班级（分班后）"),
+          readable: readable,
+        };
+      }
+    }
+
+    pageToken = data.data?.page_token || null;
+  } while (pageToken);
+
+  return { updatedAt: Date.now(), cardMap, barcodeMap, infoMap };
+}
+
+async function handleMembers(env) {
+  try {
+    const data = await fetchAllMembers(env);
+    return Response.json(data, {
+      headers: { "Cache-Control": "public, max-age=3600" },
+    });
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500 });
+  }
+}
+
+async function handleMember(request, env) {
   const url = new URL(request.url);
   const uid = url.searchParams.get("uid");
   const query = url.searchParams.get("q");
@@ -58,7 +119,7 @@ async function handleApi(request, env) {
     let filter;
     if (uid) {
       const normalized = uid.trim().toUpperCase().replace(/:/g, "");
-      filter = `OR(CurrentValue.[社员卡号]="${normalized}",CurrentValue.[社员识别码]="${normalized}")`;
+      filter = `OR(CurrentValue.[社员卡号]="${normalized}",CurrentValue.[社员识别码]="${normalized}",CurrentValue.[社员身份编码（认读码）]="${normalized}")`;
     } else {
       const q = query.trim();
       filter = `OR(CurrentValue.[姓名]="${q}",CurrentValue.[别名]="${q}",CurrentValue.[社员编号]="${q}",CurrentValue.[社员识别码]="${q}",CurrentValue.[社员身份编码（认读码）]="${q}",CurrentValue.[社员序号]="${q}")`;
@@ -105,9 +166,13 @@ async function handleApi(request, env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/api/members") {
+      return handleMembers(env);
+    }
     if (url.pathname === "/api/member") {
-      return handleApi(request, env);
+      return handleMember(request, env);
     }
     return env.ASSETS.fetch(request);
   },
 };
+
