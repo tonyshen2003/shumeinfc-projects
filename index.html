@@ -985,13 +985,22 @@
   function processCardWithMember(uid, memberName, mode) {
     var extra = { "姓名": memberName };
 
+    // 尝试从离线缓存补充完整信息
+    var cached = getCachedMember(uid);
+    if (cached) {
+      if (cached["社员号"]) extra["社员号"] = cached["社员号"];
+      if (cached["部门"]) extra["部门"] = cached["部门"];
+      if (cached["班级"]) extra["班级"] = cached["班级"];
+      if (cached["识别码"]) extra["识别码"] = cached["识别码"];
+    }
+
     var activity = document.getElementById("activityInput").value.trim();
     var durationVal = document.getElementById("durationInput").value.trim();
     var duration = durationVal ? durationVal + "小时" : "";
     if (activity) extra["活动"] = activity;
     if (duration) extra["时长"] = duration;
 
-    var displayUid = uid;
+    var displayUid = extra["识别码"] || uid;
     var cardNo = (mode === "nfc") ? uid : undefined;
     showSuccessCard(displayUid, extra, mode, cardNo);
     setButtonIdle();
