@@ -21,9 +21,9 @@ async function getToken(env) {
     }
   );
 
-  if (!resp.ok) throw new Error(`Auth failed: ${resp.status}`);
+  if (!resp.ok) throw new Error(`Auth HTTP ${resp.status}`);
   const data = await resp.json();
-  if (data.code !== 0) throw new Error(data.msg);
+  if (data.code !== 0) throw new Error(`Auth code=${data.code} msg=${data.msg}`);
 
   cachedToken = data.tenant_access_token;
   tokenExpiry = now + 7200 * 1000;
@@ -128,11 +128,17 @@ async function handleMember(request, env) {
     const apiURL = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?filter=${encodeURIComponent(filter)}&page_size=1`;
 
     const resp = await fetch(apiURL, { headers: { Authorization: `Bearer ${token}` } });
-    if (!resp.ok) return Response.json({ found: false }, { status: 502 });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      return Response.json({ found: false, debug: `Feishu HTTP ${resp.status}: ${errText}` }, { status: 502 });
+    }
 
     const data = await resp.json();
-    if (data.code !== 0 || !data.data?.items?.length) {
-      return Response.json({ found: false });
+    if (data.code !== 0) {
+      return Response.json({ found: false, debug: `Feishu API code=${data.code} msg=${data.msg}` });
+    }
+    if (!data.data?.items?.length) {
+      return Response.json({ found: false, debug: `No items, filter was: ${filter}` });
     }
 
     const f = data.data.items[0].fields;
