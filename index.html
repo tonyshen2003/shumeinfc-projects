@@ -1232,7 +1232,7 @@
     if (pos) {
       var lat = pos.coords.latitude.toFixed(4);
       var lng = pos.coords.longitude.toFixed(4);
-      var mapsUrl = "https://www.google.com/maps?q=" + lat + "," + lng;
+      var mapsUrl = "https://uri.amap.com/marker?position=" + lng + "," + lat;
       elements.push({ tag: "hr" });
       elements.push({
         tag: "div",
