@@ -110,7 +110,7 @@ async function handleMember(request, env) {
 
   const { FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
   if (!FEISHU_APP_ID) {
-    return Response.json({ found: false }, { status: 500 });
+    return Response.json({ found: false, error: e.message || String(e) }, { status: 500 });
   }
 
   try {
@@ -159,7 +159,7 @@ async function handleMember(request, env) {
       },
     });
   } catch (e) {
-    return Response.json({ found: false }, { status: 500 });
+    return Response.json({ found: false, error: e.message || String(e) }, { status: 500 });
   }
 }
 
