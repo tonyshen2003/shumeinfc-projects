@@ -4,6 +4,11 @@
   "compatibility_date": "2025-08-03",
   "assets": {
     "directory": "."
+  },
+  "vars": {
+    "FEISHU_APP_ID": "cli_aaefa41a0c389bd9",
+    "FEISHU_APP_TOKEN": "YUZ4wB3YJiLTq2kUobZccYOKnBb",
+    "FEISHU_TABLE_ID": "tblepAz1PHnzwxA2"
   }
 }
 
