@@ -35,12 +35,17 @@
     .header h1 { font-size: 18px; font-weight: 600; color: #1F2329; letter-spacing: 0.5px; }
     .header .subtitle { font-size: 13px; color: #8F959E; margin-top: 4px; line-height: 1.4; }
     .cache-refresh-btn {
-      display: inline-block; margin-top: 8px; padding: 4px 12px;
-      font-size: 14px; background: #F0F1F2; border: none; border-radius: 8px;
-      cursor: pointer; transition: background 150ms;
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-top: 6px; padding: 6px 10px;
+      font-size: 12px; color: #8F959E; background: transparent;
+      border: 0.5px solid #DEE0E3; border-radius: 6px;
+      cursor: pointer; transition: all 150ms;
+      -webkit-tap-highlight-color: transparent;
+      min-height: 32px;
     }
-    .cache-refresh-btn:active { background: #DEE0E3; }
+    .cache-refresh-btn:active { background: #F0F1F2; border-color: #C0C2C6; }
     .cache-refresh-btn.loading { opacity: 0.5; pointer-events: none; }
+    .cache-refresh-btn .cache-icon { font-size: 14px; line-height: 1; }
 
     /* Main content area */
     .main-content {
@@ -390,7 +395,9 @@
       </div>
       <h1>树莓社活动签到</h1>
       <p class="subtitle" id="subtitle">正在初始化...</p>
-      <button class="cache-refresh-btn" id="cacheRefreshBtn" onclick="refreshCache()" title="刷新离线缓存">🔄</button>
+      <button class="cache-refresh-btn" id="cacheRefreshBtn" onclick="refreshCache()">
+        <span class="cache-icon">☁️</span><span id="cacheLabel">离线数据</span>
+      </button>
     </div>
     <div class="main-content">
       <div class="input-group">
@@ -559,7 +566,9 @@
 
   async function loadMemberCache() {
     var btn = document.getElementById("cacheRefreshBtn");
+    var label = document.getElementById("cacheLabel");
     if (btn) btn.classList.add("loading");
+    if (label) label.textContent = "同步中...";
     try {
       var resp = await fetch(API_MEMBERS_ENDPOINT);
       if (resp.ok) {
@@ -573,6 +582,8 @@
       }
     } catch (e) {
       console.log("[Cache] 加载失败:", e.message);
+      if (label) label.textContent = "同步失败";
+      setTimeout(function () { updateCacheInfo(); }, 2000);
     }
     if (btn) btn.classList.remove("loading");
   }
@@ -582,13 +593,15 @@
   }
 
   function updateCacheInfo() {
-    var el = document.getElementById("subtitle");
-    if (!el) return;
+    var label = document.getElementById("cacheLabel");
+    if (!label) return;
     var cache = getMemberCache();
     if (cache && cache.updatedAt) {
       var d = new Date(cache.updatedAt);
       var timeStr = d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0");
-      el.textContent = "离线缓存 · " + timeStr + " 更新";
+      label.textContent = "离线数据 · " + timeStr;
+    } else {
+      label.textContent = "离线数据";
     }
   }
 
