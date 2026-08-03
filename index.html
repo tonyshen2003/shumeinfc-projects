@@ -510,6 +510,105 @@
   })();
 
   // ============================================================
+  // [模块] API 成员查询（优先飞书多维表，本地文件兜底）
+  // ============================================================
+  var API_MEMBER_ENDPOINT = "/api/member";
+
+  // 将 API 返回的成员对象转为 UI 使用的 extra 格式
+  function apiMemberToExtra(member) {
+    return {
+      "姓名": member.name || "",
+      "社员号": member.idCode || member.memberSeq || "",
+      "部门": member.department || "",
+      "班级": member.className || "",
+      "识别码": member.readableCode || ""
+    };
+  }
+
+  // 将本地 MEMBER_INFO 文本转为 extra 格式
+  function localInfoToExtra(memberName, infoText) {
+    var extra = { "姓名": memberName };
+    var lines = infoText.split("\n");
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (line.indexOf("登记序号") === 0) {
+        var no = line.split(/[：:]/)[1];
+        if (no) extra["社员号"] = no.trim();
+      } else if (line.indexOf("所属部门") === 0) {
+        var dept = line.split(/[：:]/)[1];
+        if (dept) extra["部门"] = dept.trim();
+      } else if (line.indexOf("班级") === 0) {
+        var cls = line.split(/[：:]/)[1];
+        if (cls) extra["班级"] = cls.trim();
+      }
+    }
+    return extra;
+  }
+
+  // 按卡号/条码查成员：API 优先，本地数据兜底
+  async function lookupMemberByUid(uid) {
+    // 1) 先查 localStorage
+    var localMap = getLocalCardMap();
+    if (localMap[uid]) {
+      var cachedName = localMap[uid];
+      if (typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[cachedName]) {
+        return localInfoToExtra(cachedName, MEMBER_INFO[cachedName]);
+      }
+      return { "姓名": cachedName };
+    }
+
+    // 2) 调 Cloudflare Function → 飞书多维表
+    try {
+      var resp = await fetch(API_MEMBER_ENDPOINT + "?uid=" + encodeURIComponent(uid));
+      if (resp.ok) {
+        var data = await resp.json();
+        if (data.found) return apiMemberToExtra(data.member);
+      }
+    } catch (e) {
+      console.log("[API] 卡号查询失败，回退本地:", e.message);
+    }
+
+    // 3) 本地 CARD_MEMBERS / BARCODE_MEMBERS 兜底
+    var memberName = "";
+    if (typeof CARD_MEMBERS !== "undefined" && CARD_MEMBERS[uid]) {
+      memberName = CARD_MEMBERS[uid];
+    } else if (typeof BARCODE_MEMBERS !== "undefined" && BARCODE_MEMBERS[uid]) {
+      memberName = BARCODE_MEMBERS[uid];
+    }
+    if (memberName && typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[memberName]) {
+      return localInfoToExtra(memberName, MEMBER_INFO[memberName]);
+    }
+    if (memberName) {
+      return { "姓名": memberName };
+    }
+    return null;
+  }
+
+  // 按姓名/别名/编号搜索成员：API 优先，本地 MEMBER_INFO 兜底
+  async function lookupMemberByName(query) {
+    // 1) 调 Cloudflare Function
+    try {
+      var resp = await fetch(API_MEMBER_ENDPOINT + "?q=" + encodeURIComponent(query));
+      if (resp.ok) {
+        var data = await resp.json();
+        if (data.found) return apiMemberToExtra(data.member);
+      }
+    } catch (e) {
+      console.log("[API] 姓名搜索失败，回退本地:", e.message);
+    }
+
+    // 2) 本地 MEMBER_INFO 模糊匹配兜底
+    if (typeof MEMBER_INFO !== "undefined") {
+      for (var key in MEMBER_INFO) {
+        if (key.indexOf(query) !== -1) {
+          return localInfoToExtra(key, MEMBER_INFO[key]);
+        }
+      }
+    }
+    return null;
+  }
+
+  // ============================================================
   // [模块] 状态管理
   // ============================================================
   var state = {
@@ -767,51 +866,26 @@
     pendingMatchedName = "";  // ★ 新增
   }
 
-  function searchMember() {
+  async function searchMember() {
     var name = document.getElementById("regNameInput").value.trim();
     if (!name) {
       document.getElementById("regError").textContent = "请输入姓名";
       return;
     }
 
-    // 在 MEMBER_INFO 中查找（支持模糊匹配）
-    var matched = null;
-    var matchedName = "";
-    if (typeof MEMBER_INFO !== "undefined") {
-      for (var key in MEMBER_INFO) {
-        if (key.indexOf(name) !== -1) {
-          matched = MEMBER_INFO[key];
-          matchedName = key;
-          break;
-        }
-      }
-    }
+    // API 优先查飞书多维表，本地 MEMBER_INFO 兜底
+    var extra = await lookupMemberByName(name);
 
-    if (!matched) {
+    if (!extra) {
       document.getElementById("regError").textContent = "未找到该社员，请检查姓名";
       return;
     }
-    
-        // ★ 新增：保存精确匹配到的姓名
-    pendingMatchedName = matchedName;
 
-    // 解析社员信息
-    var infoText = matched;
-    var lines = infoText.split("\n");
-    var memberId = "", department = "", className = "";
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i].trim();
-      if (line.indexOf("登记序号") === 0) {
-        var no = line.split(/[：:]/)[1];
-        if (no) memberId = no.trim();
-      } else if (line.indexOf("所属部门") === 0) {
-        var dept = line.split(/[：:]/)[1];
-        if (dept) department = dept.trim();
-      } else if (line.indexOf("班级") === 0) {
-        var cls = line.split(/[：:]/)[1];
-        if (cls) className = cls.trim();
-      }
-    }
+    var matchedName = extra["姓名"] || "";
+    pendingMatchedName = matchedName;
+    var memberId = extra["社员号"] || "";
+    var department = extra["部门"] || "";
+    var className = extra["班级"] || "";
 
     // 显示确认信息
     document.getElementById("regContent").style.display = "none";
@@ -931,10 +1005,9 @@
       state.ndefReader.scan().then(function () {
         console.log("[NFC] 扫描已启动，等待贴卡");
 
-        state.ndefReader.onreading = function (event) {
+        state.ndefReader.onreading = async function (event) {
           console.log("[NFC] 检测到卡片!");
           console.log("[NFC] serialNumber:", event.serialNumber);
-          console.log("[NFC] message:", JSON.stringify(event.message));
 
           // 提取卡号：serialNumber 已经是十六进制字符串（冒号分隔）
           var uid = event.serialNumber || "UNKNOWN";
@@ -947,38 +1020,11 @@
           // 停止扫描
           stopScan();
 
-          // 查找社员信息（优先级：localStorage > CARD_MEMBERS）
-          var extra = {};
-          var memberName = "";
-          var localMap = getLocalCardMap();
-          if (localMap[uidClean]) {
-            memberName = localMap[uidClean];
-            console.log("[NFC] 本地缓存匹配:", memberName);
-          } else if (typeof CARD_MEMBERS !== "undefined" && CARD_MEMBERS[uidClean]) {
-            memberName = CARD_MEMBERS[uidClean];
-            console.log("[NFC] 预置映射匹配:", memberName);
-          }
+          // API 优先查飞书多维表，本地数据兜底
+          var extra = await lookupMemberByUid(uidClean);
 
-          if (memberName) {
-            // 查找详细信息中的社员号、部门和班级
-            if (typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[memberName]) {
-              var infoText = MEMBER_INFO[memberName];
-              var lines = infoText.split("\n");
-              for (var i = 0; i < lines.length; i++) {
-                var line = lines[i].trim();
-                if (line.indexOf("登记序号") === 0) {
-                  var no = line.split(/[：:]/)[1];
-                  if (no) extra["社员号"] = no.trim();
-                } else if (line.indexOf("所属部门") === 0) {
-                  var dept = line.split(/[：:]/)[1];
-                  if (dept) extra["部门"] = dept.trim();
-                } else if (line.indexOf("班级") === 0) {
-                  var cls = line.split(/[：:]/)[1];
-                  if (cls) extra["班级"] = cls.trim();
-                }
-              }
-            }
-            extra["姓名"] = memberName;
+          if (extra) {
+            var memberName = extra["姓名"] || "";
             console.log("[NFC] 匹配社员:", memberName, extra);
 
             // 展示结果并推送
@@ -987,10 +1033,10 @@
             var duration = durationVal ? durationVal + "小时" : "";
             if (activity) extra["活动"] = activity;
             if (duration) extra["时长"] = duration;
-            var displayUid = uidClean;
-            if (nameToReadable[memberName]) {
+            var displayUid = extra["识别码"] || uidClean;
+            if (!extra["识别码"] && nameToReadable[memberName]) {
               displayUid = nameToReadable[memberName];
-            } else if (typeof BARCODE_READABLE !== "undefined" && BARCODE_READABLE[uidClean]) {
+            } else if (!extra["识别码"] && typeof BARCODE_READABLE !== "undefined" && BARCODE_READABLE[uidClean]) {
               displayUid = BARCODE_READABLE[uidClean];
             }
             showSuccessCard(displayUid, extra, "nfc", uidClean);
@@ -1527,7 +1573,7 @@
     }
   }
 
-  function handleQRCode(data) {
+  async function handleQRCode(data) {
     stopQRScan();
     
     var uid = data.trim().toUpperCase().replace(/:/g, "");
@@ -1540,43 +1586,14 @@
     processQRResult(uid);
   }
 
-  function processQRResult(uid) {
+  async function processQRResult(uid) {
     elStatusCard.className = "status-card";
     
-    var extra = {};
-    var memberName = "";
-    var localMap = getLocalCardMap();
+    // API 优先查飞书多维表，本地数据兜底
+    var extra = await lookupMemberByUid(uid);
     
-    if (localMap[uid]) {
-      memberName = localMap[uid];
-      console.log("[QR] 本地缓存匹配:", memberName);
-    } else if (typeof BARCODE_MEMBERS !== "undefined" && BARCODE_MEMBERS[uid]) {
-      memberName = BARCODE_MEMBERS[uid];
-      console.log("[QR] 条码映射匹配:", memberName);
-    } else if (typeof CARD_MEMBERS !== "undefined" && CARD_MEMBERS[uid]) {
-      memberName = CARD_MEMBERS[uid];
-      console.log("[QR] 卡号映射匹配:", memberName);
-    }
-    
-    if (memberName) {
-      if (typeof MEMBER_INFO !== "undefined" && MEMBER_INFO[memberName]) {
-        var infoText = MEMBER_INFO[memberName];
-        var lines = infoText.split("\n");
-        for (var i = 0; i < lines.length; i++) {
-          var line = lines[i].trim();
-          if (line.indexOf("登记序号") === 0) {
-            var no = line.split(/[：:]/)[1];
-            if (no) extra["社员号"] = no.trim();
-          } else if (line.indexOf("所属部门") === 0) {
-            var dept = line.split(/[：:]/)[1];
-            if (dept) extra["部门"] = dept.trim();
-          } else if (line.indexOf("班级") === 0) {
-            var cls = line.split(/[：:]/)[1];
-            if (cls) extra["班级"] = cls.trim();
-          }
-        }
-      }
-      extra["姓名"] = memberName;
+    if (extra) {
+      var memberName = extra["姓名"] || "";
       
       var activity = document.getElementById("activityInput").value.trim();
       var durationVal = document.getElementById("durationInput").value.trim();
@@ -1584,8 +1601,8 @@
       if (activity) extra["活动"] = activity;
       if (duration) extra["时长"] = duration;
       
-      var displayUid = uid;
-      if (typeof BARCODE_READABLE !== "undefined" && BARCODE_READABLE[uid]) {
+      var displayUid = extra["识别码"] || uid;
+      if (!extra["识别码"] && typeof BARCODE_READABLE !== "undefined" && BARCODE_READABLE[uid]) {
         displayUid = BARCODE_READABLE[uid];
       }
       
