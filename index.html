@@ -501,7 +501,7 @@
 
   // 扣子工作流 Webhook 地址（接收签到数据，写入飞书多维表）
   var COZE_WEBHOOK = "https://kg4p9tj9xx.coze.site/async_run";
-  var APP_VERSION = "1.1.1";
+  var APP_VERSION = "1.1.2";
   var APP_UPDATED_AT = "2026-08-04";
 
   // 飞书机器人 Webhook 地址（可选，签到成功后发送群通知）
@@ -956,31 +956,34 @@
     if (!pendingUid || !pendingMatchedName) return;
     var uid = pendingUid;
     var name = pendingMatchedName;
+    var extra = pendingMemberExtra;
+    var mode = pendingMode;
 
     // 保存到 localStorage
     var map = getLocalCardMap();
-    map[pendingUid] = name;
+    map[uid] = name;
     saveLocalCardMap(map);
 
     console.log("[Register] 卡号关联成功:", uid, "->", name);
+
+    // 先清理弹窗状态
     hideRegisterModal();
 
-    // 优先使用 searchMember 返回的完整信息
-    if (pendingMemberExtra) {
-      var extra = pendingMemberExtra;
+    // 优先使用 searchMember 返回的飞书完整信息
+    if (extra) {
       var activity = document.getElementById("activityInput").value.trim();
       var durationVal = document.getElementById("durationInput").value.trim();
       var duration = durationVal ? durationVal + "小时" : "";
       if (activity) extra["活动"] = activity;
       if (duration) extra["时长"] = duration;
       var displayUid = extra["识别码"] || uid;
-      var cardNo = (pendingMode === "nfc") ? uid : undefined;
-      showSuccessCard(displayUid, extra, pendingMode, cardNo);
+      var cardNo = (mode === "nfc") ? uid : undefined;
+      showSuccessCard(displayUid, extra, mode, cardNo);
       setButtonIdle();
       sendToFeishuBot(uid, name, extra);
       submitToWps(uid, name, extra);
     } else {
-      processCardWithMember(uid, name, pendingMode);
+      processCardWithMember(uid, name, mode);
     }
   }
 
