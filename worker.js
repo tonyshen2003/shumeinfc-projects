@@ -57,7 +57,8 @@ async function handleApi(request, env) {
 
     let filter;
     if (uid) {
-      filter = `CurrentValue.[社员卡号] = "${uid.trim().toUpperCase().replace(/:/g, "")}"`;
+      const normalized = uid.trim().toUpperCase().replace(/:/g, "");
+      filter = `OR(CurrentValue.[社员卡号]="${normalized}",CurrentValue.[社员识别码]="${normalized}")`;
     } else {
       const q = query.trim();
       filter = `OR(CurrentValue.[姓名]="${q}",CurrentValue.[别名]="${q}",CurrentValue.[社员编号]="${q}",CurrentValue.[社员识别码]="${q}",CurrentValue.[社员身份编码（认读码）]="${q}",CurrentValue.[社员序号]="${q}")`;
