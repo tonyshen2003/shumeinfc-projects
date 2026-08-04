@@ -1193,25 +1193,23 @@
     var elements = [];
 
     // 活动 + 时长（双列）
-    if (act || dur) {
-      elements.push({
-        tag: "column_set",
-        flex_mode: "bisect",
-        columns: [
-          { tag: "column", width: "weighted", weight: 1,
-            elements: [{ tag: "markdown", content: "📋 活动\n**" + (act || "-") + "**" }] },
-          { tag: "column", width: "weighted", weight: 1,
-            elements: [{ tag: "markdown", content: "⏱ 时长\n**" + (dur || "-") + "**" }] }
-        ]
-      });
-    }
+    elements.push({
+      tag: "column_set",
+      flex_mode: "bisect",
+      columns: [
+        { tag: "column", width: "weighted", weight: 1,
+          elements: [{ tag: "markdown", content: "📋 活动\n**" + (act || "-") + "**" }] },
+        { tag: "column", width: "weighted", weight: 1,
+          elements: [{ tag: "markdown", content: "⏱ 时长\n**" + (dur || "0小时") + "**" }] }
+      ]
+    });
 
     // 成员信息
     var deptLine = [dept, cls].filter(Boolean).join(" · ");
     elements.push({
       tag: "markdown",
-      content: "**" + name + "**  " + memberId + (deptLine ? "\\n" + deptLine : ""),
-      margin: elements.length > 0 ? "8px 0 0 0" : "0"
+      content: "**" + name + "**  " + memberId + (deptLine ? "\n" + deptLine : ""),
+      margin: "8px 0 0 0"
     });
 
     // 审计信息
@@ -1228,7 +1226,7 @@
     }
     elements.push({
       tag: "markdown",
-      content: auditLines.join("\\n"),
+      content: auditLines.join("\n"),
       margin: "8px 0 0 0"
     });
 
