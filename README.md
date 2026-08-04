@@ -54,21 +54,43 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 项目通过 Git 推送到 GitHub 后由 Cloudflare Workers Builds 自动部署。
 
-部署前需在 Cloudflare Dashboard → Workers & Pages → shumeinfc-projects → Settings → Variables 配置：
+部署前需在 Cloudflare Dashboard → Workers & Pages → shumeinfc-projects → Settings → Variables and Secrets 配置：
 
-| 环境变量 | 说明 |
-|---|---|
-| `FEISHU_APP_ID` | 飞书应用 ID |
-| `FEISHU_APP_SECRET` | 飞书应用密钥 |
-| `FEISHU_APP_TOKEN` | 飞书多维表 App Token |
-| `FEISHU_TABLE_ID` | 飞书多维表 ID |
+| 环境变量 | 类型 | 说明 |
+|---|---|---|
+| `FEISHU_APP_ID` | Variable | 飞书应用 ID（已在 wrangler.jsonc 中配置） |
+| `FEISHU_APP_SECRET` | **Secret** | 飞书应用密钥（需手动添加，防止泄露） |
+| `FEISHU_APP_TOKEN` | Variable | 飞书多维表 App Token |
+| `FEISHU_TABLE_ID` | Variable | 飞书多维表 ID |
+
+## 功能详解
+
+### 查询链路
+
+```
+刷卡/扫码 → localStorage 单条缓存 → 离线批量缓存 → Worker API → 飞书多维表
+```
+
+### 飞书通知卡片
+
+签到成功后自动推送飞书群卡片，包含：
+- 活动名称 + 时长（双列布局）
+- 成员姓名、社员号、部门、班级
+- 识别码 + 卡号（审计追溯）
+- GPS 定位 + 高德地图链接（需授权）
+- 聊天列表预览显示「姓名 · 活动名」
+
+### 多卡号
+
+飞书多维表「社员卡号」字段支持 `;` 分隔多个卡号，Worker 使用 `CONTAINS` 匹配。
 
 ## 版本历史
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.3.0** | 2026-08-04 | 升级卡片到 JSON 2.0，新增地理位置、聊天列表摘要、column_set 双列布局 |
 | **1.1.1** | 2026-08-04 | 支持多卡号（分号分隔），Worker 改用 CONTAINS 匹配 |
-| **1.1.0** | 2026-08-04 | 重大重构：数据源从本地 members.js 切换为飞书多维表 API，新增 Worker 后端、离线批量缓存、刷新按钮 |
+| **1.1.0** | 2026-08-04 | 重大重构：数据源从本地 members.js 切换为飞书多维表 API，新增 Worker 后端、离线批量缓存 |
 | **1.0.7** | 2026-07-24 | 重构签到页面 UI，适配 iOS 安全规范 |
 | **1.0.5** | 2026-07-23 | 优化摄像头对焦逻辑，添加降级方案 |
 | **1.0.2** | 2026-07-22 | 更新成员数据与脚本版本 |

@@ -1,5 +1,18 @@
 # 更新日志
 
+## 1.3.0 - 2026-08-04
+- 飞书通知卡片升级为 JSON 2.0 格式
+- 新增地理位置（浏览器 GPS 授权后显示坐标 + 高德地图链接）
+- 活动/时长使用 column_set 双列布局
+- 添加 `config.summary`，聊天列表预览显示「姓名 · 活动名」
+- 按钮改为 2.0 独立 button + behaviors
+- 时长未填时默认显示「0小时」
+- 修复 `divider`/`action` 在 Bot Webhook 2.0 下不兼容的问题
+
+## 1.1.2 - 2026-08-04
+- 修复登记确认时 `pendingMemberExtra` 被 `hideRegisterModal` 提前清空
+- 统一 displayUid 逻辑，`processCardWithMember` 从离线缓存获取识别码
+
 ## 1.1.1 - 2026-08-04
 - 支持多卡号：飞书社员卡号字段可使用 `;` 分隔多个卡号
 - Worker 单条查询改用 `CONTAINS` 子串匹配
