@@ -1209,9 +1209,10 @@
 
     // 成员信息
     var classLine = [generation, cls].filter(Boolean).join("");
+    var subInfo = [dept, classLine].filter(Boolean).join(" · ");
     elements.push({
       tag: "markdown",
-      content: "**" + name + "**  " + memberId + "\n" + ([dept, classLine].filter(Boolean).join(" · ")),
+      content: "**" + name + "**  " + memberId + (subInfo ? "\n" + subInfo : ""),
       margin: "8px 0 0 0"
     });
     elements.push({ tag: "hr", margin: "8px 0 0 0" });
