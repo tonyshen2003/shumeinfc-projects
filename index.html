@@ -1203,6 +1203,7 @@
           elements: [{ tag: "markdown", content: "⏱ 时长\n**" + (dur || "0小时") + "**" }] }
       ]
     });
+    elements.push({ tag: "hr", margin: "8px 0 0 0" });
 
     // 成员信息
     var deptLine = [dept, cls].filter(Boolean).join(" · ");
@@ -1211,18 +1212,17 @@
       content: "**" + name + "**  " + memberId + (deptLine ? "\n" + deptLine : ""),
       margin: "8px 0 0 0"
     });
+    elements.push({ tag: "hr", margin: "8px 0 0 0" });
 
-    // 审计信息
+    // 审计信息 + 位置
     var auditLines = [
       "🔍 识别码：" + readable,
       "💳 卡号：" + uid
     ];
-    // 地理位置
     var pos = await getPosition();
     if (pos) {
-      var lat = pos.coords.latitude.toFixed(4);
-      var lng = pos.coords.longitude.toFixed(4);
-      auditLines.push("📍 " + lat + ", " + lng + "  [查看地图](https://uri.amap.com/marker?position=" + lng + "," + lat + ")");
+      auditLines.push("📍 " + pos.coords.latitude.toFixed(4) + ", " + pos.coords.longitude.toFixed(4) +
+        "  [查看地图](https://uri.amap.com/marker?position=" + pos.coords.longitude.toFixed(4) + "," + pos.coords.latitude.toFixed(4) + ")");
     }
     elements.push({
       tag: "markdown",
