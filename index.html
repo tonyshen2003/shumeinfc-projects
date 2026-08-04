@@ -1245,7 +1245,10 @@
       msg_type: "interactive",
       card: {
         schema: "2.0",
-        config: { width_mode: "compact" },
+        config: {
+          width_mode: "compact",
+          summary: { content: name + " · " + (act || modeLabel) }
+        },
         header: {
           title: { tag: "plain_text", content: title },
           subtitle: { tag: "plain_text", content: modeLabel + "  |  " + timeStr },
