@@ -118,6 +118,7 @@ async function handleMembers(env) {
             idCode: text(f, "社员编号"),
             dept: text(f, "社团部门"),
             cls: text(f, "班级（分班后）"),
+            generation: text(f, "年级"),
             readable: rid,
           };
         }
