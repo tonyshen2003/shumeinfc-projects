@@ -33,6 +33,15 @@ function text(fields, key) {
   return (v && v.text) || "";
 }
 
+/** 按北京时间（Asia/Shanghai, UTC+8）格式化时间，避免 Worker 默认 UTC 显示错误。 */
+function formatChinaTime(date, withSeconds) {
+  const d = new Date(date.getTime() + 8 * 3600 * 1000);
+  const pad = (n) => (n < 10 ? "0" + n : "" + n);
+  const base = d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate()) +
+    " " + pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes());
+  return withSeconds ? base + ":" + pad(d.getUTCSeconds()) : base;
+}
+
 function buildMember(fields) {
   return {
     name: text(fields, "姓名"),
@@ -156,10 +165,7 @@ async function sendFeishuBot(env, opts) {
   const modeLabel = mode === "nfc" ? "📱 NFC 刷卡" : "📷 扫码签到";
   const title = act ? "树莓社签到 · " + act : "树莓社签到";
 
-  const now = new Date();
-  const pad = (n) => (n < 10 ? "0" + n : "" + n);
-  const timeStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) +
-    " " + pad(now.getHours()) + ":" + pad(now.getMinutes());
+  const timeStr = formatChinaTime(new Date(), false);
 
   const elements = [];
   elements.push({
@@ -235,10 +241,7 @@ async function sendFeishuBot(env, opts) {
 
 /** 写 WPS 多维表（从原 index.html submitToWps 迁移）。 */
 async function pushToWps(env, opts) {
-  const now = new Date();
-  const pad = (n) => (n < 10 ? "0" + n : "" + n);
-  const timeStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) +
-    " " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+  const timeStr = formatChinaTime(new Date(), true);
 
   const payload = {
     cardUid: opts.uid,
