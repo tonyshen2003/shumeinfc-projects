@@ -716,6 +716,14 @@
     state.isScanning = true;
   }
 
+  function setButtonQuerying() {
+    btnScan.disabled = true;
+    btnScan.textContent = "查询中…";
+    btnScan.classList.add("scanning");
+    btnScan.classList.remove("error");
+    state.isScanning = true;
+  }
+
   function setButtonError(msg) {
     btnScan.disabled = false;
     btnScan.textContent = msg || "重新刷卡";
@@ -733,18 +741,29 @@
       titleText = "读卡成功";
     }
     elCardTitle.textContent = titleText;
-    var html = '<div class="card-row"><span class="label">' + labelText + '</span><span class="value">' + uid + '</span></div>';
+    var html = '<div class="card-row"><span class="label">' + labelText + '</span><span class="value">' + escapeHtml(uid) + '</span></div>';
     if (cardNo && cardNo !== uid) {
-      html += '<div class="card-row"><span class="label">卡号</span><span class="value">' + cardNo + '</span></div>';
+      html += '<div class="card-row"><span class="label">卡号</span><span class="value">' + escapeHtml(cardNo) + '</span></div>';
     }
     html += '<div class="card-row"><span class="label">时间</span><span class="value">' + formatTime(Date.now()) + '</span></div>';
     if (extra) {
       for (var key in extra) {
-        html += '<div class="card-row"><span class="label">' + key + '</span><span class="value">' + extra[key] + '</span></div>';
+        // 第一行已显示识别码，跳过避免重复
+        if (key === "识别码") continue;
+        html += '<div class="card-row"><span class="label">' + key + '</span><span class="value">' + escapeHtml(extra[key]) + '</span></div>';
       }
     }
     elCardContent.innerHTML = html;
     setTimeout(function() { elStatusCard.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
+  }
+
+  function escapeHtml(str) {
+    return String(str == null ? "" : str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   function showFailCard(msg) {
@@ -1067,6 +1086,7 @@
 
           // 停止扫描
           stopScan();
+          setButtonQuerying();
 
           // API 优先查飞书多维表，本地数据兜底
           var extra = await lookupMemberByUid(uidClean);
