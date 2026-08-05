@@ -13,7 +13,8 @@
   └─ Cloudflare Worker (worker.js)
        ├─ GET /api/member?uid=X  → 飞书多维表实时查询
        ├─ GET /api/member?q=X    → 姓名/编号模糊搜索
-       └─ GET /api/members       → 全量成员数据（供离线缓存）
+       ├─ GET /api/members       → 全量成员数据（供离线缓存）
+       └─ POST /api/checkin      → 签到提交：写 WPS + 发飞书通知
 ```
 
 数据源为飞书多维表（Bitable），通过 Worker 安全代理，凭据存储在 Cloudflare 环境变量中，不暴露到前端。
@@ -62,6 +63,8 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 | `FEISHU_APP_SECRET` | **Secret** | 飞书应用密钥（需手动添加，防止泄露） |
 | `FEISHU_APP_TOKEN` | Variable | 飞书多维表 App Token |
 | `FEISHU_TABLE_ID` | Variable | 飞书多维表 ID |
+| `FEISHU_BOT` | **Secret** | 飞书机器人 Webhook（签到成功群通知） |
+| `WPS_WEBHOOK` | **Secret** | WPS 多维表 Webhook（签到记录写入） |
 
 ## 功能详解
 

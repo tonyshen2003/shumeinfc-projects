@@ -3,6 +3,7 @@
  * GET /api/members              → 返回全部成员（供前端离线缓存）
  * GET /api/member?uid=<卡号>     → 查询飞书多维表
  * GET /api/member?q=<姓名>       → 搜索飞书多维表
+ * POST /api/checkin             → 签到提交（写 WPS + 发飞书通知）
  */
 
 let cachedToken = null;
@@ -46,6 +47,20 @@ function buildMember(fields) {
   };
 }
 
+/** 按卡号/识别码/认读码查询单个社员，查不到返回 null。 */
+async function findMemberByUid(env, uid) {
+  const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
+  const token = await getToken(env);
+  const n = uid.trim().toUpperCase().replace(/:/g, "");
+  const filter = `OR(CurrentValue.[社员卡号].CONTAINS("${n}"),CurrentValue.[社员识别码]="${n}",CurrentValue.[社员身份编码（认读码）]="${n}")`;
+  const apiURL = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?filter=${encodeURIComponent(filter)}&page_size=1`;
+  const resp = await fetch(apiURL, { headers: { Authorization: `Bearer ${token}` } });
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  if (data.code !== 0 || !data.data?.items?.length) return null;
+  return buildMember(data.data.items[0].fields);
+}
+
 async function handleMember(request, env) {
   const url = new URL(request.url);
   const uid = url.searchParams.get("uid");
@@ -56,16 +71,14 @@ async function handleMember(request, env) {
   if (!FEISHU_APP_ID) return Response.json({ found: false }, { status: 500 });
 
   try {
-    const token = await getToken(env);
-    let filter;
     if (uid) {
-      const n = uid.trim().toUpperCase().replace(/:/g, "");
-      filter = `OR(CurrentValue.[社员卡号].CONTAINS("${n}"),CurrentValue.[社员识别码]="${n}",CurrentValue.[社员身份编码（认读码）]="${n}")`;
-    } else {
-      const q = query.trim();
-      filter = `OR(CurrentValue.[姓名]="${q}",CurrentValue.[别名]="${q}",CurrentValue.[社员编号]="${q}",CurrentValue.[社员识别码]="${q}",CurrentValue.[社员身份编码（认读码）]="${q}",CurrentValue.[社员序号]="${q}")`;
+      const member = await findMemberByUid(env, uid);
+      return member ? Response.json({ found: true, member }) : Response.json({ found: false });
     }
 
+    const token = await getToken(env);
+    const q = query.trim();
+    const filter = `OR(CurrentValue.[姓名]="${q}",CurrentValue.[别名]="${q}",CurrentValue.[社员编号]="${q}",CurrentValue.[社员识别码]="${q}",CurrentValue.[社员身份编码（认读码）]="${q}",CurrentValue.[社员序号]="${q}")`;
     const apiURL = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?filter=${encodeURIComponent(filter)}&page_size=1`;
     const resp = await fetch(apiURL, { headers: { Authorization: `Bearer ${token}` } });
     if (!resp.ok) return Response.json({ found: false }, { status: 502 });
@@ -76,6 +89,173 @@ async function handleMember(request, env) {
   } catch (e) {
     return Response.json({ found: false }, { status: 500 });
   }
+}
+
+// ============================================================
+// [API] 签到提交：写 WPS 多维表 + 发飞书机器人通知
+// POST /api/checkin  body: { uid, mode, activity, duration, lat, lng, name }
+// ============================================================
+async function handleCheckin(request, env) {
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return Response.json({ ok: false, error: "invalid json" }, { status: 400 });
+  }
+
+  const uid = String(body.uid || "").trim().toUpperCase().replace(/:/g, "");
+  if (!uid) return Response.json({ ok: false, error: "missing uid" }, { status: 400 });
+
+  const activity = String(body.activity || "").trim();
+  const duration = String(body.duration || "").trim();
+  const mode = body.mode === "qr" ? "qr" : "nfc";
+  const lat = Number.isFinite(body.lat) ? body.lat : null;
+  const lng = Number.isFinite(body.lng) ? body.lng : null;
+
+  // 1. 服务端按 uid 重新查人（不信任前端传的成员信息）；
+  //    查不到时（新卡登记场景）用前端兜底姓名。
+  let member = null;
+  try {
+    member = await findMemberByUid(env, uid);
+  } catch (e) {
+    member = null;
+  }
+  const name = (member && member.name) || String(body.name || "").trim() || "未知";
+
+  // 2. 飞书群通知（失败不阻塞返回，记日志）
+  if (env.FEISHU_BOT) {
+    try {
+      await sendFeishuBot(env, { uid, name, mode, activity, duration, lat, lng, member });
+    } catch (e) {
+      console.log("[checkin] Feishu bot send failed:", e.message);
+    }
+  }
+
+  // 3. 写 WPS 多维表（失败不阻塞返回，记日志）
+  if (env.WPS_WEBHOOK) {
+    try {
+      await pushToWps(env, { uid, name, activity, duration, member });
+    } catch (e) {
+      console.log("[checkin] WPS push failed:", e.message);
+    }
+  }
+
+  return Response.json({ ok: true, member });
+}
+
+/** 发飞书机器人 2.0 卡片（从原 index.html sendToFeishuBot 迁移，GPS 由前端传入）。 */
+async function sendFeishuBot(env, opts) {
+  const { uid, name, mode, activity, duration, lat, lng, member } = opts;
+  const memberId = (member && (member.idCode || member.memberSeq)) || "-";
+  const dept = (member && member.department) || "";
+  const cls = (member && member.className) || "";
+  const generation = (member && member.generation) || "";
+  const readable = (member && member.readableCode) || uid;
+  const act = activity || "";
+  const dur = duration || "";
+  const modeLabel = mode === "nfc" ? "📱 NFC 刷卡" : "📷 扫码签到";
+  const title = act ? "树莓社签到 · " + act : "树莓社签到";
+
+  const now = new Date();
+  const pad = (n) => (n < 10 ? "0" + n : "" + n);
+  const timeStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) +
+    " " + pad(now.getHours()) + ":" + pad(now.getMinutes());
+
+  const elements = [];
+  elements.push({
+    tag: "column_set",
+    flex_mode: "bisect",
+    columns: [
+      { tag: "column", width: "weighted", weight: 1,
+        elements: [{ tag: "markdown", content: "📋 活动\n**" + (act || "-") + "**" }] },
+      { tag: "column", width: "weighted", weight: 1,
+        elements: [{ tag: "markdown", content: "⏱ 时长\n**" + (dur || "0小时") + "**" }] }
+    ]
+  });
+  elements.push({ tag: "hr", margin: "8px 0 0 0" });
+
+  const classLine = [generation, cls].filter(Boolean).join("");
+  const subInfo = [dept, classLine].filter(Boolean).join(" · ");
+  elements.push({
+    tag: "markdown",
+    content: "**" + name + "**  " + memberId + (subInfo ? "\n" + subInfo : ""),
+    margin: "8px 0 0 0"
+  });
+  elements.push({ tag: "hr", margin: "8px 0 0 0" });
+
+  const auditLines = ["🔍 识别码：" + readable, "💳 卡号：" + uid];
+  if (lat != null && lng != null) {
+    auditLines.push("📍 " + lat.toFixed(4) + ", " + lng.toFixed(4) +
+      "  [查看地图](https://uri.amap.com/marker?position=" + lng.toFixed(4) + "," + lat.toFixed(4) + ")");
+  }
+  elements.push({
+    tag: "markdown",
+    content: auditLines.join("\n"),
+    margin: "8px 0 0 0"
+  });
+  elements.push({
+    tag: "button",
+    text: { tag: "plain_text", content: "📊 查看签到记录" },
+    type: "primary",
+    width: "fill",
+    size: "medium",
+    behaviors: [{ type: "open_url", default_url: "https://szzxshumei.feishu.cn/share/base/view/shrcnkvV0PaPSTcQj7FnDXFw2If" }],
+    margin: "8px 0 0 0"
+  });
+
+  const card = {
+    msg_type: "interactive",
+    card: {
+      schema: "2.0",
+      config: {
+        width_mode: "compact",
+        summary: { content: name + " · " + (act || modeLabel) }
+      },
+      header: {
+        title: { tag: "plain_text", content: title },
+        subtitle: { tag: "plain_text", content: modeLabel + "  |  " + timeStr },
+        template: "blue",
+        padding: "12px 12px 12px 12px"
+      },
+      body: {
+        direction: "vertical",
+        padding: "12px 12px 8px 12px",
+        elements
+      }
+    }
+  };
+
+  const resp = await fetch(env.FEISHU_BOT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(card)
+  });
+  return resp.text();
+}
+
+/** 写 WPS 多维表（从原 index.html submitToWps 迁移）。 */
+async function pushToWps(env, opts) {
+  const now = new Date();
+  const pad = (n) => (n < 10 ? "0" + n : "" + n);
+  const timeStr = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) +
+    " " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+
+  const payload = {
+    cardUid: opts.uid,
+    timestamp: timeStr,
+    userName: opts.name || "",
+    department: (opts.member && opts.member.department) || "",
+    className: (opts.member && opts.member.className) || "",
+    activity: opts.activity || "",
+    duration: opts.duration || ""
+  };
+
+  const resp = await fetch(env.WPS_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  return resp.status;
 }
 
 async function handleMembers(env) {
@@ -139,6 +319,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/api/members") return handleMembers(env);
     if (url.pathname === "/api/member") return handleMember(request, env);
+    if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env);
     return env.ASSETS.fetch(request);
   },
 };
