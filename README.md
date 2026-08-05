@@ -14,6 +14,7 @@
        ├─ GET /api/member?uid=X  → 飞书多维表实时查询
        ├─ GET /api/member?q=X    → 姓名/编号模糊搜索
        ├─ GET /api/members       → 全量成员数据（供离线缓存）
+       ├─ GET /api/members/full  → 全量原始记录（含 record_id，供 App 快照）
        └─ POST /api/checkin      → 签到提交：写 WPS + 发飞书通知
 ```
 

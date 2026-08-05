@@ -1,6 +1,7 @@
 /**
  * Cloudflare Worker — 静态站点 + 成员查询 API
  * GET /api/members              → 返回全部成员（供前端离线缓存）
+ * GET /api/members/full         → 返回全部成员原始记录（含 record_id，供 App 本地快照）
  * GET /api/member?uid=<卡号>     → 查询飞书多维表
  * GET /api/member?q=<姓名>       → 搜索飞书多维表
  * POST /api/checkin             → 签到提交（写 WPS + 发飞书通知）
@@ -317,10 +318,46 @@ async function handleMembers(env) {
   }
 }
 
+// ============================================================
+// [API] 全量成员快照：分页拉取原始记录（含 record_id）
+// 供 DeepMei App 本地缓存 24h，查询先命中快照再走在线 API。
+// ============================================================
+async function handleMembersFull(env) {
+  if (!env.FEISHU_APP_ID) return Response.json({ error: "Missing env vars" }, { status: 500 });
+  try {
+    const token = await getToken(env);
+    const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
+    const base = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?page_size=500`;
+    const items = [];
+    let pageToken = null;
+
+    do {
+      let url = base;
+      if (pageToken) url += `&page_token=${pageToken}`;
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!resp.ok) break;
+      const data = await resp.json();
+      if (data.code !== 0) break;
+
+      for (const item of data.data?.items || []) {
+        items.push({ recordId: item.record_id, fields: item.fields });
+      }
+      pageToken = data.data?.page_token || null;
+    } while (pageToken);
+
+    return Response.json({ updatedAt: Date.now(), items }, {
+      headers: { "Cache-Control": "public, max-age=3600" },
+    });
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500 });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/members") return handleMembers(env);
+    if (url.pathname === "/api/members/full") return handleMembersFull(env);
     if (url.pathname === "/api/member") return handleMember(request, env);
     if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env);
     return env.ASSETS.fetch(request);

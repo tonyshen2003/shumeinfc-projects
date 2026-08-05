@@ -1,5 +1,8 @@
 # 更新日志
 
+## 1.5.0 - 2026-08-05
+- 新增 `GET /api/members/full`：分页返回全量成员原始记录（含 record_id），供 DeepMei App 本地快照缓存
+
 ## 1.4.0 - 2026-08-05
 - 签到提交迁移到 Worker：新增 `POST /api/checkin`，统一负责写 WPS 多维表 + 发飞书机器人通知
 - 前端不再持有 WPS / 飞书机器人 webhook 地址，改为 Cloudflare 环境变量 `WPS_WEBHOOK`、`FEISHU_BOT`
