@@ -34,6 +34,28 @@ function text(fields, key) {
   return (v && v.text) || "";
 }
 
+/** 社团职务为多选字段，统一用 " / " 分隔（与 DeepMei App 快照格式一致）。 */
+function positionText(fields) {
+  const v = fields["社团职务"];
+  if (v == null) return "";
+  if (typeof v === "string" || typeof v === "number") return String(v);
+  if (Array.isArray(v)) return v.map(i => (i && i.text) || String(i || "")).filter(Boolean).join(" / ");
+  return (v && v.text) || "";
+}
+
+/** 入社日期（毫秒时间戳或日期字符串）→ 只取年份（按北京时间，避免跨年偏移）。 */
+function joinYear(fields) {
+  const raw = text(fields, "入社日期");
+  if (!raw) return "";
+  const n = Number(raw);
+  if (raw.trim() !== "" && Number.isFinite(n)) {
+    const d = new Date((n > 10000000000 ? n : n * 1000) + 8 * 3600 * 1000);
+    return String(d.getUTCFullYear());
+  }
+  const m = String(raw).match(/^(\d{4})/);
+  return m ? m[1] : "";
+}
+
 /** 按北京时间（Asia/Shanghai, UTC+8）格式化时间，避免 Worker 默认 UTC 显示错误。 */
 function formatChinaTime(date, withSeconds) {
   const d = new Date(date.getTime() + 8 * 3600 * 1000);
@@ -54,21 +76,46 @@ function buildMember(fields) {
     cardId: text(fields, "社员卡号"),
     readableCode: text(fields, "社员身份编码（认读码）"),
     memberSeq: text(fields, "社员序号"),
+    position: positionText(fields),
+    joinYear: joinYear(fields),
   };
 }
 
-/** 按卡号/识别码/认读码查询单个社员，查不到返回 null。 */
+/**
+ * 按卡号/识别码/认读码查询单个社员，查不到返回 null。
+ * 卡号字段支持 ";" 分隔多张卡：先用 CONTAINS 粗筛，再在 JS 侧按分号做整卡号精确匹配，
+ * 避免短卡号作为子串误命中其他成员的长卡号。
+ */
 async function findMemberByUid(env, uid) {
   const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
   const token = await getToken(env);
   const n = uid.trim().toUpperCase().replace(/:/g, "");
   const filter = `OR(CurrentValue.[社员卡号].CONTAINS("${n}"),CurrentValue.[社员识别码]="${n}",CurrentValue.[社员身份编码（认读码）]="${n}")`;
-  const apiURL = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?filter=${encodeURIComponent(filter)}&page_size=1`;
-  const resp = await fetch(apiURL, { headers: { Authorization: `Bearer ${token}` } });
-  if (!resp.ok) return null;
-  const data = await resp.json();
-  if (data.code !== 0 || !data.data?.items?.length) return null;
-  return buildMember(data.data.items[0].fields);
+  const base = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?filter=${encodeURIComponent(filter)}&page_size=500`;
+  let pageToken = null;
+
+  do {
+    let url = base;
+    if (pageToken) url += `&page_token=${pageToken}`;
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data.code !== 0 || !data.data?.items?.length) return null;
+
+    for (const item of data.data.items) {
+      const f = item.fields;
+      const cards = (text(f, "社员卡号") || "")
+        .split(";").map(s => s.trim().toUpperCase());
+      const barcode = text(f, "社员识别码").toUpperCase();
+      const readable = text(f, "社员身份编码（认读码）").toUpperCase();
+      if (cards.includes(n) || barcode === n || readable === n) {
+        return buildMember(f);
+      }
+    }
+    pageToken = data.data?.page_token || null;
+  } while (pageToken);
+
+  return null;
 }
 
 async function handleMember(request, env) {

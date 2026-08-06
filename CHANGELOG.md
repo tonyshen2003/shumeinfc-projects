@@ -1,5 +1,9 @@
 # 更新日志
 
+## 1.6.0 - 2026-08-07
+- `GET /api/member` 返回字段补齐 `position`（社团职务）与 `joinYear`（入社年份），与 DeepMei App 快照字段对齐
+- 卡号匹配改为「CONTAINS 粗筛 + JS 侧整卡号精确匹配」，避免短卡号子串误命中其他成员的长卡号
+
 ## 1.5.0 - 2026-08-05
 - 新增 `GET /api/members/full`：分页返回全量成员原始记录（含 record_id），供 DeepMei App 本地快照缓存
 
