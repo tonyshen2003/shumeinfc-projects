@@ -152,7 +152,7 @@ async function handleMember(request, env) {
 // [API] 签到提交：写 WPS 多维表 + 发飞书机器人通知
 // POST /api/checkin  body: { uid, mode, activity, duration, lat, lng, name }
 // ============================================================
-async function handleCheckin(request, env) {
+async function handleCheckin(request, env, ctx) {
   let body;
   try {
     body = await request.json();
@@ -179,22 +179,18 @@ async function handleCheckin(request, env) {
   }
   const name = (member && member.name) || String(body.name || "").trim() || "未知";
 
-  // 2. 飞书群通知（失败不阻塞返回，记日志）
+  // 2+3. 飞书群通知 + WPS 写入放后台异步执行,不阻塞签到返回(签到秒回)
   if (env.FEISHU_BOT) {
-    try {
-      await sendFeishuBot(env, { uid, name, mode, activity, duration, lat, lng, member });
-    } catch (e) {
-      console.log("[checkin] Feishu bot send failed:", e.message);
-    }
+    ctx.waitUntil(
+      sendFeishuBot(env, { uid, name, mode, activity, duration, lat, lng, member })
+        .catch((e) => console.log("[checkin] Feishu bot send failed:", e.message))
+    );
   }
-
-  // 3. 写 WPS 多维表（失败不阻塞返回，记日志）
   if (env.WPS_WEBHOOK) {
-    try {
-      await pushToWps(env, { uid, name, activity, duration, member });
-    } catch (e) {
-      console.log("[checkin] WPS push failed:", e.message);
-    }
+    ctx.waitUntil(
+      pushToWps(env, { uid, name, activity, duration, member })
+        .catch((e) => console.log("[checkin] WPS push failed:", e.message))
+    );
   }
 
   return Response.json({ ok: true, member });
@@ -401,12 +397,12 @@ async function handleMembersFull(env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === "/api/members") return handleMembers(env);
     if (url.pathname === "/api/members/full") return handleMembersFull(env);
     if (url.pathname === "/api/member") return handleMember(request, env);
-    if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env);
+    if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env, ctx);
     return env.ASSETS.fetch(request);
   },
 };
