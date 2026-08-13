@@ -1,24 +1,37 @@
-# 树莓社活动签到系统
+# 树莓社活动签到系统（shumeinfc-projects）
 
-树莓社（苏州中学）的 NFC 刷卡 + 二维码扫码签到 H5 应用，部署于 Cloudflare Workers 边缘网络。
+树莓社（苏州中学）的 NFC 刷卡 + 二维码扫码签到 H5 应用 + 社员数据 API，部署于 Cloudflare Workers 边缘网络。
+核心是**对飞书多维表（Bitable）的安全代理**：凭据只在 Worker 端，并对社员数据做 **KV 缓存**，避免频繁、慢速地实时访问飞书。
 
 ## 架构
 
 ```
-浏览器 (index.html)
-  ├─ localStorage 缓存层（毫秒级）
-  │    ├─ 单条登记缓存 (shumei_card_members)
-  │    └─ 批量离线缓存 (shumei_member_cache) · 24h TTL
-  │
-  └─ Cloudflare Worker (worker.js)
-       ├─ GET /api/member?uid=X  → 飞书多维表实时查询
-       ├─ GET /api/member?q=X    → 姓名/编号模糊搜索
-       ├─ GET /api/members       → 全量成员数据（供离线缓存）
-       ├─ GET /api/members/full  → 全量原始记录（含 record_id，供 App 快照）
-       └─ POST /api/checkin      → 签到提交：写 WPS + 发飞书通知
+┌─ 浏览器 H5 (index.html) ──────────────────────────┐
+│  localStorage 缓存层（毫秒级）：单条登记缓存 + 24h 批量离线缓存 │
+└──────────────┬──────────────────────────────────┘
+               ▼
+┌─ Cloudflare Worker (worker.js) ────────────────────────────┐
+│  读接口 → KV 缓存（秒回，几乎不碰飞书）                       │
+│    GET /api/members/full     全量原始记录（App 快照用）       │
+│    GET /api/members/detail   单人脱敏档案（网页用）           │
+│    GET /api/members          卡号/识别码/姓名映射            │
+│    GET /api/member           uid/q 查人（KV 优先+实时兜底）   │
+│  写/实时接口 → 直接飞书                                      │
+│    POST /api/checkin         签到：写 WPS + 发飞书通知       │
+│  触发刷新接口                                                │
+│    POST /api/refresh         拉全量写 KV（飞书自动化调用）     │
+└──────────────┬──────────────────────────────────────────┘
+               │
+        KV（SHUMEI_KV）
+          ├─ members_full     社员全量快照
+          └─ last_refresh_at  refresh 冷却时间戳
+               ▲
+               │ Cron（每小时第 30 分钟）自动拉全量写 KV（兜底）
+               │ 飞书自动化「记录变更 → HTTP」触发 refresh（即时）
+               │
+┌─ 飞书多维表（Bitable）── 唯一数据源 ─┐
+└─────────────────────────────────┘
 ```
-
-数据源为飞书多维表（Bitable），通过 Worker 安全代理，凭据存储在 Cloudflare 环境变量中，不暴露到前端。
 
 ## 功能
 
@@ -28,13 +41,50 @@
 - **新卡登记** — 未匹配卡片弹窗输入姓名，关联后自动缓存
 - **飞书通知** — 签到成功自动推送飞书机器人卡片消息
 - **WPS 同步** — 签到记录同步写入 WPS 多维表
+- **社员数据 KV 缓存** — 读接口秒回，飞书只被 Cron / 手动触发访问，防慢速与配额
+
+## 接口清单
+
+| 方法 | 路径 | 数据源 | 说明 |
+|---|---|---|---|
+| GET | `/api/members/full` | KV 缓存 | 全量原始记录（含 `record_id`），供 App 本地快照缓存 |
+| GET | `/api/members/detail?code=<识别码>` | KV 缓存 | 单人**脱敏**完整档案（不含登录密码/QQ/电话/身份证/卡号等），供网页 |
+| GET | `/api/members` | KV 缓存 | 卡号/识别码/姓名 → 成员信息映射 |
+| GET | `/api/member?uid=<卡号>` | KV 优先+实时兜底 | 按卡号/识别码/认读码查人（签到用） |
+| GET | `/api/member?q=<姓名>` | KV 优先+实时兜底 | 姓名/别名/编号/识别码/序号搜索 |
+| POST | `/api/checkin` | 实时（写） | 签到提交：服务端重新查人 + 写 WPS + 发飞书通知 |
+| POST | `/api/refresh` | 触发写 KV | 拉飞书全量写 KV，供飞书自动化调用（需鉴权） |
+
+> 读接口（前 4 个）全部 **KV 优先**：命中快照直接返回；KV 为空（首次/被清）时自动实时拉飞书并回填 KV。
+> `/api/member` 的实时兜底用于「刚登记、快照未刷新」的新卡场景，保证签到不失败。
+
+## 缓存机制
+
+### 存储
+
+KV 命名空间 `SHUMEI_KV`（绑定名 `SHUMEI_KV`），两个 key：
+
+| key | 内容 |
+|---|---|
+| `members_full` | 社员全量快照：`{ updatedAt, items: [{ recordId, fields }] }` |
+| `last_refresh_at` | 最近一次 refresh 的时间戳（毫秒），用于冷却 |
+
+### 数据如何刷新
+
+1. **Cron 兜底**：每小时第 30 分钟（`30 * * * *`）拉一次飞书全量写 KV。保证即使没人触发，数据也不陈旧超过 1 小时。
+2. **飞书自动化触发（即时）**：在飞书多维表格里配置自动化「记录变更 → 发送 HTTP 请求」，数据一改就调 `POST /api/refresh`，秒级更新 KV。
+3. **冷启动自愈**：任一读接口遇到 KV 为空时，自动实时拉飞书并回填 KV。
+
+### refresh 鉴权与冷却
+
+`POST /api/refresh` 需要 `Authorization: Bearer <REFRESH_TOKEN>`（或 `?token=`）。带 **30 秒冷却**（用 KV 存时间戳，跨实例一致），防止自动化频繁触发打爆飞书。
 
 ## 项目结构
 
 ```
 ├── index.html          # 主页面（样式 + 交互 + 逻辑）
-├── worker.js           # Cloudflare Worker（API 代理 + 静态资源）
-├── wrangler.jsonc      # Wrangler 部署配置
+├── worker.js           # Cloudflare Worker（API 代理 + KV 缓存 + 静态资源）
+├── wrangler.jsonc      # Wrangler 部署配置（KV 绑定 / Cron / routes）
 ├── .wranglerignore     # 部署排除规则
 ├── start.sh            # 本地开发启动脚本
 ├── public/
@@ -54,9 +104,11 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 ## 部署
 
-项目通过 Git 推送到 GitHub 后由 Cloudflare Workers Builds 自动部署。
+项目通过 **Git 推送到 GitHub 后由 Cloudflare Workers Builds 自动部署**。无需本地 wrangler。
 
-部署前需在 Cloudflare Dashboard → Workers & Pages → shumeinfc-projects → Settings → Variables and Secrets 配置：
+### 部署前配置（Cloudflare Dashboard → Workers & Pages → shumeinfc-projects → 设置）
+
+**环境变量 / 机密：**
 
 | 环境变量 | 类型 | 说明 |
 |---|---|---|
@@ -66,13 +118,32 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 | `FEISHU_TABLE_ID` | Variable | 飞书多维表 ID |
 | `FEISHU_BOT` | **Secret** | 飞书机器人 Webhook（签到成功群通知） |
 | `WPS_WEBHOOK` | **Secret** | WPS 多维表 Webhook（签到记录写入） |
+| `REFRESH_TOKEN` | **Secret** | `/api/refresh` 鉴权 token（自己生成的长随机串） |
+
+**KV 命名空间：** 需在 Dashboard 创建（如 `shumei-members`），把 Namespace ID 填入 `wrangler.jsonc` 的 `kv_namespaces[0].id`。
+
+**routes / Cron：** 已写在 `wrangler.jsonc`（自定义域名 `nfc.raspjam.com`、Cron `30 * * * *`），与远程一致。
+
+> ⚠️ **注意**：`wrangler.jsonc` 里的 `routes` 必须保留 `nfc.raspjam.com` 自定义域名绑定，否则 deploy 会用本地配置覆盖远程、丢失域名。Cron 表达式分钟字段范围是 0-59（`*/60` 非法）。
+
+### 飞书自动化配置（数据变更 → 即时刷新 KV）
+
+在飞书多维表格 → **自动化** → 新建：
+
+1. **触发条件**：记录被创建时 / 记录字段更新时 / 记录被删除时
+2. **动作**：发送 HTTP 请求
+   - 方法：`POST`
+   - URL：`https://nfc.raspjam.com/api/refresh`
+   - 请求头：`Authorization: Bearer <REFRESH_TOKEN>`
+
+保存后，表格里每新增/修改/删除一条社员记录，都会触发 Worker 刷新 KV，网页与 App 秒级看到最新数据。
 
 ## 功能详解
 
 ### 查询链路
 
 ```
-刷卡/扫码 → localStorage 单条缓存 → 离线批量缓存 → Worker API → 飞书多维表
+刷卡/扫码 → localStorage 单条缓存 → 离线批量缓存 → Worker（KV 缓存 → 兜底飞书）
 ```
 
 ### 飞书通知卡片
@@ -86,31 +157,21 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 ### 多卡号
 
-飞书多维表「社员卡号」字段支持 `;` 分隔多个卡号，Worker 使用 `CONTAINS` 匹配。
+飞书多维表「社员卡号」字段支持 `;` 分隔多个卡号。查询时 Worker 先用 `CONTAINS` 粗筛，再在 JS 侧按分号做整卡号精确匹配，避免短卡号作为子串误命中其他成员的长卡号。
 
 ## 版本历史
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.7.0** | 2026-08-13 | 社员数据 KV 缓存：读接口 KV 优先、Cron 每小时兜底、`/api/refresh` 触发刷新、`/api/members/detail` 单人脱敏档案 |
+| **1.6.0** | 2026-08-07 | `/api/member` 补齐 `position` 与 `joinYear`，卡号整卡精确匹配 |
+| **1.5.0** | 2026-08-05 | 新增 `/api/members/full` 全量快照（App 本地缓存） |
+| **1.4.0** | 2026-08-05 | 签到提交迁移到 Worker：`POST /api/checkin`，统一写 WPS + 发飞书通知 |
 | **1.3.0** | 2026-08-04 | 升级卡片到 JSON 2.0，新增地理位置、聊天列表摘要、column_set 双列布局 |
 | **1.1.1** | 2026-08-04 | 支持多卡号（分号分隔），Worker 改用 CONTAINS 匹配 |
 | **1.1.0** | 2026-08-04 | 重大重构：数据源从本地 members.js 切换为飞书多维表 API，新增 Worker 后端、离线批量缓存 |
 | **1.0.7** | 2026-07-24 | 重构签到页面 UI，适配 iOS 安全规范 |
-| **1.0.5** | 2026-07-23 | 优化摄像头对焦逻辑，添加降级方案 |
-| **1.0.2** | 2026-07-22 | 更新成员数据与脚本版本 |
-| **1.0.1** | 2026-07-23 | 新增版本号显示、README 和 CHANGELOG |
 | **1.0.0** | 2026-07-22 | 项目初始化：NFC 签到、扫码签到、本地缓存、飞书/WPS 推送 |
-
-## 多卡号支持
-
-飞书多维表的「社员卡号」字段支持用分号分隔多个卡号：
-
-```
-0430ACC3100389;04932421CE2A81;21D6E774
-```
-
-查询时 Worker 先用 `CONTAINS` 粗筛，再在 JS 侧按分号做整卡号精确匹配，任意一张卡均能命中，
-同时避免短卡号作为子串误命中其他成员的长卡号。
 
 ## 兼容性
 
@@ -122,4 +183,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 ## 维护
 
-修改功能后请同步更新 `index.html` 中的 `APP_VERSION` 和 `APP_UPDATED_AT`。
+- 修改功能后请同步更新 `index.html` 中的 `APP_VERSION` 和 `APP_UPDATED_AT`。
+- 改动 Worker 后推 GitHub 即可自动部署；**注意不要动 `wrangler.jsonc` 里的 routes / KV 绑定 / Cron**，否则可能影响自定义域名或缓存同步。
+- 若改了缓存数据结构（如 `members_full` 的 schema），记得把 `getSnapshot` 读取的 key 或格式一并调整，避免旧缓存数据不兼容。
+- 排查问题：Cloudflare Dashboard → Workers → shumeinfc-projects → **实时日志**，可看到 `/api/refresh` 的 401 / 200 / 429 记录。
