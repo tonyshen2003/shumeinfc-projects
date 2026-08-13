@@ -14,7 +14,7 @@
     { "binding": "SHUMEI_KV", "id": "f923c5988e4a4cbdbbceb0c4b35028e8" }
   ],
   "triggers": {
-    "crons": ["*/30 * * * *"]
+    "crons": ["*/60 * * * *"]
   }
 }
 

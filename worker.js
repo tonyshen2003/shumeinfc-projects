@@ -5,6 +5,7 @@
  * GET /api/member?uid=<卡号>     → 查询飞书多维表
  * GET /api/member?q=<姓名>       → 搜索飞书多维表
  * POST /api/checkin             → 签到提交（写 WPS + 发飞书通知）
+ * POST /api/refresh             → 触发刷新（飞书自动化 HTTP 调用，拉全量写 KV）
  */
 
 let cachedToken = null;
@@ -455,6 +456,35 @@ async function handleMemberDetail(request, env) {
   }
 }
 
+// ============================================================
+// [API] 触发刷新：拉飞书全量 → 写 KV（供飞书自动化「发送 HTTP 请求」调用）
+// POST /api/refresh  鉴权：Authorization: Bearer <REFRESH_TOKEN> 或 ?token=
+// 带 30 秒冷却，防止自动化频繁触发打爆飞书。（冷却为尽力而为，跨实例不严格一致）
+// ============================================================
+let lastRefreshAt = 0;
+const REFRESH_COOLDOWN_MS = 30 * 1000;
+
+async function handleRefresh(request, env) {
+  const url = new URL(request.url);
+  const auth = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  const token = auth || url.searchParams.get("token") || "";
+  if (!env.REFRESH_TOKEN || token !== env.REFRESH_TOKEN) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  const now = Date.now();
+  if (now - lastRefreshAt < REFRESH_COOLDOWN_MS) {
+    return Response.json({ ok: false, error: "cooldown" }, { status: 429 });
+  }
+  try {
+    const snap = await fetchFullFromFeishu(env);
+    await env.SHUMEI_KV.put(KV_KEY, JSON.stringify(snap));
+    lastRefreshAt = Date.now();
+    return Response.json({ ok: true, updatedAt: snap.updatedAt, items: snap.items.length });
+  } catch (e) {
+    return Response.json({ ok: false, error: e.message }, { status: 500 });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -462,6 +492,7 @@ export default {
     if (url.pathname === "/api/members/full") return handleMembersFull(env);
     if (url.pathname === "/api/members/detail") return handleMemberDetail(request, env);
     if (url.pathname === "/api/member") return handleMember(request, env);
+    if (url.pathname === "/api/refresh" && request.method === "POST") return handleRefresh(request, env);
     if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env, ctx);
     return env.ASSETS.fetch(request);
   },
