@@ -306,55 +306,40 @@ async function pushToWps(env, opts) {
 }
 
 async function handleMembers(env) {
+  if (!env.SHUMEI_KV) return Response.json({ error: "Missing KV binding" }, { status: 500 });
   if (!env.FEISHU_APP_ID) return Response.json({ error: "Missing env vars" }, { status: 500 });
   try {
-    const token = await getToken(env);
-    const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
-    const base = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?page_size=500`;
-
+    const snap = await getSnapshot(env);
     const cardMap = {};
     const barcodeMap = {};
     const infoMap = {};
-    let pageToken = null;
-
-    do {
-      let url = base;
-      if (pageToken) url += `&page_token=${pageToken}`;
-      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!resp.ok) break;
-      const data = await resp.json();
-      if (data.code !== 0) break;
-
-      for (const item of data.data?.items || []) {
-        const f = item.fields;
-        const name = text(f, "姓名");
-        if (!name) continue;
-        const cid = text(f, "社员卡号");
-        const bid = text(f, "社员识别码");
-        const rid = text(f, "社员身份编码（认读码）");
-        if (cid) {
-          cid.split(";").forEach(function(id) {
-            var trimmed = id.trim();
-            if (trimmed) cardMap[trimmed] = name;
-          });
-        }
-        if (bid) barcodeMap[bid] = name;
-        if (rid) barcodeMap[rid] = name;
-        if (!infoMap[name]) {
-          infoMap[name] = {
-            idCode: text(f, "社员编号"),
-            dept: text(f, "社团部门"),
-            cls: text(f, "班级（分班后）"),
-            generation: text(f, "年级"),
-            readable: rid,
-          };
-        }
+    for (const item of snap.items) {
+      const f = item.fields;
+      const name = text(f, "姓名");
+      if (!name) continue;
+      const cid = text(f, "社员卡号");
+      const bid = text(f, "社员识别码");
+      const rid = text(f, "社员身份编码（认读码）");
+      if (cid) {
+        cid.split(";").forEach(function(id) {
+          var trimmed = id.trim();
+          if (trimmed) cardMap[trimmed] = name;
+        });
       }
-      pageToken = data.data?.page_token || null;
-    } while (pageToken);
-
-    return Response.json({ updatedAt: Date.now(), cardMap, barcodeMap, infoMap }, {
-      headers: { "Cache-Control": "public, max-age=3600" },
+      if (bid) barcodeMap[bid] = name;
+      if (rid) barcodeMap[rid] = name;
+      if (!infoMap[name]) {
+        infoMap[name] = {
+          idCode: text(f, "社员编号"),
+          dept: text(f, "社团部门"),
+          cls: text(f, "班级（分班后）"),
+          generation: text(f, "年级"),
+          readable: rid,
+        };
+      }
+    }
+    return Response.json({ updatedAt: snap.updatedAt, cardMap, barcodeMap, infoMap }, {
+      headers: { "Cache-Control": "public, max-age=60" },
     });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
@@ -362,34 +347,54 @@ async function handleMembers(env) {
 }
 
 // ============================================================
-// [API] 全量成员快照：分页拉取原始记录（含 record_id）
-// 供 DeepMei App 本地缓存 24h，查询先命中快照再走在线 API。
+// [KV] 社员快照缓存：定时同步飞书 → KV，读接口优先走 KV
+// 减少对飞书 Bitable 的实时访问（飞书慢/有配额限制）
+// ============================================================
+const KV_KEY = "members_full";
+
+/** 从飞书分页拉取全量原始记录（含 record_id）。 */
+async function fetchFullFromFeishu(env) {
+  const token = await getToken(env);
+  const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
+  const items = [];
+  let pageToken = null;
+
+  do {
+    let url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?page_size=500`;
+    if (pageToken) url += `&page_token=${pageToken}`;
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (data.code !== 0) throw new Error(`code=${data.code}`);
+    for (const item of data.data?.items || []) items.push({ recordId: item.record_id, fields: item.fields });
+    pageToken = data.data?.page_token || null;
+  } while (pageToken);
+
+  return { updatedAt: Date.now(), items };
+}
+
+/** 读 KV 快照；未命中或为空时实时拉飞书并写回 KV（首次/被清时的兜底）。 */
+async function getSnapshot(env) {
+  try {
+    const cached = await env.SHUMEI_KV.get(KV_KEY, "json");
+    if (cached && Array.isArray(cached.items) && cached.items.length) return cached;
+  } catch (e) { /* KV 不可用时走实时 */ }
+  const fresh = await fetchFullFromFeishu(env);
+  try { await env.SHUMEI_KV.put(KV_KEY, JSON.stringify(fresh)); } catch (e) {}
+  return fresh;
+}
+
+// ============================================================
+// [API] 全量成员快照：优先 KV 命中，返回最新快照
+// 供 DeepMei App 本地缓存 24h。
 // ============================================================
 async function handleMembersFull(env) {
+  if (!env.SHUMEI_KV) return Response.json({ error: "Missing KV binding" }, { status: 500 });
   if (!env.FEISHU_APP_ID) return Response.json({ error: "Missing env vars" }, { status: 500 });
   try {
-    const token = await getToken(env);
-    const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
-    const base = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?page_size=500`;
-    const items = [];
-    let pageToken = null;
-
-    do {
-      let url = base;
-      if (pageToken) url += `&page_token=${pageToken}`;
-      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!resp.ok) break;
-      const data = await resp.json();
-      if (data.code !== 0) break;
-
-      for (const item of data.data?.items || []) {
-        items.push({ recordId: item.record_id, fields: item.fields });
-      }
-      pageToken = data.data?.page_token || null;
-    } while (pageToken);
-
-    return Response.json({ updatedAt: Date.now(), items }, {
-      headers: { "Cache-Control": "public, max-age=3600" },
+    const snap = await getSnapshot(env);
+    return Response.json({ updatedAt: snap.updatedAt, items: snap.items }, {
+      headers: { "Cache-Control": "public, max-age=60" },
     });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
@@ -431,42 +436,20 @@ function buildDetailMember(fields) {
   };
 }
 
-/** 按社员识别码精确查单人完整档案，查不到返回 null。 */
-async function findDetailByCode(env, n) {
-  const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
-  const token = await getToken(env);
-  const filter = `CurrentValue.[社员识别码]="${n}"`;
-  const base = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?filter=${encodeURIComponent(filter)}&page_size=500`;
-  let pageToken = null;
-
-  do {
-    let url = base;
-    if (pageToken) url += `&page_token=${pageToken}`;
-    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    if (data.code !== 0 || !data.data?.items?.length) return null;
-
-    for (const item of data.data.items) {
-      if (text(item.fields, "社员识别码").toUpperCase() === n) {
-        return buildDetailMember(item.fields);
-      }
-    }
-    pageToken = data.data?.page_token || null;
-  } while (pageToken);
-
-  return null;
-}
-
 async function handleMemberDetail(request, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   if (!code) return Response.json({ found: false }, { status: 400 });
-  if (!env.FEISHU_APP_ID) return Response.json({ found: false }, { status: 500 });
+  if (!env.SHUMEI_KV || !env.FEISHU_APP_ID) return Response.json({ found: false }, { status: 500 });
   const n = code.trim().toUpperCase().replace(/:/g, "");
   try {
-    const member = await findDetailByCode(env, n);
-    return member ? Response.json({ found: true, member }) : Response.json({ found: false });
+    const snap = await getSnapshot(env);
+    for (const item of snap.items) {
+      if (text(item.fields, "社员识别码").toUpperCase() === n) {
+        return Response.json({ found: true, member: buildDetailMember(item.fields) });
+      }
+    }
+    return Response.json({ found: false });
   } catch (e) {
     return Response.json({ found: false }, { status: 500 });
   }
@@ -481,5 +464,18 @@ export default {
     if (url.pathname === "/api/member") return handleMember(request, env);
     if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env, ctx);
     return env.ASSETS.fetch(request);
+  },
+
+  // 定时同步：飞书 → KV（减少实时访问飞书）
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil((async () => {
+      try {
+        const snap = await fetchFullFromFeishu(env);
+        await env.SHUMEI_KV.put(KV_KEY, JSON.stringify(snap));
+        console.log("[cron] members snapshot refreshed at", snap.updatedAt);
+      } catch (e) {
+        console.log("[cron] refresh failed:", e.message);
+      }
+    })());
   },
 };

@@ -9,6 +9,12 @@
     "FEISHU_APP_ID": "cli_aaefa41a0c389bd9",
     "FEISHU_APP_TOKEN": "YUZ4wB3YJiLTq2kUobZccYOKnBb",
     "FEISHU_TABLE_ID": "tblepAz1PHnzwxA2"
+  },
+  "kv_namespaces": [
+    { "binding": "SHUMEI_KV", "id": "f923c5988e4a4cbdbbceb0c4b35028e8" }
+  ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
   }
 }
 
