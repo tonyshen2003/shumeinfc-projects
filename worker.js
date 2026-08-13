@@ -396,11 +396,88 @@ async function handleMembersFull(env) {
   }
 }
 
+// ============================================================
+// [API] 单人档案：按社员识别码返回脱敏完整档案（公开给网页）
+// GET /api/members/detail?code=SM201809A00100201
+// 只输出展示字段，不含 登录密码/QQ/电话/身份证/卡号/照片 等敏感数据。
+// /api/members/full 保持不变（App 等其它服务继续使用）。
+// ============================================================
+function num(fields, key) {
+  const v = fields[key];
+  if (v == null) return 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.floor(n) : 0;
+}
+
+/** 单人档案（脱敏白名单）。 */
+function buildDetailMember(fields) {
+  return {
+    id: text(fields, "社员识别码"),
+    name: text(fields, "姓名"),
+    alias: text(fields, "别名"),
+    gender: text(fields, "性别"),
+    grade: text(fields, "年级"),
+    dept: text(fields, "社团部门"),
+    rank: text(fields, "社员评级"),
+    clazz: text(fields, "班级（分班后）"),
+    role: text(fields, "社团职务"),
+    honor: text(fields, "其他职务或荣誉"),
+    bio: text(fields, "详细介绍"),
+    grad: text(fields, "升学去向"),
+    activityCount: num(fields, "参与活动次数"),
+    totalHours: num(fields, "统计时长 (社团活动记录表)"),
+    joinYear: joinYear(fields),
+    seq: text(fields, "社员编号"),
+  };
+}
+
+/** 按社员识别码精确查单人完整档案，查不到返回 null。 */
+async function findDetailByCode(env, n) {
+  const { FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
+  const token = await getToken(env);
+  const filter = `CurrentValue.[社员识别码]="${n}"`;
+  const base = `https://open.feishu.cn/open-apis/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${FEISHU_TABLE_ID}/records?filter=${encodeURIComponent(filter)}&page_size=500`;
+  let pageToken = null;
+
+  do {
+    let url = base;
+    if (pageToken) url += `&page_token=${pageToken}`;
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data.code !== 0 || !data.data?.items?.length) return null;
+
+    for (const item of data.data.items) {
+      if (text(item.fields, "社员识别码").toUpperCase() === n) {
+        return buildDetailMember(item.fields);
+      }
+    }
+    pageToken = data.data?.page_token || null;
+  } while (pageToken);
+
+  return null;
+}
+
+async function handleMemberDetail(request, env) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  if (!code) return Response.json({ found: false }, { status: 400 });
+  if (!env.FEISHU_APP_ID) return Response.json({ found: false }, { status: 500 });
+  const n = code.trim().toUpperCase().replace(/:/g, "");
+  try {
+    const member = await findDetailByCode(env, n);
+    return member ? Response.json({ found: true, member }) : Response.json({ found: false });
+  } catch (e) {
+    return Response.json({ found: false }, { status: 500 });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === "/api/members") return handleMembers(env);
     if (url.pathname === "/api/members/full") return handleMembersFull(env);
+    if (url.pathname === "/api/members/detail") return handleMemberDetail(request, env);
     if (url.pathname === "/api/member") return handleMember(request, env);
     if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env, ctx);
     return env.ASSETS.fetch(request);
