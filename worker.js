@@ -461,8 +461,8 @@ async function handleMemberDetail(request, env) {
 // POST /api/refresh  鉴权：Authorization: Bearer <REFRESH_TOKEN> 或 ?token=
 // 带 30 秒冷却，防止自动化频繁触发打爆飞书。（冷却为尽力而为，跨实例不严格一致）
 // ============================================================
-let lastRefreshAt = 0;
 const REFRESH_COOLDOWN_MS = 30 * 1000;
+const LAST_REFRESH_KEY = "last_refresh_at";
 
 async function handleRefresh(request, env) {
   const url = new URL(request.url);
@@ -471,14 +471,16 @@ async function handleRefresh(request, env) {
   if (!env.REFRESH_TOKEN || token !== env.REFRESH_TOKEN) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  // 冷却用 KV 存时间戳（跨实例一致，防止自动化频繁触发打爆飞书）
   const now = Date.now();
-  if (now - lastRefreshAt < REFRESH_COOLDOWN_MS) {
+  const last = Number((await env.SHUMEI_KV.get(LAST_REFRESH_KEY)) || 0);
+  if (now - last < REFRESH_COOLDOWN_MS) {
     return Response.json({ ok: false, error: "cooldown" }, { status: 429 });
   }
   try {
     const snap = await fetchFullFromFeishu(env);
     await env.SHUMEI_KV.put(KV_KEY, JSON.stringify(snap));
-    lastRefreshAt = Date.now();
+    await env.SHUMEI_KV.put(LAST_REFRESH_KEY, String(now));
     return Response.json({ ok: true, updatedAt: snap.updatedAt, items: snap.items.length });
   } catch (e) {
     return Response.json({ ok: false, error: e.message }, { status: 500 });
