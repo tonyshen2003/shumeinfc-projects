@@ -10,11 +10,14 @@
     "FEISHU_APP_TOKEN": "YUZ4wB3YJiLTq2kUobZccYOKnBb",
     "FEISHU_TABLE_ID": "tblepAz1PHnzwxA2"
   },
+  "routes": [
+    { "pattern": "nfc.raspjam.com", "zone_name": "raspjam.com", "custom_domain": true }
+  ],
   "kv_namespaces": [
     { "binding": "SHUMEI_KV", "id": "f923c5988e4a4cbdbbceb0c4b35028e8" }
   ],
   "triggers": {
-    "crons": ["*/60 * * * *"]
+    "crons": ["30 * * * *"]
   }
 }
 
