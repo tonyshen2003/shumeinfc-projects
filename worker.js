@@ -124,11 +124,34 @@ async function handleMember(request, env) {
   const uid = url.searchParams.get("uid");
   const query = url.searchParams.get("q");
   if (!uid && !query) return Response.json({ found: false }, { status: 400 });
-
-  const { FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_APP_TOKEN, FEISHU_TABLE_ID } = env;
-  if (!FEISHU_APP_ID) return Response.json({ found: false }, { status: 500 });
+  if (!env.FEISHU_APP_ID) return Response.json({ found: false }, { status: 500 });
 
   try {
+    // 优先 KV 快照（减少实时访问飞书）
+    if (env.SHUMEI_KV) {
+      try {
+        const snap = await getSnapshot(env);
+        const n = uid ? uid.trim().toUpperCase().replace(/:/g, "") : "";
+        const q = (query || "").trim();
+        for (const item of snap.items) {
+          const f = item.fields;
+          const name = text(f, "姓名");
+          if (!name) continue;
+          if (uid) {
+            const cards = (text(f, "社员卡号") || "").split(";").map(s => s.trim().toUpperCase());
+            const barcode = text(f, "社员识别码").toUpperCase();
+            const readable = text(f, "社员身份编码（认读码）").toUpperCase();
+            if (cards.includes(n) || barcode === n || readable === n) {
+              return Response.json({ found: true, member: buildMember(f) });
+            }
+          } else {
+            const vals = [name, text(f, "别名"), text(f, "社员编号"), text(f, "社员识别码"), text(f, "社员身份编码（认读码）"), text(f, "社员序号")];
+            if (vals.indexOf(q) !== -1) return Response.json({ found: true, member: buildMember(f) });
+          }
+        }
+      } catch (e) { /* 快照读取失败，回退实时 */ }
+    }
+    // 回退：实时飞书（新卡登记等快照未命中场景）
     if (uid) {
       const member = await findMemberByUid(env, uid);
       return member ? Response.json({ found: true, member }) : Response.json({ found: false });
