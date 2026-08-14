@@ -554,11 +554,11 @@ async function buildActivitySnapshot(env) {
 
     const actId = actIds[0] || "";
     const act = activityByRecord[actId] || {};
-    const activityHours = numVal(f["活动时长（小时）"] ?? f["实际时长（小时）"]);
+    const activityHours = numVal(f["参与时长（小时）"] ?? f["活动时长（小时）"] ?? f["实际时长（小时）"]);
 
     // 兼容两种模型：明细表已拆「志愿服务时长」时直接用；否则按「是否计入志愿时长」推导
     let volunteerHours;
-    const rawVol = f["志愿服务时长（小时）"];
+    const rawVol = f["志愿服务时长"] ?? f["志愿服务时长（小时）"];
     if (rawVol !== undefined && rawVol !== null && rawVol !== "") {
       volunteerHours = numVal(rawVol);
     } else {
