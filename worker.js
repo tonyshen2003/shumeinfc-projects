@@ -429,6 +429,9 @@ async function handleMembers(env) {
 // 减少对飞书 Bitable 的实时访问（飞书慢/有配额限制）
 // ============================================================
 const KV_KEY = "members_full";
+const ACTIVITY_TABLE_ID = "tbl30yargX7IZ1kc";
+const ACTIVITY_DETAIL_TABLE_ID = "tbl5Gr3qoPBatTmt";
+const ACTIVITY_KV_KEY = "activity_records";
 
 /** 从飞书分页拉取全量原始记录（含 record_id）。 */
 async function fetchFullFromFeishu(env) {
@@ -459,6 +462,133 @@ async function getSnapshot(env) {
   } catch (e) { /* KV 不可用时走实时 */ }
   const fresh = await fetchFullFromFeishu(env);
   try { await env.SHUMEI_KV.put(KV_KEY, JSON.stringify(fresh)); } catch (e) {}
+  return fresh;
+}
+
+/** 拉取一张飞书多维表的全量记录。 */
+async function fetchTableRecords(env, tableId) {
+  const token = await getToken(env);
+  const items = [];
+  let pageToken = null;
+  do {
+    let url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${env.FEISHU_APP_TOKEN}/tables/${tableId}/records?page_size=500`;
+    if (pageToken) url += `&page_token=${pageToken}`;
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (data.code !== 0) throw new Error(`code=${data.code}`);
+    for (const item of data.data?.items || []) items.push({ recordId: item.record_id, fields: item.fields });
+    pageToken = data.data?.page_token || null;
+  } while (pageToken);
+  return items;
+}
+
+/** 双向关联字段 → 关联的 record_id 列表。 */
+function linkIds(v) {
+  const ids = [];
+  for (const item of Array.isArray(v) ? v : []) {
+    if (item && Array.isArray(item.record_ids)) ids.push(...item.record_ids);
+  }
+  return ids;
+}
+
+/** 数字字段（保留小数）。 */
+function numVal(v) {
+  if (typeof v === "number") return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+/** 日期字段 → YYYY-MM-DD（按北京时间）。 */
+function dateText(v) {
+  if (typeof v === "string") {
+    const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1];
+  }
+  const n = Number(v);
+  if (Number.isFinite(n) && n > 0) {
+    const d = new Date((n > 10000000000 ? n : n * 1000) + 8 * 3600 * 1000);
+    const pad = (x) => String(x).padStart(2, "0");
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+  }
+  return "";
+}
+
+/**
+ * 构建「社员 → 活动参与记录」快照：
+ * 活动参与明细表按 record_id join 活动项目表/社员表，
+ * 输出前端可直接显示的扁平结构（避免按名称匹配的脏数据问题）。
+ */
+async function buildActivitySnapshot(env) {
+  const memberSnap = await getSnapshot(env);
+  const memberCodeByRecord = {};
+  for (const it of memberSnap.items) {
+    const code = text(it.fields, "社员识别码").trim().toUpperCase();
+    if (it.recordId && code) memberCodeByRecord[it.recordId] = code;
+  }
+
+  const [detailRows, activityRows] = await Promise.all([
+    fetchTableRecords(env, ACTIVITY_DETAIL_TABLE_ID),
+    fetchTableRecords(env, ACTIVITY_TABLE_ID),
+  ]);
+
+  const activityByRecord = {};
+  for (const a of activityRows) {
+    activityByRecord[a.recordId] = {
+      name: text(a.fields, "项目名称").trim(),
+      type: text(a.fields, "项目类型"),
+      date: dateText(a.fields["主要活动日期"]),
+    };
+  }
+
+  const items = [];
+  for (const d of detailRows) {
+    const f = d.fields;
+    const memberIds = linkIds(f["社员"]);
+    const actIds = linkIds(f["活动项目"]);
+    const memberCode = memberIds.length ? (memberCodeByRecord[memberIds[0]] || "") : "";
+    if (!memberCode) continue;
+
+    const actId = actIds[0] || "";
+    const act = activityByRecord[actId] || {};
+    const activityHours = numVal(f["活动时长（小时）"] ?? f["实际时长（小时）"]);
+
+    // 兼容两种模型：明细表已拆「志愿服务时长」时直接用；否则按「是否计入志愿时长」推导
+    let volunteerHours;
+    const rawVol = f["志愿服务时长（小时）"];
+    if (rawVol !== undefined && rawVol !== null && rawVol !== "") {
+      volunteerHours = numVal(rawVol);
+    } else {
+      volunteerHours = String(f["是否计入志愿时长"] ?? "").trim() === "是" ? activityHours : 0;
+    }
+
+    items.push({
+      memberCode,
+      activityId: actId,
+      activityName: act.name || text(f, "活动项目名称").trim(),
+      activityType: act.type || text(f, "活动类型"),
+      date: act.date || dateText(f["活动日期"]),
+      role: text(f, "参与角色"),
+      activityHours,
+      volunteerHours,
+    });
+  }
+
+  items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return { updatedAt: Date.now(), items };
+}
+
+/** 读活动记录快照；未命中时实时构建并写回 KV。 */
+async function getActivitySnapshot(env) {
+  try {
+    const cached = await env.SHUMEI_KV.get(ACTIVITY_KV_KEY, "json");
+    if (cached && Array.isArray(cached.items) && cached.updatedAt) return cached;
+  } catch (e) { /* KV 不可用时走实时 */ }
+  const fresh = await buildActivitySnapshot(env);
+  try { await env.SHUMEI_KV.put(ACTIVITY_KV_KEY, JSON.stringify(fresh)); } catch (e) {}
   return fresh;
 }
 
@@ -529,6 +659,12 @@ async function handleMemberDetail(request, env) {
       if (text(item.fields, "社员识别码").toUpperCase() === n) {
         const member = buildDetailMember(item.fields);
         member.avatar = await resolveAvatar(env, item.fields);
+        try {
+          const actSnap = await getActivitySnapshot(env);
+          member.activities = actSnap.items.filter((i) => i.memberCode === n);
+        } catch (e) {
+          member.activities = [];
+        }
         return Response.json({ found: true, member });
       }
     }
@@ -562,8 +698,15 @@ async function handleRefresh(request, env) {
   try {
     const snap = await fetchFullFromFeishu(env);
     await env.SHUMEI_KV.put(KV_KEY, JSON.stringify(snap));
+    const actSnap = await buildActivitySnapshot(env);
+    await env.SHUMEI_KV.put(ACTIVITY_KV_KEY, JSON.stringify(actSnap));
     await env.SHUMEI_KV.put(LAST_REFRESH_KEY, String(now));
-    return Response.json({ ok: true, updatedAt: snap.updatedAt, items: snap.items.length });
+    return Response.json({
+      ok: true,
+      updatedAt: snap.updatedAt,
+      items: snap.items.length,
+      activityItems: actSnap.items.length,
+    });
   } catch (e) {
     return Response.json({ ok: false, error: e.message }, { status: 500 });
   }
@@ -590,6 +733,13 @@ export default {
         console.log("[cron] members snapshot refreshed at", snap.updatedAt);
       } catch (e) {
         console.log("[cron] refresh failed:", e.message);
+      }
+      try {
+        const actSnap = await buildActivitySnapshot(env);
+        await env.SHUMEI_KV.put(ACTIVITY_KV_KEY, JSON.stringify(actSnap));
+        console.log("[cron] activity snapshot refreshed at", actSnap.updatedAt);
+      } catch (e) {
+        console.log("[cron] activity refresh failed:", e.message);
       }
     })());
   },
