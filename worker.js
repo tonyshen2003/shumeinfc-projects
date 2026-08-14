@@ -57,13 +57,13 @@ function joinYear(fields) {
   return m ? m[1] : "";
 }
 
-/** 附件字段 → 第一个可公开访问的 http(s) URL（url 优先，tmp_url 兜底）。 */
+/** 附件字段 → 第一个可公开访问的 http(s) URL（tmp_url 优先，可规避 403；url 兜底）。 */
 function attachmentUrl(fields, key) {
   const v = fields[key];
   if (v == null) return "";
   const arr = Array.isArray(v) ? v : [v];
   for (const item of arr) {
-    const u = item && (item.url || item.tmp_url);
+    const u = item && (item.tmp_url || item.url);
     if (typeof u === "string" && /^https?:\/\//i.test(u)) return u;
   }
   return "";
