@@ -431,7 +431,7 @@ async function handleMembers(env) {
 const KV_KEY = "members_full";
 const ACTIVITY_TABLE_ID = "tbl30yargX7IZ1kc";
 const ACTIVITY_DETAIL_TABLE_ID = "tbl5Gr3qoPBatTmt";
-const ACTIVITY_KV_KEY = "activity_records";
+const ACTIVITY_KV_KEY = "activity_records_v2";
 
 /** 从飞书分页拉取全量原始记录（含 record_id）。 */
 async function fetchFullFromFeishu(env) {
