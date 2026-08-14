@@ -57,6 +57,23 @@ function joinYear(fields) {
   return m ? m[1] : "";
 }
 
+/** 附件字段 → 第一个可公开访问的 http(s) URL（url 优先，tmp_url 兜底）。 */
+function attachmentUrl(fields, key) {
+  const v = fields[key];
+  if (v == null) return "";
+  const arr = Array.isArray(v) ? v : [v];
+  for (const item of arr) {
+    const u = item && (item.url || item.tmp_url);
+    if (typeof u === "string" && /^https?:\/\//i.test(u)) return u;
+  }
+  return "";
+}
+
+/** 头像：优先「头像」字段，其次回退「个人照片」第一张（与 DeepMei App 一致）。 */
+function avatarUrl(fields) {
+  return attachmentUrl(fields, "头像") || attachmentUrl(fields, "个人照片");
+}
+
 /** 按北京时间（Asia/Shanghai, UTC+8）格式化时间，避免 Worker 默认 UTC 显示错误。 */
 function formatChinaTime(date, withSeconds) {
   const d = new Date(date.getTime() + 8 * 3600 * 1000);
@@ -428,7 +445,8 @@ async function handleMembersFull(env) {
 // ============================================================
 // [API] 单人档案：按社员识别码返回脱敏完整档案（公开给网页）
 // GET /api/members/detail?code=SM201809A00100201
-// 只输出展示字段，不含 登录密码/QQ/电话/身份证/卡号/照片 等敏感数据。
+// 只输出展示字段，不含 登录密码/QQ/电话/身份证/卡号 等敏感数据；
+// 已放行头像 URL（无「头像」字段时回退「个人照片」第一张，与 App 一致）。
 // /api/members/full 保持不变（App 等其它服务继续使用）。
 // ============================================================
 function num(fields, key) {
@@ -457,6 +475,7 @@ function buildDetailMember(fields) {
     totalHours: num(fields, "统计时长 (社团活动记录表)"),
     joinYear: joinYear(fields),
     seq: text(fields, "社员编号"),
+    avatar: avatarUrl(fields),
   };
 }
 
