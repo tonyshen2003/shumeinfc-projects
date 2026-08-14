@@ -554,23 +554,16 @@ async function buildActivitySnapshot(env) {
 
     const actId = actIds[0] || "";
     const act = activityByRecord[actId] || {};
-    const activityHours = numVal(f["参与时长（小时）"] ?? f["活动时长（小时）"] ?? f["实际时长（小时）"]);
-
-    // 兼容两种模型：明细表已拆「志愿服务时长」时直接用；否则按「是否计入志愿时长」推导
-    let volunteerHours;
-    const rawVol = f["志愿服务时长"] ?? f["志愿服务时长（小时）"];
-    if (rawVol !== undefined && rawVol !== null && rawVol !== "") {
-      volunteerHours = numVal(rawVol);
-    } else {
-      volunteerHours = String(f["是否计入志愿时长"] ?? "").trim() === "是" ? activityHours : 0;
-    }
+    const activityHours = numVal(f["参与时长（小时）"]);
+    const rawVol = f["志愿服务时长"];
+    const volunteerHours = rawVol !== undefined && rawVol !== null && rawVol !== "" ? numVal(rawVol) : 0;
 
     items.push({
       memberCode,
       activityId: actId,
-      activityName: act.name || text(f, "活动项目名称").trim(),
-      activityType: act.type || text(f, "活动类型"),
-      date: act.date || dateText(f["活动日期"]),
+      activityName: act.name,
+      activityType: act.type,
+      date: act.date,
       role: text(f, "参与角色"),
       activityHours,
       volunteerHours,
