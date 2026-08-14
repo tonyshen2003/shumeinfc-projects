@@ -74,6 +74,43 @@ function avatarUrl(fields) {
   return attachmentUrl(fields, "头像") || attachmentUrl(fields, "个人照片");
 }
 
+/**
+ * 把飞书附件 tmp_url 换成浏览器可直接加载的临时下载链接。
+ * 飞书的 tmp_url 是 batch_get_tmp_download_url 接口地址，需要带 tenant token 请求后
+ * 从 data.tmp_download_urls[0].tmp_download_url 取真实图片地址（与 DeepMei App 逻辑一致）。
+ */
+async function resolveAvatar(env, fields) {
+  let item = null;
+  for (const key of ["头像", "个人照片"]) {
+    const v = fields[key];
+    if (v == null) continue;
+    const arr = Array.isArray(v) ? v : [v];
+    for (const it of arr) {
+      if (it && typeof it.tmp_url === "string" && /^https?:\/\//i.test(it.tmp_url)) {
+        item = it;
+        break;
+      }
+    }
+    if (item) break;
+  }
+  if (item) {
+    try {
+      const token = await getToken(env);
+      const resp = await fetch(item.tmp_url, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const u = data && data.data && data.data.tmp_download_urls && data.data.tmp_download_urls[0]
+          ? data.data.tmp_download_urls[0].tmp_download_url
+          : "";
+        if (typeof u === "string" && /^https?:\/\//i.test(u)) return u;
+      }
+    } catch (e) { /* 换取失败时回退 url/tmp_url */ }
+  }
+  return avatarUrl(fields);
+}
+
 /** 按北京时间（Asia/Shanghai, UTC+8）格式化时间，避免 Worker 默认 UTC 显示错误。 */
 function formatChinaTime(date, withSeconds) {
   const d = new Date(date.getTime() + 8 * 3600 * 1000);
@@ -446,7 +483,8 @@ async function handleMembersFull(env) {
 // [API] 单人档案：按社员识别码返回脱敏完整档案（公开给网页）
 // GET /api/members/detail?code=SM201809A00100201
 // 只输出展示字段，不含 登录密码/QQ/电话/身份证/卡号 等敏感数据；
-// 已放行头像 URL（无「头像」字段时回退「个人照片」第一张，与 App 一致）。
+// 已放行头像 URL：服务端把飞书 tmp_url 换成可直接加载的临时下载链接；
+// 无「头像」字段时回退「个人照片」第一张（与 App 一致）。
 // /api/members/full 保持不变（App 等其它服务继续使用）。
 // ============================================================
 function num(fields, key) {
@@ -489,7 +527,9 @@ async function handleMemberDetail(request, env) {
     const snap = await getSnapshot(env);
     for (const item of snap.items) {
       if (text(item.fields, "社员识别码").toUpperCase() === n) {
-        return Response.json({ found: true, member: buildDetailMember(item.fields) });
+        const member = buildDetailMember(item.fields);
+        member.avatar = await resolveAvatar(env, item.fields);
+        return Response.json({ found: true, member });
       }
     }
     return Response.json({ found: false });
