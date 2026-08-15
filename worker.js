@@ -431,7 +431,7 @@ async function handleMembers(env) {
 const KV_KEY = "members_full";
 const ACTIVITY_TABLE_ID = "tbl30yargX7IZ1kc";
 const ACTIVITY_DETAIL_TABLE_ID = "tbl5Gr3qoPBatTmt";
-const ACTIVITY_KV_KEY = "activity_records_v2";
+const ACTIVITY_KV_KEY = "activity_records_v3";
 
 /** 从飞书分页拉取全量原始记录（含 record_id）。 */
 async function fetchFullFromFeishu(env) {
@@ -549,8 +549,6 @@ async function buildActivitySnapshot(env) {
     const f = d.fields;
     const memberIds = linkIds(f["社员"]);
     const actIds = linkIds(f["活动项目"]);
-    const memberCode = memberIds.length ? (memberCodeByRecord[memberIds[0]] || "") : "";
-    if (!memberCode) continue;
 
     const actId = actIds[0] || "";
     const act = activityByRecord[actId] || {};
@@ -558,16 +556,21 @@ async function buildActivitySnapshot(env) {
     const rawVol = f["志愿服务时长"];
     const volunteerHours = rawVol !== undefined && rawVol !== null && rawVol !== "" ? numVal(rawVol) : 0;
 
-    items.push({
-      memberCode,
-      activityId: actId,
-      activityName: act.name,
-      activityType: act.type,
-      date: act.date,
-      role: text(f, "参与角色"),
-      activityHours,
-      volunteerHours,
-    });
+    // 一行关联多个社员时按人数展开（每人同时长，口径：参与时长按"每人时长"理解）
+    for (const rid of memberIds) {
+      const memberCode = memberCodeByRecord[rid] || "";
+      if (!memberCode) continue;
+      items.push({
+        memberCode,
+        activityId: actId,
+        activityName: act.name,
+        activityType: act.type,
+        date: act.date,
+        role: text(f, "参与角色"),
+        activityHours,
+        volunteerHours,
+      });
+    }
   }
 
   items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
