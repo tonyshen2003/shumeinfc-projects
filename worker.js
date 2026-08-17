@@ -644,13 +644,18 @@ function buildDetailMember(fields) {
   };
 }
 
-async function handleMemberDetail(request, env) {
+async function handleMemberDetail(request, env, ctx) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   if (!code) return Response.json({ found: false }, { status: 400 });
   if (!env.SHUMEI_KV || !env.FEISHU_APP_ID) return Response.json({ found: false }, { status: 500 });
   const n = code.trim().toUpperCase().replace(/:/g, "");
+  // 边缘缓存：每个识别码一条（数据为公开展示内容，5 分钟 TTL）
+  const cacheKey = new Request(`https://${url.host}/_cache/detail/${n}`);
   try {
+    const cache = caches.default;
+    const cached = await cache.match(cacheKey);
+    if (cached) return cached;
     const snap = await getSnapshot(env);
     for (const item of snap.items) {
       if (text(item.fields, "社员识别码").toUpperCase() === n) {
@@ -662,7 +667,11 @@ async function handleMemberDetail(request, env) {
         } catch (e) {
           member.activities = [];
         }
-        return Response.json({ found: true, member });
+        const resp = Response.json({ found: true, member }, {
+          headers: { "Cache-Control": "public, max-age=300" },
+        });
+        ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+        return resp;
       }
     }
     return Response.json({ found: false });
@@ -714,7 +723,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/api/members") return handleMembers(env);
     if (url.pathname === "/api/members/full") return handleMembersFull(env);
-    if (url.pathname === "/api/members/detail") return handleMemberDetail(request, env);
+    if (url.pathname === "/api/members/detail") return handleMemberDetail(request, env, ctx);
     if (url.pathname === "/api/member") return handleMember(request, env);
     if (url.pathname === "/api/refresh" && request.method === "POST") return handleRefresh(request, env);
     if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env, ctx);
