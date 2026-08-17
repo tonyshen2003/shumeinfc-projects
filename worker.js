@@ -647,8 +647,9 @@ function buildDetailMember(fields) {
 async function handleMemberDetail(request, env, ctx) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  if (!code) return Response.json({ found: false }, { status: 400 });
-  if (!env.SHUMEI_KV || !env.FEISHU_APP_ID) return Response.json({ found: false }, { status: 500 });
+  const CORS = { "Access-Control-Allow-Origin": "*" };
+  if (!code) return Response.json({ found: false, error: "missing code" }, { status: 400, headers: CORS });
+  if (!env.SHUMEI_KV || !env.FEISHU_APP_ID) return Response.json({ found: false }, { status: 500, headers: CORS });
   const n = code.trim().toUpperCase().replace(/:/g, "");
   // 边缘缓存：每个识别码一条（数据为公开展示内容，5 分钟 TTL）
   const cacheKey = new Request(`https://${url.host}/_cache/detail/${n}`);
@@ -668,15 +669,15 @@ async function handleMemberDetail(request, env, ctx) {
           member.activities = [];
         }
         const resp = Response.json({ found: true, member }, {
-          headers: { "Cache-Control": "public, max-age=300" },
+          headers: { "Cache-Control": "public, max-age=300", ...CORS },
         });
         ctx.waitUntil(cache.put(cacheKey, resp.clone()));
         return resp;
       }
     }
-    return Response.json({ found: false });
+    return Response.json({ found: false }, { headers: CORS });
   } catch (e) {
-    return Response.json({ found: false }, { status: 500 });
+    return Response.json({ found: false, error: e.message }, { status: 500, headers: CORS });
   }
 }
 
