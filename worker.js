@@ -4,6 +4,7 @@
  * GET /api/members/full         → 返回全部成员原始记录（含 record_id，供 App 本地快照）
  * GET /api/member?uid=<卡号>     → 查询飞书多维表
  * GET /api/member?q=<姓名>       → 搜索飞书多维表
+ * GET /api/avatar?token=<token>  → 头像代理直链（边缘缓存 1 天 + KV 永久，飞书删图仍可访问）
  * POST /api/checkin             → 签到提交（写 WPS + 发飞书通知）
  * POST /api/refresh             → 触发刷新（飞书自动化 HTTP 调用，拉全量写 KV）
  */
@@ -620,6 +621,19 @@ function num(fields, key) {
   return Number.isFinite(n) ? Math.floor(n) : 0;
 }
 
+/** 附件 file_token（与 avatarUrl 同序取第一个；用于构建代理直链）。 */
+function avatarTokenOf(fields) {
+  for (const key of ["头像", "个人照片"]) {
+    const v = fields[key];
+    if (v == null) continue;
+    const arr = Array.isArray(v) ? v : [v];
+    for (const item of arr) {
+      if (item && typeof item.file_token === "string" && item.file_token) return item.file_token;
+    }
+  }
+  return "";
+}
+
 /** 单人档案（脱敏白名单）。 */
 function buildDetailMember(fields) {
   return {
@@ -641,6 +655,7 @@ function buildDetailMember(fields) {
     joinYear: joinYear(fields),
     seq: text(fields, "社员编号"),
     avatar: avatarUrl(fields),
+    avatarToken: avatarTokenOf(fields),
   };
 }
 
@@ -662,6 +677,13 @@ async function handleMemberDetail(request, env, ctx) {
       if (text(item.fields, "社员识别码").toUpperCase() === n) {
         const member = buildDetailMember(item.fields);
         member.avatar = await resolveAvatar(env, item.fields);
+        // 新增可选字段：图片代理直链（增量，不影响原 avatar 字段与既有消费方）
+        if (member.avatarToken) {
+          member.avatarProxy = `https://${url.host}/api/avatar?token=${encodeURIComponent(member.avatarToken)}`;
+        } else {
+          member.avatarProxy = "";
+        }
+        delete member.avatarToken;
         try {
           const actSnap = await getActivitySnapshot(env);
           member.activities = actSnap.items.filter((i) => i.memberCode === n);
@@ -678,6 +700,94 @@ async function handleMemberDetail(request, env, ctx) {
     return Response.json({ found: false }, { headers: CORS });
   } catch (e) {
     return Response.json({ found: false, error: e.message }, { status: 500, headers: CORS });
+  }
+}
+
+// ============================================================
+// [API] 头像代理：file_token → 图片字节（边缘缓存 1 天 + KV 永久）
+// GET /api/avatar?token=<file_token>
+// 链路：L1 Cache API → L2 KV（永久，飞书删图仍可访问）→ 飞书换取并回写双层
+// 仅接受成员快照中存在的 file_token（白名单校验，防止任意读取）
+// ============================================================
+async function handleAvatar(request, env, ctx) {
+  const url = new URL(request.url);
+  const token = (url.searchParams.get("token") || "").trim();
+  const CORS = { "Access-Control-Allow-Origin": "*" };
+  if (!token) return Response.json({ error: "missing token" }, { status: 400, headers: CORS });
+  if (!env.SHUMEI_KV || !env.FEISHU_APP_ID) return Response.json({ error: "missing env" }, { status: 500, headers: CORS });
+  const cacheKey = new Request(`https://${url.host}/_cache/avatar/${token}`);
+  try {
+    const cache = caches.default;
+    // L1 边缘缓存（TTL 1 天）
+    const cached = await cache.match(cacheKey);
+    if (cached) return cached;
+    // L2 KV 永久缓存（0 = 不过期）
+    const kvBytes = await env.SHUMEI_KV.get(`avatar_img_${token}`, "arrayBuffer");
+    if (kvBytes) {
+      const resp = new Response(kvBytes, {
+        headers: { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=86400", ...CORS },
+      });
+      ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+      return resp;
+    }
+    // 白名单校验：token 必须存在于成员快照附件中
+    const snap = await getSnapshot(env);
+    let attachment = null;
+    for (const it of snap.items) {
+      const f = it.fields || {};
+      for (const key of ["头像", "个人照片"]) {
+        const v = f[key];
+        if (v == null) continue;
+        const arr = Array.isArray(v) ? v : [v];
+        for (const item of arr) {
+          if (item && item.file_token === token) { attachment = item; break; }
+        }
+        if (attachment) break;
+      }
+      if (attachment) break;
+    }
+    if (!attachment) return new Response("not found", { status: 404, headers: CORS });
+    // 取图：优先 tmp_url 换 authcode 直链，其次 url 带鉴权直取
+    let bytes = null;
+    let type = attachment.type || "image/jpeg";
+    const feishuToken = await getToken(env);
+    if (typeof attachment.tmp_url === "string" && /^https?:\/\//i.test(attachment.tmp_url)) {
+      try {
+        const resp = await fetch(attachment.tmp_url, {
+          headers: { Authorization: `Bearer ${feishuToken}`, "Content-Type": "application/json" },
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          const u = data && data.data && data.data.tmp_download_urls && data.data.tmp_download_urls[0]
+            ? data.data.tmp_download_urls[0].tmp_download_url : "";
+          if (typeof u === "string" && /^https?:\/\//i.test(u)) {
+            const img = await fetch(u);
+            if (img.ok) bytes = await img.arrayBuffer();
+          }
+        }
+      } catch (e) { /* 兜底到 url */ }
+    }
+    if (!bytes && typeof attachment.url === "string" && /^https?:\/\//i.test(attachment.url)) {
+      try {
+        const img = await fetch(attachment.url, { headers: { Authorization: `Bearer ${feishuToken}` } });
+        if (img.ok) {
+          bytes = await img.arrayBuffer();
+          type = img.headers.get("content-type") || type;
+        }
+      } catch (e) { /* 失败 */ }
+    }
+    if (!bytes) return new Response("image unavailable", { status: 502, headers: CORS });
+    // 回写 L1（1 天）+ L2（永久）
+    const resp = new Response(bytes, {
+      headers: { "Content-Type": type, "Cache-Control": "public, max-age=86400", ...CORS },
+    });
+    ctx.waitUntil(Promise.all([
+      cache.put(cacheKey, resp.clone()),
+      env.SHUMEI_KV.put(`avatar_img_${token}`, bytes),
+    ]));
+    return resp;
+  } catch (e) {
+    return new Response("error", { status: 500, headers: CORS });
   }
 }
 
@@ -725,6 +835,7 @@ export default {
     if (url.pathname === "/api/members") return handleMembers(env);
     if (url.pathname === "/api/members/full") return handleMembersFull(env);
     if (url.pathname === "/api/members/detail") return handleMemberDetail(request, env, ctx);
+    if (url.pathname === "/api/avatar") return handleAvatar(request, env, ctx);
     if (url.pathname === "/api/member") return handleMember(request, env);
     if (url.pathname === "/api/refresh" && request.method === "POST") return handleRefresh(request, env);
     if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env, ctx);

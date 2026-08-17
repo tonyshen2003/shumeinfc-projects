@@ -1,5 +1,12 @@
 # 更新日志
 
+## 1.8.0 - 2026-08-17
+- 新增 `GET /api/avatar?token=<file_token>` 头像代理：L1 边缘缓存（Cache API，1 天）+ L2 KV 永久（`avatar_img_<token>`，0 过期）
+- 飞书删图后旧头像仍可通过代理永久访问；换图 ≤5 分钟生效（detail 缓存 TTL）
+- `/api/members/detail` 新增可选字段 `avatarProxy`（代理直链），原 `avatar` 字段保持不变，既有消费方零影响
+- 代理端点带 `Access-Control-Allow-Origin: *`；token 白名单校验（必须存在于成员快照附件）
+- 不启用付费的 Cloudflare Image Resizing：原图直出
+
 ## 1.6.0 - 2026-08-07
 - `GET /api/member` 返回字段补齐 `position`（社团职务）与 `joinYear`（入社年份），与 DeepMei App 快照字段对齐
 - 卡号匹配改为「CONTAINS 粗筛 + JS 侧整卡号精确匹配」，避免短卡号子串误命中其他成员的长卡号

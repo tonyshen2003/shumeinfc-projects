@@ -16,6 +16,7 @@
 │    GET /api/members/detail   单人脱敏档案（网页用）           │
 │    GET /api/members          卡号/识别码/姓名映射            │
 │    GET /api/member           uid/q 查人（KV 优先+实时兜底）   │
+│    GET /api/avatar           头像代理直链（边缘缓存+KV 永久）  │
 │  写/实时接口 → 直接飞书                                      │
 │    POST /api/checkin         签到：写 WPS + 发飞书通知       │
 │  触发刷新接口                                                │
@@ -24,6 +25,7 @@
                │
         KV（SHUMEI_KV）
           ├─ members_full     社员全量快照
+          ├─ avatar_img_<token> 头像图片字节（永久，飞书删图仍可访问）
           └─ last_refresh_at  refresh 冷却时间戳
                ▲
                │ Cron（每小时第 30 分钟）自动拉全量写 KV（兜底）
@@ -52,11 +54,14 @@
 | GET | `/api/members` | KV 缓存 | 卡号/识别码/姓名 → 成员信息映射 |
 | GET | `/api/member?uid=<卡号>` | KV 优先+实时兜底 | 按卡号/识别码/认读码查人（签到用） |
 | GET | `/api/member?q=<姓名>` | KV 优先+实时兜底 | 姓名/别名/编号/识别码/序号搜索 |
+| GET | `/api/avatar?token=<file_token>` | 边缘缓存+KV 永久 | 头像图片代理直链（见「图片链路」） |
 | POST | `/api/checkin` | 实时（写） | 签到提交：服务端重新查人 + 写 WPS + 发飞书通知 |
 | POST | `/api/refresh` | 触发写 KV | 拉飞书全量写 KV，供飞书自动化调用（需鉴权） |
 
-> 读接口（前 4 个）全部 **KV 优先**：命中快照直接返回；KV 为空（首次/被清）时自动实时拉飞书并回填 KV。
+> 读接口（前 5 个）全部 **KV/边缘缓存优先**：命中快照直接返回；KV 为空（首次/被清）时自动实时拉飞书并回填 KV。
 > `/api/member` 的实时兜底用于「刚登记、快照未刷新」的新卡场景，保证签到不失败。
+>
+> **`/api/members/detail` 新增可选字段 `avatarProxy`**（头像代理直链 URL）：既有消费方读原 `avatar` 字段行为不变；希望图片走 CF 缓存/永久可用的下游可改读 `avatarProxy`（页面模板已优先使用，`avatar` 兜底）。
 
 ## 缓存机制
 
@@ -67,6 +72,7 @@ KV 命名空间 `SHUMEI_KV`（绑定名 `SHUMEI_KV`），两个 key：
 | key | 内容 |
 |---|---|
 | `members_full` | 社员全量快照：`{ updatedAt, items: [{ recordId, fields }] }` |
+| `avatar_img_<file_token>` | 头像图片字节（**永久**，0 过期；飞书删图后仍可访问） |
 | `last_refresh_at` | 最近一次 refresh 的时间戳（毫秒），用于冷却 |
 
 ### 数据如何刷新
@@ -78,6 +84,32 @@ KV 命名空间 `SHUMEI_KV`（绑定名 `SHUMEI_KV`），两个 key：
 ### refresh 鉴权与冷却
 
 `POST /api/refresh` 需要 `Authorization: Bearer <REFRESH_TOKEN>`（或 `?token=`）。带 **30 秒冷却**（用 KV 存时间戳，跨实例一致），防止自动化频繁触发打爆飞书。
+
+## 图片链路（头像代理）
+
+飞书附件（「头像」/「个人照片」）的 `url` 不带鉴权不可访问（400），`tmp_url` 需 tenant token 换取 `authcode` 临时直链（会过期）。为让图片**稳定、可永久访问**，Worker 提供代理端点：
+
+```
+<img src="https://nfc.raspjam.com/api/avatar?token=<file_token>">
+        │
+        ▼
+/api/avatar（token 白名单校验：必须存在于成员快照附件中）
+  ├─ L1 边缘缓存命中（Cache API，TTL 1 天）→ 直接返回
+  ├─ L2 KV 命中（avatar_img_<token>，永久）→ 直接返回
+  └─ 双层 miss → 换 authcode → 拉飞书字节 → 回写 L1+L2（永久）→ 返回
+```
+
+| 场景 | 行为 |
+|---|---|
+| 首次访问某头像 | 约 1~2s（换 authcode + 拉字节 + 写双层缓存） |
+| 再次访问 | CF 边缘缓存直出（约 0.1s，不依赖飞书） |
+| 飞书**换**图 | 新 file_token → 新缓存条目 → ≤5 分钟生效（detail 缓存 TTL） |
+| 飞书**删**图 | KV **永久**兜底，旧图照常可访问（隐私权衡：删图不会全网消失） |
+| 双层 miss 且飞书已删 | 404 → 页面回退首字占位（不裂图） |
+
+- 存储量：~97 张 × 60~315KB ≈ 15MB（KV 免费额度 1GB）；每 token 首次写入 1 次
+- 端点带 `Access-Control-Allow-Origin: *`（供本地预览等浏览器直连）
+- **不启用 Cloudflare Image Resizing**（付费功能）：原图直出，不压缩
 
 ## 项目结构
 
@@ -163,6 +195,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.8.0** | 2026-08-17 | 头像代理 `/api/avatar`：L1 边缘缓存 + L2 KV 永久（飞书删图仍可访问）；detail 新增可选字段 `avatarProxy`（原 `avatar` 不变） |
 | **1.7.0** | 2026-08-13 | 社员数据 KV 缓存：读接口 KV 优先、Cron 每小时兜底、`/api/refresh` 触发刷新、`/api/members/detail` 单人脱敏档案 |
 | **1.6.0** | 2026-08-07 | `/api/member` 补齐 `position` 与 `joinYear`，卡号整卡精确匹配 |
 | **1.5.0** | 2026-08-05 | 新增 `/api/members/full` 全量快照（App 本地缓存） |
