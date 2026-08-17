@@ -62,6 +62,8 @@
 > `/api/member` 的实时兜底用于「刚登记、快照未刷新」的新卡场景，保证签到不失败。
 >
 > **`/api/members/detail` 新增可选字段 `avatarProxy`**（头像代理直链 URL）：既有消费方读原 `avatar` 字段行为不变；希望图片走 CF 缓存/永久可用的下游可改读 `avatarProxy`（页面模板已优先使用，`avatar` 兜底）。
+>
+> **性能说明**：有附件（`file_token`）的成员，detail 直接输出 `avatarProxy` 并**跳过飞书换取**（`avatar` 置空），冷访问不再有 1~2s 换取耗时；无附件的历史成员才走旧换取兜底。
 
 ## 缓存机制
 

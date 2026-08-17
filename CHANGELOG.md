@@ -1,5 +1,9 @@
 # 更新日志
 
+## 1.8.1 - 2026-08-17
+- detail 有 `file_token` 的成员跳过飞书 authcode 换取（输出 `avatarProxy`、`avatar` 置空）：冷访问 TTFB ~2s → ~0.4s
+- 无附件的历史成员保留旧换取兜底，行为不变
+
 ## 1.8.0 - 2026-08-17
 - 新增 `GET /api/avatar?token=<file_token>` 头像代理：L1 边缘缓存（Cache API，1 天）+ L2 KV 永久（`avatar_img_<token>`，0 过期）
 - 飞书删图后旧头像仍可通过代理永久访问；换图 ≤5 分钟生效（detail 缓存 TTL）

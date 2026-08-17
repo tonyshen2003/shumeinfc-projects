@@ -610,8 +610,8 @@ async function handleMembersFull(env) {
 // [API] 单人档案：按社员识别码返回脱敏完整档案（公开给网页）
 // GET /api/members/detail?code=SM201809A00100201
 // 只输出展示字段，不含 登录密码/QQ/电话/身份证/卡号 等敏感数据；
-// 已放行头像 URL：服务端把飞书 tmp_url 换成可直接加载的临时下载链接；
-// 无「头像」字段时回退「个人照片」第一张（与 App 一致）。
+// 有附件时输出 avatarProxy（/api/avatar 代理直链）并跳过飞书换取；
+// 无附件时回退「个人照片」第一张并走旧换取兜底（与 App 一致）。
 // /api/members/full 保持不变（App 等其它服务继续使用）。
 // ============================================================
 function num(fields, key) {
@@ -676,11 +676,14 @@ async function handleMemberDetail(request, env, ctx) {
     for (const item of snap.items) {
       if (text(item.fields, "社员识别码").toUpperCase() === n) {
         const member = buildDetailMember(item.fields);
-        member.avatar = await resolveAvatar(env, item.fields);
-        // 新增可选字段：图片代理直链（增量，不影响原 avatar 字段与既有消费方）
+        // 方案 B：有 file_token 时输出 avatarProxy 代理直链并跳过飞书换取
+        //（avatar 置空，避免每次冷访问 1~2s 的 authcode 换取）；
+        // 无附件（历史成员）时保留旧换取兜底。
         if (member.avatarToken) {
           member.avatarProxy = `https://${url.host}/api/avatar?token=${encodeURIComponent(member.avatarToken)}`;
+          member.avatar = "";
         } else {
+          member.avatar = await resolveAvatar(env, item.fields);
           member.avatarProxy = "";
         }
         delete member.avatarToken;
