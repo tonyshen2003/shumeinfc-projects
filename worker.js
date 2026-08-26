@@ -610,6 +610,7 @@ async function handleMembersFull(env) {
 // [API] 单人档案：按社员识别码返回脱敏完整档案（公开给网页）
 // GET /api/members/detail?code=SM201809A00100201
 // 只输出展示字段，不含 登录密码/QQ/电话/身份证/卡号 等敏感数据；
+// 勾选「禁止查询」复选框的成员返回 found:false（签到查人 / App 快照 / 头像代理不受影响）；
 // 有附件时输出 avatarProxy（/api/avatar 代理直链）并跳过飞书换取；
 // 无附件时回退「个人照片」第一张并走旧换取兜底（与 App 一致）。
 // /api/members/full 保持不变（App 等其它服务继续使用）。
@@ -632,6 +633,16 @@ function avatarTokenOf(fields) {
     }
   }
   return "";
+}
+
+/**
+ * 「禁止查询」复选框（飞书多维表字段，勾选 = true）：
+ * 勾选后仅 detail 档案查询返回未找到；签到查人 / App 快照 / 头像代理均不受影响。
+ * 未勾选时字段值可能为 false 或整列缺失，一律视为可查。
+ */
+function isBlocked(fields) {
+  const v = fields ? fields["禁止查询"] : null;
+  return v === true || v === "true" || v === 1;
 }
 
 /** 单人档案（脱敏白名单）。 */
@@ -675,6 +686,7 @@ async function handleMemberDetail(request, env, ctx) {
     const snap = await getSnapshot(env);
     for (const item of snap.items) {
       if (text(item.fields, "社员识别码").toUpperCase() === n) {
+        if (isBlocked(item.fields)) return Response.json({ found: false }, { headers: CORS });
         const member = buildDetailMember(item.fields);
         // 方案 B：有 file_token 时输出 avatarProxy 代理直链并跳过飞书换取
         //（avatar 置空，避免每次冷访问 1~2s 的 authcode 换取）；
