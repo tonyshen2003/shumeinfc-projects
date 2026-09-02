@@ -70,9 +70,9 @@ function attachmentUrl(fields, key) {
   return "";
 }
 
-/** 头像：优先「头像」字段，其次回退「个人照片」第一张（与 DeepMei App 一致）。 */
+/** 头像：仅取「头像」字段第一张（不再回退「个人照片」；个人照片仅作为独立素材单独展示）。 */
 function avatarUrl(fields) {
-  return attachmentUrl(fields, "头像") || attachmentUrl(fields, "个人照片");
+  return attachmentUrl(fields, "头像");
 }
 
 /**
@@ -82,7 +82,7 @@ function avatarUrl(fields) {
  */
 async function resolveAvatar(env, fields) {
   let item = null;
-  for (const key of ["头像", "个人照片"]) {
+  for (const key of ["头像"]) {
     const v = fields[key];
     if (v == null) continue;
     const arr = Array.isArray(v) ? v : [v];
@@ -612,7 +612,7 @@ async function handleMembersFull(env) {
 // 只输出展示字段，不含 登录密码/QQ/电话/身份证/卡号 等敏感数据；
 // 勾选「禁止查询」复选框的成员返回 found:false（签到查人 / App 快照 / 头像代理不受影响）；
 // 有附件时输出 avatarProxy（/api/avatar 代理直链）并跳过飞书换取；
-// 无附件时回退「个人照片」第一张并走旧换取兜底（与 App 一致）。
+// 头像仅取自「头像」字段，不再用「个人照片」兜底；无头像时返回空（由前端占位处理）。
 // /api/members/full 保持不变（App 等其它服务继续使用）。
 // ============================================================
 function num(fields, key) {
@@ -622,9 +622,9 @@ function num(fields, key) {
   return Number.isFinite(n) ? Math.floor(n) : 0;
 }
 
-/** 附件 file_token（与 avatarUrl 同序取第一个；用于构建代理直链）。 */
+/** 附件 file_token（仅「头像」字段取第一个；用于构建代理直链）。 */
 function avatarTokenOf(fields) {
-  for (const key of ["头像", "个人照片"]) {
+  for (const key of ["头像"]) {
     const v = fields[key];
     if (v == null) continue;
     const arr = Array.isArray(v) ? v : [v];
