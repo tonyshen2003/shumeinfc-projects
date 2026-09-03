@@ -93,3 +93,6 @@ logs/
 # CodeGraph index
 .codegraph
 .codegraph/
+
+# API 基线快照（含社员全量原始数据，禁止推送/部署）
+docs/api-baseline/

@@ -6,3 +6,6 @@ node_modules
 *.pem
 cert.pem
 key.pem
+
+# 敏感数据：API 基线快照（即使误提交也不得部署公开）
+docs/api-baseline/
