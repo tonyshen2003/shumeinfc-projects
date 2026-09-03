@@ -5,6 +5,9 @@
  * GET /api/member?uid=<卡号>     → 查询飞书多维表
  * GET /api/member?q=<姓名>       → 搜索飞书多维表
  * GET /api/avatar?token=<token>  → 头像代理直链（边缘缓存 1 天 + KV 永久，飞书删图仍可访问）
+ * GET /api/activities            → 活动列表（年份/类型/关键词筛选 + 分页 + 筛选项）[2026-09-03]
+ * GET /api/activities/detail?id= → 活动详情（只出统计数字与照片，不出参与人名单）[2026-09-03]
+ * GET /api/photo?token=&w=       → 活动照片代理 + 缩放（边缘缓存 7 天，不写 KV）[2026-09-03]
  * POST /api/checkin             → 签到提交（写 WPS + 发飞书通知）
  * POST /api/refresh             → 触发刷新（飞书自动化 HTTP 调用，拉全量写 KV）
  */
@@ -433,6 +436,8 @@ const KV_KEY = "members_full";
 const ACTIVITY_TABLE_ID = "tbl30yargX7IZ1kc";
 const ACTIVITY_DETAIL_TABLE_ID = "tbl5Gr3qoPBatTmt";
 const ACTIVITY_KV_KEY = "activity_records_v3";
+// 活动项目完整快照（含封面/相册附件、介绍等展示字段）——仅服务活动页接口，独立于上述缓存
+const ACTIVITY_PROJECTS_KV_KEY = "activity_projects_v1";
 
 /** 从飞书分页拉取全量原始记录（含 record_id）。 */
 async function fetchFullFromFeishu(env) {
@@ -588,6 +593,89 @@ async function getActivitySnapshot(env) {
   try { await env.SHUMEI_KV.put(ACTIVITY_KV_KEY, JSON.stringify(fresh)); } catch (e) {}
   return fresh;
 }
+
+// ============================================================
+// [KV] 活动项目完整快照（活动页专用，2026-09-03 新增）
+// 目的：现有 buildActivitySnapshot 拉项目表后只用名称/类型/日期 3 个字段，
+//       封面/相册/介绍等展示字段被丢弃。此快照把项目表完整字段留一份，
+//       供新增的活动列表/详情/照片接口使用。
+// 模式与 getSnapshot 完全一致（KV 优先 → 未命中实时拉写回），不碰现有逻辑。
+// ============================================================
+
+/** 附件字段 → 附件对象数组（保留取图所需字段；生产 REST 返回 tmp_url/url 时带上）。 */
+function attachmentsOf(fields, key) {
+  const v = fields ? fields[key] : null;
+  const arr = Array.isArray(v) ? v : (v ? [v] : []);
+  const out = [];
+  for (const it of arr) {
+    if (!it || typeof it.file_token !== "string" || !it.file_token) continue;
+    out.push({
+      token: it.file_token,
+      name: typeof it.name === "string" ? it.name : "",
+      tmp_url: typeof it.tmp_url === "string" ? it.tmp_url : "",
+      url: typeof it.url === "string" ? it.url : "",
+    });
+  }
+  return out;
+}
+
+/** 项目表行 → 活动项目列表（完整展示字段）。封面优先，无封面用相册首图兜底。 */
+async function buildActivityProjectSnapshot(env) {
+  const rows = await fetchTableRecords(env, ACTIVITY_TABLE_ID);
+  const items = [];
+  for (const a of rows) {
+    const f = a.fields || {};
+    // 注意：字段名与飞书表头逐字符一致——「封面图片（1张）」全角括号且"张"前无空格
+    const name = text(f, "项目名称").trim();
+    if (!name) continue;
+    const coverAtt = attachmentsOf(f, "封面图片（1张）");
+    const photos = attachmentsOf(f, "活动照片、活动成果和海报");
+    items.push({
+      id: a.recordId,
+      name,
+      type: text(f, "项目类型"),
+      date: dateText(f["主要活动日期"]),
+      place: text(f, "活动地点/形式"),
+      intro: text(f, "项目介绍"),
+      result: text(f, "活动成果"),
+      record: text(f, "活动记录"),
+      hoursPer: numVal(f["活动时长（人均）"]),
+      isVolunteer: f["计入志愿时长"] === true,
+      cover: coverAtt[0] || photos[0] || null,
+      photos,
+    });
+  }
+  items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return { updatedAt: Date.now(), items };
+}
+
+/** 读活动项目快照；未命中时实时拉取并写回 KV（与 getSnapshot 同模式）。 */
+async function getActivityProjectSnapshot(env) {
+  try {
+    const cached = await env.SHUMEI_KV.get(ACTIVITY_PROJECTS_KV_KEY, "json");
+    if (cached && Array.isArray(cached.items) && cached.items.length) return cached;
+  } catch (e) { /* KV 不可用时走实时 */ }
+  const fresh = await buildActivityProjectSnapshot(env);
+  try { await env.SHUMEI_KV.put(ACTIVITY_PROJECTS_KV_KEY, JSON.stringify(fresh)); } catch (e) {}
+  return fresh;
+}
+
+/** 按活动聚合统计（参与人次 / 总时长 / 志愿时长），基于现有 activity_records_v3 明细。 */
+function aggregateActivityStats(detailItems) {
+  const byAct = {};
+  for (const r of detailItems) {
+    if (!r.activityId) continue;
+    const s = byAct[r.activityId] || (byAct[r.activityId] = { people: 0, totalHours: 0, volunteerHours: 0 });
+    s.people += 1;
+    s.totalHours += r.activityHours || 0;
+    s.volunteerHours += r.volunteerHours || 0;
+  }
+  return byAct;
+}
+
+/** 保留 1 位小数，去掉浮点尾巴（210.00000000000003 → 210）。 */
+function round1(n) { return Math.round(n * 10) / 10; }
+
 
 // ============================================================
 // [API] 全量成员快照：优先 KV 命中，返回最新快照
@@ -807,6 +895,237 @@ async function handleAvatar(request, env, ctx) {
 }
 
 // ============================================================
+// [API] 活动列表（2026-09-03 新增，独立于现有接口）
+// GET /api/activities?year=2026|early&type=<类型>&q=<关键词>&limit=20&offset=0
+//   year  4 位年份，或 "early" = 2023 年及更早；limit 1~200 默认 20
+// 数据源：项目完整快照 activity_projects_v1 + 现有 activity_records_v3 统计
+// 边缘缓存 5 分钟。
+// ============================================================
+async function handleActivities(request, env, ctx) {
+  const url = new URL(request.url);
+  const CORS = { "Access-Control-Allow-Origin": "*" };
+  const cacheKey = new Request(`https://${url.host}/_cache/activities${url.search}`);
+  try {
+    const cache = caches.default;
+    const hit = await cache.match(cacheKey);
+    if (hit) return hit;
+
+    const [projSnap, actSnap] = await Promise.all([
+      getActivityProjectSnapshot(env),
+      getActivitySnapshot(env),
+    ]);
+    const statByAct = aggregateActivityStats(actSnap.items);
+
+    const year = (url.searchParams.get("year") || "").trim();
+    const type = (url.searchParams.get("type") || "").trim();
+    const q = (url.searchParams.get("q") || "").trim().toLowerCase();
+
+    let list = projSnap.items;
+    if (year === "early") {
+      list = list.filter((i) => { const y = Number((i.date || "").slice(0, 4)); return y > 0 && y <= 2023; });
+    } else if (/^\d{4}$/.test(year)) {
+      list = list.filter((i) => (i.date || "").slice(0, 4) === year);
+    }
+    if (type) list = list.filter((i) => i.type === type);
+    if (q) list = list.filter((i) => i.name.toLowerCase().indexOf(q) >= 0 || (i.place || "").toLowerCase().indexOf(q) >= 0);
+
+    const total = list.length;
+    const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 1), 200);
+    const offset = Math.max(parseInt(url.searchParams.get("offset") || "0", 10) || 0, 0);
+    const host = url.host;
+
+    const items = list.slice(offset, offset + limit).map((i) => {
+      const st = statByAct[i.id] || { people: 0, totalHours: 0, volunteerHours: 0 };
+      const photos = i.photos || [];
+      // 封面若取自相册首图兜底，则已计入 photos，避免重复计数
+      const separate = i.cover && !photos.some((p) => p.token === i.cover.token);
+      return {
+        id: i.id,
+        name: i.name,
+        type: i.type,
+        date: i.date,
+        place: i.place,
+        hoursPer: i.hoursPer,
+        isVolunteer: i.isVolunteer,
+        photoCount: photos.length + (separate ? 1 : 0),
+        people: st.people,
+        cover: i.cover ? `https://${host}/api/photo?token=${encodeURIComponent(i.cover.token)}&w=400` : "",
+      };
+    });
+
+    // 筛选项按全量统计，不受当前筛选影响
+    const typeSet = {};
+    const yearSet = {};
+    for (const i of projSnap.items) {
+      if (i.type) typeSet[i.type] = (typeSet[i.type] || 0) + 1;
+      const y = (i.date || "").slice(0, 4);
+      if (/^\d{4}$/.test(y)) yearSet[y] = (yearSet[y] || 0) + 1;
+    }
+
+    const resp = Response.json({
+      updatedAt: projSnap.updatedAt,
+      total, offset, limit, items,
+      facets: {
+        types: Object.keys(typeSet).sort().map((t) => ({ type: t, count: typeSet[t] })),
+        years: Object.keys(yearSet).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)).map((y) => ({ year: y, count: yearSet[y] })),
+      },
+    }, { headers: { "Cache-Control": "public, max-age=300", ...CORS } });
+    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    return resp;
+  } catch (e) {
+    return Response.json({ error: e.message, items: [] }, { status: 500, headers: CORS });
+  }
+}
+
+// ============================================================
+// [API] 活动详情（2026-09-03 新增）
+// GET /api/activities/detail?id=<record_id>
+// 只输出统计数字（参与人次/总时长/志愿时长）与照片，**不输出参与人名单**
+// 边缘缓存 5 分钟。
+// ============================================================
+async function handleActivityDetail(request, env, ctx) {
+  const url = new URL(request.url);
+  const id = (url.searchParams.get("id") || "").trim();
+  const CORS = { "Access-Control-Allow-Origin": "*" };
+  if (!id) return Response.json({ found: false, error: "missing id" }, { status: 400, headers: CORS });
+  const cacheKey = new Request(`https://${url.host}/_cache/activity/${id}`);
+  try {
+    const cache = caches.default;
+    const hit = await cache.match(cacheKey);
+    if (hit) return hit;
+
+    const projSnap = await getActivityProjectSnapshot(env);
+    const item = projSnap.items.find((i) => i.id === id);
+    if (!item) return Response.json({ found: false }, { headers: CORS });
+
+    const actSnap = await getActivitySnapshot(env);
+    let people = 0, totalHours = 0, volunteerHours = 0;
+    for (const r of actSnap.items) {
+      if (r.activityId !== id) continue;
+      people += 1;
+      totalHours += r.activityHours || 0;
+      volunteerHours += r.volunteerHours || 0;
+    }
+
+    const host = url.host;
+    const seen = {};
+    const photos = [];
+    for (const p of [item.cover].concat(item.photos || [])) {
+      if (!p || !p.token || seen[p.token]) continue;
+      seen[p.token] = 1;
+      const t = encodeURIComponent(p.token);
+      photos.push({
+        token: p.token,
+        name: p.name,
+        thumb: `https://${host}/api/photo?token=${t}&w=400`,
+        full: `https://${host}/api/photo?token=${t}&w=1200`,
+      });
+    }
+
+    const activity = {
+      id: item.id,
+      name: item.name,
+      type: item.type,
+      date: item.date,
+      place: item.place,
+      intro: item.intro,
+      result: item.result,
+      record: item.record,
+      hoursPer: item.hoursPer,
+      isVolunteer: item.isVolunteer,
+      photos,
+      stats: { people, totalHours: round1(totalHours), volunteerHours: round1(volunteerHours) },
+    };
+    const resp = Response.json({ found: true, activity }, {
+      headers: { "Cache-Control": "public, max-age=300", ...CORS },
+    });
+    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    return resp;
+  } catch (e) {
+    return Response.json({ found: false, error: e.message }, { status: 500, headers: CORS });
+  }
+}
+
+// ============================================================
+// [API] 活动照片代理（2026-09-03 新增）
+// GET /api/photo?token=<file_token>&w=400&fmt=jpeg
+//   白名单：token 必须出现在活动项目快照的封面/相册里，防止任意读取
+//   取图机制与 /api/avatar 一致（tmp_url 换直链 → url 兜底）
+//   缓存：仅 L1 边缘 7 天，**不写 KV**（250 张原图共约 738MB，不适合 KV）
+//   w 白名单 [200,400,800,1200]；cf.image 缩放未启用时自动降级原图直出
+// ============================================================
+const PHOTO_WIDTHS = [200, 400, 800, 1200];
+
+/** 附件对象 → 可直取的下载 URL（与 /api/avatar 同一机制）。 */
+async function resolvePhotoUrl(env, att) {
+  const feishuToken = await getToken(env);
+  if (typeof att.tmp_url === "string" && /^https?:\/\//i.test(att.tmp_url)) {
+    try {
+      const resp = await fetch(att.tmp_url, {
+        headers: { Authorization: `Bearer ${feishuToken}`, "Content-Type": "application/json" },
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const u = data && data.data && data.data.tmp_download_urls && data.data.tmp_download_urls[0]
+          ? data.data.tmp_download_urls[0].tmp_download_url : "";
+        if (typeof u === "string" && /^https?:\/\//i.test(u)) return { url: u, needsAuth: false };
+      }
+    } catch (e) { /* 兜底到 url */ }
+  }
+  if (typeof att.url === "string" && /^https?:\/\//i.test(att.url)) return { url: att.url, needsAuth: true };
+  return null;
+}
+
+async function handlePhoto(request, env, ctx) {
+  const url = new URL(request.url);
+  const token = (url.searchParams.get("token") || "").trim();
+  const CORS = { "Access-Control-Allow-Origin": "*" };
+  if (!token) return new Response("missing token", { status: 400, headers: CORS });
+  if (!env.SHUMEI_KV || !env.FEISHU_APP_ID) return new Response("missing env", { status: 500, headers: CORS });
+
+  const wRaw = Number(url.searchParams.get("w"));
+  const w = PHOTO_WIDTHS.indexOf(wRaw) >= 0 ? wRaw : 800;
+  const fmt = (url.searchParams.get("fmt") || "").toLowerCase() === "webp" ? "webp" : "jpeg";
+
+  const cacheKey = new Request(`https://${url.host}/_cache/photo/${token}/${w}.${fmt}`);
+  try {
+    const cache = caches.default;
+    const hit = await cache.match(cacheKey);
+    if (hit) return hit;
+
+    const snap = await getActivityProjectSnapshot(env);
+    let att = null;
+    for (const it of snap.items) {
+      if (it.cover && it.cover.token === token) { att = it.cover; break; }
+      const m = (it.photos || []).find((p) => p.token === token);
+      if (m) { att = m; break; }
+    }
+    if (!att) return new Response("not found", { status: 404, headers: CORS });
+
+    const resolved = await resolvePhotoUrl(env, att);
+    if (!resolved) return new Response("image unavailable", { status: 502, headers: CORS });
+    const feishuToken = await getToken(env);
+    const img = await fetch(resolved.url, {
+      headers: resolved.needsAuth ? { Authorization: `Bearer ${feishuToken}` } : undefined,
+      cf: { image: { width: w, quality: 80, format: fmt, fit: "scale-down", metadata: "none" } },
+    });
+    if (!img.ok) return new Response("image unavailable", { status: 502, headers: CORS });
+
+    const resp = new Response(await img.arrayBuffer(), {
+      headers: {
+        "Content-Type": `image/${fmt}`,
+        "Cache-Control": "public, max-age=604800",
+        ...CORS,
+      },
+    });
+    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    return resp;
+  } catch (e) {
+    return new Response("error", { status: 500, headers: CORS });
+  }
+}
+
+// ============================================================
 // [API] 触发刷新：拉飞书全量 → 写 KV（供飞书自动化「发送 HTTP 请求」调用）
 // POST /api/refresh  鉴权：Authorization: Bearer <REFRESH_TOKEN> 或 ?token=
 // 带 30 秒冷却，防止自动化频繁触发打爆飞书。（冷却为尽力而为，跨实例不严格一致）
@@ -832,12 +1151,16 @@ async function handleRefresh(request, env) {
     await env.SHUMEI_KV.put(KV_KEY, JSON.stringify(snap));
     const actSnap = await buildActivitySnapshot(env);
     await env.SHUMEI_KV.put(ACTIVITY_KV_KEY, JSON.stringify(actSnap));
+    // 追加：同步刷新活动项目完整快照（活动页专用）
+    const projSnap = await buildActivityProjectSnapshot(env);
+    await env.SHUMEI_KV.put(ACTIVITY_PROJECTS_KV_KEY, JSON.stringify(projSnap));
     await env.SHUMEI_KV.put(LAST_REFRESH_KEY, String(now));
     return Response.json({
       ok: true,
       updatedAt: snap.updatedAt,
       items: snap.items.length,
       activityItems: actSnap.items.length,
+      activityProjects: projSnap.items.length,
     });
   } catch (e) {
     return Response.json({ ok: false, error: e.message }, { status: 500 });
@@ -852,6 +1175,9 @@ export default {
     if (url.pathname === "/api/members/detail") return handleMemberDetail(request, env, ctx);
     if (url.pathname === "/api/avatar") return handleAvatar(request, env, ctx);
     if (url.pathname === "/api/member") return handleMember(request, env);
+    if (url.pathname === "/api/activities") return handleActivities(request, env, ctx);
+    if (url.pathname === "/api/activities/detail") return handleActivityDetail(request, env, ctx);
+    if (url.pathname === "/api/photo") return handlePhoto(request, env, ctx);
     if (url.pathname === "/api/refresh" && request.method === "POST") return handleRefresh(request, env);
     if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env, ctx);
     return env.ASSETS.fetch(request);
@@ -873,6 +1199,14 @@ export default {
         console.log("[cron] activity snapshot refreshed at", actSnap.updatedAt);
       } catch (e) {
         console.log("[cron] activity refresh failed:", e.message);
+      }
+      // 追加：同步刷新活动项目完整快照（活动页专用；未启用不影响上面两段）
+      try {
+        const projSnap = await buildActivityProjectSnapshot(env);
+        await env.SHUMEI_KV.put(ACTIVITY_PROJECTS_KV_KEY, JSON.stringify(projSnap));
+        console.log("[cron] activity projects refreshed:", projSnap.items.length);
+      } catch (e) {
+        console.log("[cron] activity projects refresh failed:", e.message);
       }
     })());
   },
