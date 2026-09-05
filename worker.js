@@ -602,16 +602,22 @@ async function getActivitySnapshot(env) {
 // 模式与 getSnapshot 完全一致（KV 优先 → 未命中实时拉写回），不碰现有逻辑。
 // ============================================================
 
-/** 附件字段 → 附件对象数组（保留取图所需字段；生产 REST 返回 tmp_url/url 时带上）。 */
+/** 附件字段 → 附件对象数组（保留取图所需字段；生产 REST 返回 tmp_url/url 时带上）。
+ *  仅保留图片附件（按文件名扩展名白名单）：「活动照片、活动成果和海报」列混有
+ *  文档/表格/PPT/音视频（2026-09-03 审计：184 活动中 11 个混入 14 个非图片文件），
+ *  这些不是照片墙内容，也会污染封面兜底与照片计数，一律不进快照。 */
+const IMG_EXT_RE = /\.(jpe?g|png|gif|webp|bmp|heic|avif|jfif)$/i;
 function attachmentsOf(fields, key) {
   const v = fields ? fields[key] : null;
   const arr = Array.isArray(v) ? v : (v ? [v] : []);
   const out = [];
   for (const it of arr) {
     if (!it || typeof it.file_token !== "string" || !it.file_token) continue;
+    const name = typeof it.name === "string" ? it.name : "";
+    if (!name || !IMG_EXT_RE.test(name)) continue;
     out.push({
       token: it.file_token,
-      name: typeof it.name === "string" ? it.name : "",
+      name,
       tmp_url: typeof it.tmp_url === "string" ? it.tmp_url : "",
       url: typeof it.url === "string" ? it.url : "",
     });
