@@ -556,11 +556,17 @@ async function getFileCatalog(env) {
     if (!types.length) continue;                 // 未分类的资料不纳入（无法做公开判断）
     const title = text(f, "资料名称");
     const publishedAt = dateText(f["发布时间"]);  // YYYY-MM-DD；无发布时间条目保留但不可按时间排序外放
+    // 资料负责人（单选）：与「内容类型」同款防御式解析（兼容 [{text}] / ["x"] / "x" 形态），多人用「、」连接
+    const ownerRaw = f["资料负责人"];
+    const owner = (Array.isArray(ownerRaw) ? ownerRaw : ownerRaw ? [ownerRaw] : [])
+      .map((t) => String((t && t.text !== undefined ? t.text : t) || ""))
+      .filter(Boolean).join("、");
     const att = f["文件【首选】"];
     const first = Array.isArray(att) ? att[0] : att;
     items.push({
       title,
       types,                                     // 原文数组（含「社员证明」「核心文件」…）
+      owner,                                     // 资料负责人（'' 表示未填，出口可选字段）
       publishedAt,
       files: first && typeof first.file_token === "string" && first.file_token
         ? [{
@@ -586,7 +592,7 @@ function proofItemsOf(cat) {
   for (const it of (cat && cat.items) || []) {
     if (!it || !it.types || it.types.indexOf("社员证明") < 0) continue;
     if (!it.publishedAt || !it.files.length) continue;
-    out.push({ title: it.title, publishedAt: it.publishedAt, file: it.files[0] });
+    out.push({ title: it.title, owner: it.owner || "", publishedAt: it.publishedAt, file: it.files[0] });
   }
   return out;
 }
@@ -882,8 +888,8 @@ async function handleMemberDetail(request, env, ctx) {
 }
 
 // ============================================================
-// [API] 社员证明文件目录（全量，2026-09-06）
-// GET /api/proof-files → { found, files:[{title,publishedAt,files:[{name,size,fileToken}]}] }
+// [API] 社员证明文件目录（全量，2026-09-06；同日增 owner 资料负责人）
+// GET /api/proof-files → { found, files:[{title,owner,publishedAt,files:[{name,size,fileToken}]}] }
 // 职责只到「给出文档目录」为止：
 //   - 不做资格过滤（无 code 入参）—— 入社日期已随 /api/members/detail 下发 joinDate，
 //     资格比较（发布时间 >= 入社日期）发生在微信云函数侧，见 cloudfunctions/proofs
@@ -897,6 +903,7 @@ async function handleProofFiles(request, env) {
     const cat = await getFileCatalog(env);
     const files = proofItemsOf(cat).map((p) => ({
       title: p.title,
+      owner: p.owner,          // 资料负责人（单选，空串=未填，前端可选展示）
       publishedAt: p.publishedAt,
       files: [{ name: p.file.name, size: p.file.size, fileToken: p.file.fileToken }],
     }));
