@@ -8,6 +8,8 @@
  * GET /api/activities            → 活动列表（年份/类型/关键词筛选 + 分页 + 筛选项）[2026-09-03]
  * GET /api/activities/detail?id= → 活动详情（只出统计数字与照片，不出参与人名单）[2026-09-03]
  * GET /api/photo?token=&w=       → 活动照片代理 + 缩放（边缘缓存 7 天，不写 KV）[2026-09-03]
+ * GET /api/member/proofs?code=   → 社员可下载的证明清单（发布时间 >= 入社日期）[2026-09-06]
+ * GET /api/file?token=           → 社员证明附件原样代理 PDF（白名单，边缘缓存 7 天）[2026-09-06]
  * POST /api/checkin             → 签到提交（写 WPS + 发飞书通知）
  * POST /api/refresh             → 触发刷新（飞书自动化 HTTP 调用，拉全量写 KV）
  */
@@ -438,6 +440,10 @@ const ACTIVITY_DETAIL_TABLE_ID = "tbl5Gr3qoPBatTmt";
 const ACTIVITY_KV_KEY = "activity_records_v3";
 // 活动项目完整快照（含封面/相册附件、介绍等展示字段）——仅服务活动页接口，独立于上述缓存
 const ACTIVITY_PROJECTS_KV_KEY = "activity_projects_v1";
+// 社员证明文件快照（文件资料管理表「社员证明」类记录；惰性 60min，不参与 cron）[2026-09-06]
+const FILE_TABLE_ID = "tblO5pPurRqVPMR5";
+const FILE_KV_KEY = "file_proofs_v1";
+const FILE_TTL = 60 * 60 * 1000;
 
 /** 从飞书分页拉取全量原始记录（含 record_id）。 */
 async function fetchFullFromFeishu(env) {
@@ -521,6 +527,52 @@ function dateText(v) {
     return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
   }
   return "";
+}
+
+// ============================================================
+// [KV] 社员证明文件快照（2026-09-06 新增）
+// 数据：文件资料管理表「内容类型=社员证明」记录（学期制盖章扫描 PDF，如
+//       「树莓社社团证明-2024-2025学年第1学期（2025年1月）」）。
+// 判定：不解析文件名，直接用「发布时间」与社员「入社日期」比较（P >= J 即印发时已在社）。
+// 模式与 getSnapshot 一致：KV 优先（60min 惰性）→ 未命中实时拉取写回；不参与 cron。
+// ============================================================
+async function getFileSnapshot(env) {
+  try {
+    const cached = await env.SHUMEI_KV.get(FILE_KV_KEY, "json");
+    if (cached && Date.now() - (cached.updatedAt || 0) < FILE_TTL && Array.isArray(cached.items)) return cached;
+  } catch (e) { /* KV 不可用时走实时 */ }
+  const rows = await fetchTableRecords(env, FILE_TABLE_ID);
+  const items = [];
+  for (const r of rows) {
+    const f = r.fields || {};
+    const types = f["内容类型"];
+    const isProof = Array.isArray(types)
+      ? types.some((t) => String((t && (t.text !== undefined ? t.text : t)) || "") === "社员证明")
+      : String(types || "") === "社员证明";
+    if (!isProof) continue;
+    const title = text(f, "资料名称");
+    const publishedAt = dateText(f["发布时间"]);   // YYYY-MM-DD；无发布时间无法判资格，跳过
+    if (!publishedAt) continue;
+    const att = f["文件【首选】"];
+    const first = Array.isArray(att) ? att[0] : att;
+    if (!first || typeof first.file_token !== "string" || !first.file_token) continue;
+    items.push({
+      title,
+      publishedAt,
+      file: {
+        fileToken: first.file_token,
+        name: typeof first.name === "string" ? first.name : (title + ".pdf"),
+        size: first.size || 0,
+        type: first.type || "application/pdf",
+        tmp_url: typeof first.tmp_url === "string" ? first.tmp_url : "",
+        url: typeof first.url === "string" ? first.url : "",
+      },
+    });
+  }
+  items.sort((x, y) => (x.publishedAt < y.publishedAt ? -1 : x.publishedAt > y.publishedAt ? 1 : 0));
+  const snap = { updatedAt: Date.now(), items };
+  try { await env.SHUMEI_KV.put(FILE_KV_KEY, JSON.stringify(snap)); } catch (e) { /* 写缓存失败可忽略 */ }
+  return snap;
 }
 
 /**
@@ -758,6 +810,7 @@ function buildDetailMember(fields) {
     activityHours: num(fields, "参与活动时长"),
     totalHours: num(fields, "志愿服务时长"),
     joinYear: joinYear(fields),
+    joinDate: dateText(fields["入社日期"]),   // YYYY-MM-DD（北京时区）；空串 = 未登记（证明资格判定用）[2026-09-06]
     seq: text(fields, "社员编号"),
     avatar: avatarUrl(fields),
     avatarToken: avatarTokenOf(fields),
@@ -809,6 +862,89 @@ async function handleMemberDetail(request, env, ctx) {
     return Response.json({ found: false }, { headers: CORS });
   } catch (e) {
     return Response.json({ found: false, error: e.message }, { status: 500, headers: CORS });
+  }
+}
+
+// ============================================================
+// [API] 社员可下载的证明清单（2026-09-06 新增）
+// GET /api/member/proofs?code=SM…
+// 判定：文件「发布时间」(P=YYYYMMDD) >= 社员「入社日期」(J=YYYYMMDD) 即印发时已在社 → 可下载；
+//       入社日期未登记时返回全部（配合前端提示补录）。只读，与 detail 同策略（禁止查询/未找到）。
+// ============================================================
+async function handleMemberProofs(request, env, ctx) {
+  const url = new URL(request.url);
+  const code = (url.searchParams.get("code") || "").trim().toUpperCase().replace(/:/g, "");
+  const CORS = { "Access-Control-Allow-Origin": "*" };
+  if (!code) return Response.json({ found: false, error: "missing code" }, { status: 400, headers: CORS });
+  if (!env.SHUMEI_KV || !env.FEISHU_APP_ID) return Response.json({ found: false }, { status: 500, headers: CORS });
+  try {
+    const snap = await getSnapshot(env);            // 社员快照（既有）
+    let m = null;
+    for (const it of snap.items) {
+      if (text(it.fields, "社员识别码").toUpperCase() === code) { m = it.fields; break; }
+    }
+    if (!m || isBlocked(m)) return Response.json({ found: false }, { headers: CORS });
+    const joinDate = dateText(m["入社日期"]);       // YYYY-MM-DD；空串 → 不限（兜底）
+    const J = joinDate ? Number(joinDate.replace(/-/g, "")) : 0;
+    const fSnap = await getFileSnapshot(env);
+    const proofs = [];
+    for (const p of fSnap.items) {
+      if (J && Number(p.publishedAt.replace(/-/g, "")) < J) continue;   // 印发早于入社 → 跳过
+      proofs.push({
+        title: p.title,
+        publishedAt: p.publishedAt,
+        files: [{ name: p.file.name, size: p.file.size, fileToken: p.file.fileToken }],
+      });
+    }
+    return Response.json({
+      found: true,
+      member: { code, name: text(m, "姓名"), joinDate },
+      proofs,
+    }, { headers: CORS });
+  } catch (e) {
+    return Response.json({ found: false, error: e.message }, { status: 500, headers: CORS });
+  }
+}
+
+// ============================================================
+// [API] 社员证明附件代理（2026-09-06 新增）
+// GET /api/file?token=<file_token> → 原样透传（PDF 等任意类型，不走 cf.image 缩放）
+// 白名单：token 必须出现在证明文件快照中（防止任意读取）；L1 边缘缓存 7 天，不写 KV
+// 取附件机制与 /api/photo 一致（tmp_url 换直链 → url 带鉴权兜底）
+// ============================================================
+async function handleFile(request, env, ctx) {
+  const url = new URL(request.url);
+  const token = (url.searchParams.get("token") || "").trim();
+  const CORS = { "Access-Control-Allow-Origin": "*" };
+  if (!token) return new Response("missing token", { status: 400, headers: CORS });
+  if (!env.SHUMEI_KV || !env.FEISHU_APP_ID) return new Response("missing env", { status: 500, headers: CORS });
+  const cacheKey = new Request(`https://${url.host}/_cache/file/${token}`);
+  try {
+    const cache = caches.default;
+    const hit = await cache.match(cacheKey);
+    if (hit) return hit;
+    const fSnap = await getFileSnapshot(env);
+    const att = fSnap.items.map((p) => p.file).find((f) => f.fileToken === token);
+    if (!att) return new Response("not found", { status: 404, headers: CORS });
+    const resolved = await resolvePhotoUrl(env, att);
+    if (!resolved) return new Response("file unavailable", { status: 502, headers: CORS });
+    const feishuToken = await getToken(env);
+    const dl = await fetch(resolved.url, {
+      headers: resolved.needsAuth ? { Authorization: `Bearer ${feishuToken}` } : undefined,
+    });
+    if (!dl.ok) return new Response("file unavailable", { status: 502, headers: CORS });
+    const bytes = await dl.arrayBuffer();
+    const resp = new Response(bytes, {
+      headers: {
+        "Content-Type": att.type || "application/pdf",
+        "Cache-Control": "public, max-age=604800",
+        ...CORS,
+      },
+    });
+    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    return resp;
+  } catch (e) {
+    return new Response("error", { status: 500, headers: CORS });
   }
 }
 
@@ -1179,6 +1315,8 @@ export default {
     if (url.pathname === "/api/members") return handleMembers(env);
     if (url.pathname === "/api/members/full") return handleMembersFull(env);
     if (url.pathname === "/api/members/detail") return handleMemberDetail(request, env, ctx);
+    if (url.pathname === "/api/member/proofs") return handleMemberProofs(request, env, ctx);
+    if (url.pathname === "/api/file") return handleFile(request, env, ctx);
     if (url.pathname === "/api/avatar") return handleAvatar(request, env, ctx);
     if (url.pathname === "/api/member") return handleMember(request, env);
     if (url.pathname === "/api/activities") return handleActivities(request, env, ctx);
