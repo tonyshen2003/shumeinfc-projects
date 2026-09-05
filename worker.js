@@ -441,7 +441,7 @@ const ACTIVITY_DETAIL_TABLE_ID = "tbl5Gr3qoPBatTmt";
 const ACTIVITY_KV_KEY = "activity_records_v3";
 // 活动项目完整快照（含封面/相册附件、介绍等展示字段）——仅服务活动页接口，独立于上述缓存
 const ACTIVITY_PROJECTS_KV_KEY = "activity_projects_v1";
-// 文件资料管理表目录快照（整表元数据；惰性 60min，不参与 cron）[2026-09-06]
+// 文件资料管理表目录快照（整表元数据；惰性 60min + cron 30min / refresh API 主动刷新）[2026-09-06]
 const FILE_TABLE_ID = "tblO5pPurRqVPMR5";
 const FILE_KV_KEY = "file_catalog_v1";
 const FILE_TTL = 60 * 60 * 1000;
@@ -538,13 +538,17 @@ function dateText(v) {
 //        （文件表含「保密效力=实名查阅」等内部资料，不能全量外放）。
 // 判定：不解析文件名，直接用「发布时间」与社员「入社日期」比较（P >= J 即印发时已在社），
 //       比较发生在微信云函数 proofs 本地（joinDate 随 /api/members/detail 下发）。
-// 模式与 getSnapshot 一致：KV 优先（60min 惰性）→ 未命中实时拉取写回；不参与 cron。
+// 模式与 getSnapshot 一致：KV 优先（60min 惰性）→ 未命中实时拉取写回；
+// 2026-09-06 起纳入统一刷新：cron 每 30min 与 POST /api/refresh 均 force 重拉（跳过惰性缓存）。
 // ============================================================
-async function getFileCatalog(env) {
-  try {
-    const cached = await env.SHUMEI_KV.get(FILE_KV_KEY, "json");
-    if (cached && Date.now() - (cached.updatedAt || 0) < FILE_TTL && Array.isArray(cached.items)) return cached;
-  } catch (e) { /* KV 不可用时走实时 */ }
+async function getFileCatalog(env, force) {
+  // force=true（cron / POST /api/refresh 主动刷新用）：跳过缓存直拉飞书、整表重写 KV
+  if (!force) {
+    try {
+      const cached = await env.SHUMEI_KV.get(FILE_KV_KEY, "json");
+      if (cached && Date.now() - (cached.updatedAt || 0) < FILE_TTL && Array.isArray(cached.items)) return cached;
+    } catch (e) { /* KV 不可用时走实时 */ }
+  }
   const rows = await fetchTableRecords(env, FILE_TABLE_ID);
   const items = [];
   for (const r of rows) {
@@ -1277,6 +1281,8 @@ async function handlePhoto(request, env, ctx) {
 // ============================================================
 // [API] 触发刷新：拉飞书全量 → 写 KV（供飞书自动化「发送 HTTP 请求」调用）
 // POST /api/refresh  鉴权：Authorization: Bearer <REFRESH_TOKEN> 或 ?token=
+// 覆盖：社员全表 members_full + 活动 activity_records_v3 / activity_projects_v1
+//       + 文件资料表目录 file_catalog_v1（2026-09-06 起纳入，force 跳过 60min 惰性缓存）
 // 带 30 秒冷却，防止自动化频繁触发打爆飞书。（冷却为尽力而为，跨实例不严格一致）
 // ============================================================
 const REFRESH_COOLDOWN_MS = 30 * 1000;
@@ -1303,6 +1309,8 @@ async function handleRefresh(request, env) {
     // 追加：同步刷新活动项目完整快照（活动页专用）
     const projSnap = await buildActivityProjectSnapshot(env);
     await env.SHUMEI_KV.put(ACTIVITY_PROJECTS_KV_KEY, JSON.stringify(projSnap));
+    // 追加：同步刷新文件资料表目录快照（证明出口白名单数据源；force 直拉，函数内已写 KV）
+    const fileSnap = await getFileCatalog(env, true);
     await env.SHUMEI_KV.put(LAST_REFRESH_KEY, String(now));
     return Response.json({
       ok: true,
@@ -1310,6 +1318,7 @@ async function handleRefresh(request, env) {
       items: snap.items.length,
       activityItems: actSnap.items.length,
       activityProjects: projSnap.items.length,
+      fileItems: fileSnap.items.length,
     });
   } catch (e) {
     return Response.json({ ok: false, error: e.message }, { status: 500 });
@@ -1358,6 +1367,13 @@ export default {
         console.log("[cron] activity projects refreshed:", projSnap.items.length);
       } catch (e) {
         console.log("[cron] activity projects refresh failed:", e.message);
+      }
+      // 追加：同步刷新文件资料表目录快照（2026-09-06 起纳入 cron，60min 惰性之外定时兜底）
+      try {
+        const fileSnap = await getFileCatalog(env, true);
+        console.log("[cron] file catalog refreshed:", fileSnap.items.length);
+      } catch (e) {
+        console.log("[cron] file catalog refresh failed:", e.message);
       }
     })());
   },
