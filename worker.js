@@ -8,8 +8,9 @@
  * GET /api/activities            → 活动列表（年份/类型/关键词筛选 + 分页 + 筛选项）[2026-09-03]
  * GET /api/activities/detail?id= → 活动详情（只出统计数字与照片，不出参与人名单）[2026-09-03]
  * GET /api/photo?token=&w=       → 活动照片代理 + 缩放（边缘缓存 7 天，不写 KV）[2026-09-03]
- * GET /api/member/proofs?code=   → 社员可下载的证明清单（发布时间 >= 入社日期）[2026-09-06]
+ * GET /api/proof-files           → 社员证明文件目录（全量，无资格过滤）[2026-09-06]
  * GET /api/file?token=           → 社员证明附件原样代理 PDF（白名单，边缘缓存 7 天）[2026-09-06]
+ *   资格（发布时间 >= 入社日期）由微信云函数 proofs 本地比较，joinDate 随 /api/members/detail 下发
  * POST /api/checkin             → 签到提交（写 WPS + 发飞书通知）
  * POST /api/refresh             → 触发刷新（飞书自动化 HTTP 调用，拉全量写 KV）
  */
@@ -440,9 +441,9 @@ const ACTIVITY_DETAIL_TABLE_ID = "tbl5Gr3qoPBatTmt";
 const ACTIVITY_KV_KEY = "activity_records_v3";
 // 活动项目完整快照（含封面/相册附件、介绍等展示字段）——仅服务活动页接口，独立于上述缓存
 const ACTIVITY_PROJECTS_KV_KEY = "activity_projects_v1";
-// 社员证明文件快照（文件资料管理表「社员证明」类记录；惰性 60min，不参与 cron）[2026-09-06]
+// 文件资料管理表目录快照（整表元数据；惰性 60min，不参与 cron）[2026-09-06]
 const FILE_TABLE_ID = "tblO5pPurRqVPMR5";
-const FILE_KV_KEY = "file_proofs_v1";
+const FILE_KV_KEY = "file_catalog_v1";
 const FILE_TTL = 60 * 60 * 1000;
 
 /** 从飞书分页拉取全量原始记录（含 record_id）。 */
@@ -530,13 +531,16 @@ function dateText(v) {
 }
 
 // ============================================================
-// [KV] 社员证明文件快照（2026-09-06 新增）
-// 数据：文件资料管理表「内容类型=社员证明」记录（学期制盖章扫描 PDF，如
-//       「树莓社社团证明-2024-2025学年第1学期（2025年1月）」）。
-// 判定：不解析文件名，直接用「发布时间」与社员「入社日期」比较（P >= J 即印发时已在社）。
+// [KV] 文件资料管理表目录快照（2026-09-06）
+// 缓存「宽」：整表元数据（约 120 条，几十 KB）都进 KV，未来开放新资料类型
+//        （章程/公开文件等）时无需再改拉取逻辑，只在出口加白名单。
+// 出口「窄」：可下载白名单与公开目录仍只放行「内容类型=社员证明」记录
+//        （文件表含「保密效力=实名查阅」等内部资料，不能全量外放）。
+// 判定：不解析文件名，直接用「发布时间」与社员「入社日期」比较（P >= J 即印发时已在社），
+//       比较发生在微信云函数 proofs 本地（joinDate 随 /api/members/detail 下发）。
 // 模式与 getSnapshot 一致：KV 优先（60min 惰性）→ 未命中实时拉取写回；不参与 cron。
 // ============================================================
-async function getFileSnapshot(env) {
+async function getFileCatalog(env) {
   try {
     const cached = await env.SHUMEI_KV.get(FILE_KV_KEY, "json");
     if (cached && Date.now() - (cached.updatedAt || 0) < FILE_TTL && Array.isArray(cached.items)) return cached;
@@ -545,34 +549,46 @@ async function getFileSnapshot(env) {
   const items = [];
   for (const r of rows) {
     const f = r.fields || {};
-    const types = f["内容类型"];
-    const isProof = Array.isArray(types)
-      ? types.some((t) => String((t && (t.text !== undefined ? t.text : t)) || "") === "社员证明")
-      : String(types || "") === "社员证明";
-    if (!isProof) continue;
+    const typesRaw = f["内容类型"];
+    const types = Array.isArray(typesRaw)
+      ? typesRaw.map((t) => String((t && t.text !== undefined ? t.text : t) || "")).filter(Boolean)
+      : String(typesRaw || "") ? [String(typesRaw)] : [];
+    if (!types.length) continue;                 // 未分类的资料不纳入（无法做公开判断）
     const title = text(f, "资料名称");
-    const publishedAt = dateText(f["发布时间"]);   // YYYY-MM-DD；无发布时间无法判资格，跳过
-    if (!publishedAt) continue;
+    const publishedAt = dateText(f["发布时间"]);  // YYYY-MM-DD；无发布时间条目保留但不可按时间排序外放
     const att = f["文件【首选】"];
     const first = Array.isArray(att) ? att[0] : att;
-    if (!first || typeof first.file_token !== "string" || !first.file_token) continue;
     items.push({
       title,
+      types,                                     // 原文数组（含「社员证明」「核心文件」…）
       publishedAt,
-      file: {
-        fileToken: first.file_token,
-        name: typeof first.name === "string" ? first.name : (title + ".pdf"),
-        size: first.size || 0,
-        type: first.type || "application/pdf",
-        tmp_url: typeof first.tmp_url === "string" ? first.tmp_url : "",
-        url: typeof first.url === "string" ? first.url : "",
-      },
+      files: first && typeof first.file_token === "string" && first.file_token
+        ? [{
+            fileToken: first.file_token,
+            name: typeof first.name === "string" ? first.name : (title + ".pdf"),
+            size: first.size || 0,
+            type: first.type || "application/pdf",
+            tmp_url: typeof first.tmp_url === "string" ? first.tmp_url : "",
+            url: typeof first.url === "string" ? first.url : "",
+          }]
+        : [],
     });
   }
   items.sort((x, y) => (x.publishedAt < y.publishedAt ? -1 : x.publishedAt > y.publishedAt ? 1 : 0));
   const snap = { updatedAt: Date.now(), items };
   try { await env.SHUMEI_KV.put(FILE_KV_KEY, JSON.stringify(snap)); } catch (e) { /* 写缓存失败可忽略 */ }
   return snap;
+}
+
+/** 出口白名单过滤：仅「内容类型=社员证明」且有附件可下载的目录条目。 */
+function proofItemsOf(cat) {
+  const out = [];
+  for (const it of (cat && cat.items) || []) {
+    if (!it || !it.types || it.types.indexOf("社员证明") < 0) continue;
+    if (!it.publishedAt || !it.files.length) continue;
+    out.push({ title: it.title, publishedAt: it.publishedAt, file: it.files[0] });
+  }
+  return out;
 }
 
 /**
@@ -866,41 +882,25 @@ async function handleMemberDetail(request, env, ctx) {
 }
 
 // ============================================================
-// [API] 社员可下载的证明清单（2026-09-06 新增）
-// GET /api/member/proofs?code=SM…
-// 判定：文件「发布时间」(P=YYYYMMDD) >= 社员「入社日期」(J=YYYYMMDD) 即印发时已在社 → 可下载；
-//       入社日期未登记时返回全部（配合前端提示补录）。只读，与 detail 同策略（禁止查询/未找到）。
+// [API] 社员证明文件目录（全量，2026-09-06）
+// GET /api/proof-files → { found, files:[{title,publishedAt,files:[{name,size,fileToken}]}] }
+// 职责只到「给出文档目录」为止：
+//   - 不做资格过滤（无 code 入参）—— 入社日期已随 /api/members/detail 下发 joinDate，
+//     资格比较（发布时间 >= 入社日期）发生在微信云函数侧，见 cloudfunctions/proofs
+//   - 数据源 = 文件资料管理表目录快照 getFileCatalog（整表元数据 KV 60min），出口仅放行「社员证明」
+//   - 云函数把本目录缓存 12h 后，日常请求不再跨网访问本端点
 // ============================================================
-async function handleMemberProofs(request, env, ctx) {
-  const url = new URL(request.url);
-  const code = (url.searchParams.get("code") || "").trim().toUpperCase().replace(/:/g, "");
+async function handleProofFiles(request, env) {
   const CORS = { "Access-Control-Allow-Origin": "*" };
-  if (!code) return Response.json({ found: false, error: "missing code" }, { status: 400, headers: CORS });
   if (!env.SHUMEI_KV || !env.FEISHU_APP_ID) return Response.json({ found: false }, { status: 500, headers: CORS });
   try {
-    const snap = await getSnapshot(env);            // 社员快照（既有）
-    let m = null;
-    for (const it of snap.items) {
-      if (text(it.fields, "社员识别码").toUpperCase() === code) { m = it.fields; break; }
-    }
-    if (!m || isBlocked(m)) return Response.json({ found: false }, { headers: CORS });
-    const joinDate = dateText(m["入社日期"]);       // YYYY-MM-DD；空串 → 不限（兜底）
-    const J = joinDate ? Number(joinDate.replace(/-/g, "")) : 0;
-    const fSnap = await getFileSnapshot(env);
-    const proofs = [];
-    for (const p of fSnap.items) {
-      if (J && Number(p.publishedAt.replace(/-/g, "")) < J) continue;   // 印发早于入社 → 跳过
-      proofs.push({
-        title: p.title,
-        publishedAt: p.publishedAt,
-        files: [{ name: p.file.name, size: p.file.size, fileToken: p.file.fileToken }],
-      });
-    }
-    return Response.json({
-      found: true,
-      member: { code, name: text(m, "姓名"), joinDate },
-      proofs,
-    }, { headers: CORS });
+    const cat = await getFileCatalog(env);
+    const files = proofItemsOf(cat).map((p) => ({
+      title: p.title,
+      publishedAt: p.publishedAt,
+      files: [{ name: p.file.name, size: p.file.size, fileToken: p.file.fileToken }],
+    }));
+    return Response.json({ found: true, files }, { headers: CORS });
   } catch (e) {
     return Response.json({ found: false, error: e.message }, { status: 500, headers: CORS });
   }
@@ -923,8 +923,8 @@ async function handleFile(request, env, ctx) {
     const cache = caches.default;
     const hit = await cache.match(cacheKey);
     if (hit) return hit;
-    const fSnap = await getFileSnapshot(env);
-    const att = fSnap.items.map((p) => p.file).find((f) => f.fileToken === token);
+    const cat = await getFileCatalog(env);
+    const att = proofItemsOf(cat).map((p) => p.file).find((f) => f.fileToken === token);
     if (!att) return new Response("not found", { status: 404, headers: CORS });
     const resolved = await resolvePhotoUrl(env, att);
     if (!resolved) return new Response("file unavailable", { status: 502, headers: CORS });
@@ -1315,7 +1315,7 @@ export default {
     if (url.pathname === "/api/members") return handleMembers(env);
     if (url.pathname === "/api/members/full") return handleMembersFull(env);
     if (url.pathname === "/api/members/detail") return handleMemberDetail(request, env, ctx);
-    if (url.pathname === "/api/member/proofs") return handleMemberProofs(request, env, ctx);
+    if (url.pathname === "/api/proof-files") return handleProofFiles(request, env);
     if (url.pathname === "/api/file") return handleFile(request, env, ctx);
     if (url.pathname === "/api/avatar") return handleAvatar(request, env, ctx);
     if (url.pathname === "/api/member") return handleMember(request, env);
