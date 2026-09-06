@@ -1,9 +1,17 @@
 # 更新日志
 
+## 1.13.0 - 2026-09-06
+- 管理台表格升级：引入 **AG Grid Community v36**（`vendor/ag-grid/` 同域自托管，MIT 开源组件，非自研）
+  - 列排序、每列浮动过滤、底部分页（50/100/200/500）、CSV 导出、行点击查看单条详情
+  - 主键列与 # 列冻结在左，悬停显示完整值，空值灰点占位，飞书蓝强调色浅色主题
+- `GET /api/admin/kv` 新增 `limit` 参数（1–20000，默认 30）：管理页「加载全部」可一次拉取整表浏览
+- 修复：members_full 等大 key 表格不可用——文本预览截断不再连带清空表格结构化数据（30 条 ≈100KB，此前超过 60K 字符上限即回退文本）
+- 构建修复：`const j` 误赋值导致 CF esbuild 构建失败（c700d7f），本地起用 esbuild 语义构建校验
+
 ## 1.12.0 - 2026-09-06
 - 新增内部管理台 `admin.html`（`https://nfc.raspjam.com/admin.html`）+ 管理 API：
   - `GET /api/admin/kv/list`：KV 快照状态一览（条数/体积/updatedAt/健康）
-  - `GET /api/admin/kv?key=&reveal=`：单 key 内容样本（默认敏感字段打码、数组截前 30 条防整库倒出；图片类仅回字节数）
+  - `GET /api/admin/kv?key=`：单 key 内容原文直出（内部授权工具；大数组截前 30 条防整库倒出；图片类仅回字节数）
   - `POST /api/admin/refresh`：一键全量刷新（与 /api/refresh 等价）
 - 新增 Secret `ADMIN_TOKEN`（独立于 REFRESH_TOKEN）；`/api/refresh` 鉴权兼容两种口令
 - 管理端点安全设计：全部 Bearer 鉴权、响应 no-store、不加 CORS（仅同源管理页可调）；admin.html 口令仅存 sessionStorage

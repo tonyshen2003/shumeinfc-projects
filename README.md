@@ -92,7 +92,7 @@
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/admin/kv/list` | KV 快照状态一览：条数 / 字节 / updatedAt / 健康（avatar 前缀仅计数） |
-| GET | `/api/admin/kv?key=<key>` | 单个 KV key 内容（原文直出，内部工具）；大数组截前 30 条；图片类只回字节数 |
+| GET | `/api/admin/kv?key=<key>&limit=<N>` | 单个 KV key 内容（原文直出，内部工具）；大数组默认前 30 条，`limit` 可调至 20000（管理页「加载全部」）；图片类只回字节数 |
 | POST | `/api/admin/refresh` | 与 `/api/refresh` 等价，鉴权同时接受 `ADMIN_TOKEN`（30s 冷却共用） |
 
 > 安全备注：`members_full` 含「登录密码」等原始列——管理页可看原文（管理台为内部授权工具，访问受 `ADMIN_TOKEN` 保护）；如部署 CF Zero Trust Access，可把 `/admin.html` 与 `/api/admin/*` 再包一层登录墙（可选加固，见部署节）。
@@ -158,7 +158,7 @@
 
 ```
 ├── index.html          # H5 签到页（样式 + 交互 + 逻辑；NFC/扫码/新卡登记）
-├── admin.html          # 内部管理台（KV 只读查看 + 一键全量刷新，需 ADMIN_TOKEN）
+├── admin.html          # 内部管理台（KV 表格浏览 AG Grid + 一键全量刷新，需 ADMIN_TOKEN）
 ├── worker.js           # Cloudflare Worker（13 条公开 API + 3 条管理 API + KV 缓存，见文件头注释）
 ├── wrangler.jsonc      # Wrangler 部署配置（KV 绑定 / Cron 30 * * * * / routes）
 ├── .wranglerignore     # 部署排除规则（*.md / *.csv / api-baseline 等）
@@ -170,6 +170,7 @@
 │   ├── activity-api-plan.md      # 活动功能实现说明（含小程序/云函数链路）
 │   ├── admin-console-plan.md     # 内部管理台方案（v3：KV 查看 + 一键刷新 + 字段开关规划）
 │   ├── dataflow-audit-2026-09-06.html  # 数据流全景图 + 接口案例 + 文档核对（审查交付物）
+├── vendor/ag-grid/      # AG Grid Community v36（管理台表格组件，同域自托管）
 │   └── api-baseline/              # API 基线快照（含社员全量数据，git/wrangler 双忽略）
 ├── public/             # 旧静态数据（members.js 等，已废弃仅历史参考）
 └── assets/             # 静态资源
@@ -265,6 +266,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.13.0** | 2026-09-06 | 管理台表格升级 AG Grid（排序/列过滤/分页/CSV 导出，vendor/ 同域自托管）；`/api/admin/kv` 支持 `limit` 加载全部；修复大 key 表格不可用 |
 | **1.12.0** | 2026-09-06 | 内部管理台：`admin.html` + `/api/admin/kv/list`、`/api/admin/kv?key=`、`/api/admin/refresh`；独立 Secret `ADMIN_TOKEN`，管理端点 no-store 无 CORS |
 | **1.11.0** | 2026-09-06 | 社员证明：`/api/proof-files` + `/api/file`（白名单 PDF 代理，边缘 7d）；文件目录快照 `file_catalog_v1`（惰性 60min）纳入 cron/refresh；detail 新增 `joinDate`；目录接口新增 owner 字段 |
 | **1.10.0** | 2026-09-03 | 活动页 API：`/api/activities` + `/api/activities/detail`（无参与人名单）+ `/api/photo`（cf.image 缩放）；新增 `activity_projects_v1` 完整快照；头像获取不再回退「个人照片」 |

@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-page-node-id="G3jzb9N4XXPW8oqSNVhFBw">
-<head data-page-node-id="7tpRuEHleOGyTqhH6Lfdyf">
-<meta charset="UTF-8" data-page-node-id="eweK0Lxc1cpdUkqzp8lWIL">
-<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="anESAZrZyUWPovwEOK6zy0">
+<html lang="zh-CN" data-page-node-id="W7abpmlWGFhIv2vWw7Dw1Q">
+<head data-page-node-id="i4wnGBCDlvVPpFXvpjHQ4D">
+<meta charset="UTF-8" data-page-node-id="ynqFmY5xoS5YQI14gRfaAD">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="BJTLJN6fkLmVtb48dvNyRt">
 <title>树莓社 · 内部管理台</title>
+<link rel="stylesheet" href="vendor/ag-grid/ag-grid.css" data-page-node-id="LHIe7CEif1ZTlZaJkb1QqI">
+<link rel="stylesheet" href="vendor/ag-grid/ag-theme-alpine.min.css" data-page-node-id="fnXOHFouaemVaUdFKgASAN">
 <style>
   /* 设计规范：DESIGN.md —— 飞书风格（浅色；不用暗色主题/渐变按钮；圆角 <= 12px） */
   :root{
@@ -18,7 +20,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"SF Pro","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
-  .wrap{max-width:1200px;margin:0 auto;padding:20px 18px 48px}
+  .wrap{max-width:1320px;margin:0 auto;padding:20px 18px 48px}
   .mono{font-family:var(--mono)}
   button{font:inherit;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:7px 16px;font-weight:500;font-size:13px;transition:background .15s ease;background:#fff;color:var(--sub)}
   button:hover{border-color:var(--blue);color:var(--blue)}
@@ -26,7 +28,7 @@
   button.primary:hover{background:var(--blue-hover);color:#fff}
   button.primary:disabled{background:#A9C0F0;cursor:not-allowed;border-color:transparent}
   button.mini{padding:3px 12px;font-size:12px}
-  input[type=password],input[type=search]{font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:#fff;color:var(--ink)}
+  input[type=password]{font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:#fff;color:var(--ink)}
   input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(51,112,255,.12)}
   .muted{color:var(--sub);font-size:12px}
   .faint{color:var(--faint);font-size:11px}
@@ -76,27 +78,29 @@
   .view-switch{display:none;flex-direction:row;border:1px solid var(--line);border-radius:8px;overflow:hidden}
   .view-switch button{border:none;border-radius:0;background:#fff;padding:4px 16px;font-size:12.5px}
   .view-switch button.on{background:var(--blue);color:#fff}
-  .reveal-tip{font-size:12px;color:#E07000;background:var(--orange-bg);padding:6px 16px;border-bottom:1px solid var(--divider);display:none}
 
-  /* 工具栏 */
-  .kv-toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--divider)}
-  .kv-toolbar input{flex:1;min-width:180px;max-width:340px}
+  /* 表格工具栏（AG Grid 版） */
+  .kv-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--divider)}
   .kv-toolbar .count{font-size:12px;color:var(--faint);white-space:nowrap}
+  .kv-toolbar .spacer{flex:1}
+  .hint{font-size:11.5px;color:var(--faint)}
+  .hint b{color:var(--blue);font-weight:600}
 
-  /* 数据表 */
-  .tbl-scroll{overflow:auto;max-height:60vh}
-  table.data{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:100%}
-  table.data thead th{position:sticky;top:0;z-index:3;background:#F2F4F7;color:var(--sub);font-weight:600;font-size:11.5px;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left;font-family:var(--mono);max-width:220px;overflow:hidden;text-overflow:ellipsis}
-  table.data tbody td{padding:7px 10px;border-bottom:1px solid var(--divider);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:top}
-  table.data tbody tr{cursor:pointer}
-  table.data tbody tr:hover td{background:var(--hover)}
-  table.data th:first-child,table.data td:first-child{position:sticky;left:0;background:#fff;z-index:1;min-width:44px;max-width:44px;text-align:center}
-  table.data thead th:first-child{z-index:4;background:#F2F4F7}
-  table.data tbody tr:hover td:first-child{background:#F0F5FF}
+  /* AG Grid 容器：alpine 浅色主题 + 飞书蓝强调 + 紧凑行高 */
+  #gridBox{height:56vh;width:100%}
+  .ag-theme-alpine{
+    --ag-alpine-active-color:#3370FF; --ag-accent-color:#3370FF;
+    --ag-selected-row-background-color:#EBF1FF;
+    --ag-header-background-color:#FAFBFC; --ag-odd-row-background-color:#FCFDFE;
+    --ag-row-hover-color:#F0F5FF;
+    --ag-font-family:-apple-system,BlinkMacSystemFont,"SF Pro","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --ag-font-size:12.5px; --ag-row-height:32px; --ag-header-height:38px;
+    --ag-border-radius:0; --ag-border-color:var(--line);
+  }
+  .ag-theme-alpine .ag-header-cell-text{font-weight:600;color:var(--sub)}
+  .ag-theme-alpine .ag-cell{line-height:32px}
   .cell-empty{color:#C4CAD2}
-  .cell-obj{color:var(--blue);font-family:var(--mono);font-size:11.5px}
-  .row-idx{color:var(--faint);font-size:11px}
-  .rec-note{color:var(--faint);font-size:11px;white-space:nowrap}
+  .cell-idx{color:var(--faint);font-size:11px}
 
   /* 行展开详情 */
   #rowDetail{display:none;border-top:1px solid var(--line);background:#FBFCFE}
@@ -105,12 +109,12 @@
   #rowDetail .rd-body{overflow:auto;max-height:32vh}
   table.rd{border-collapse:collapse;width:100%;font-size:12.5px}
   table.rd td{padding:5px 12px;border-bottom:1px solid var(--divider);vertical-align:top}
-  table.rd td:first-child{width:200px;font-family:var(--mono);font-size:11.5px;color:var(--sub);background:#FAFBFC;white-space:nowrap}
+  table.rd td:first-child{width:220px;font-family:var(--mono);font-size:11.5px;color:var(--sub);background:#FAFBFC;white-space:nowrap}
   table.rd td:last-child{color:#2B3038;word-break:break-all;white-space:pre-wrap;font-family:var(--mono);font-size:11.5px}
   .v-obj{color:var(--blue)}
 
   /* JSON 视图 */
-  pre.json{background:#FAFBFC;color:#2B3038;padding:14px 16px;font:12px/1.65 var(--mono);overflow:auto;max-height:60vh;white-space:pre;display:none;margin:0}
+  pre.json{background:#FAFBFC;color:#2B3038;padding:14px 16px;font:12px/1.65 var(--mono);overflow:auto;max-height:56vh;white-space:pre;display:none;margin:0}
 
   /* 刷新页 */
   .refreshBig{width:100%;padding:14px;font-size:15px;font-weight:600;border-radius:8px;background:var(--blue);color:#fff;border:none}
@@ -126,98 +130,101 @@
   .foot{margin-top:24px;color:var(--faint);font-size:11px;text-align:center}
 </style>
 </head>
-<body data-page-node-id="XVYg5Yk3NmCZjyABCKLbEo">
-<div id="toast" data-page-node-id="kBOAtWCcBvdLWlEcysBgxl"></div>
+<body data-page-node-id="PtDpsYELLd7TbhAQT8jvCH">
+<div id="toast" data-page-node-id="G9FIH7UtEs5eTPyx9OsL9k"></div>
 
-<div class="wrap" data-page-node-id="Y6A0QJHGNeOtLxOq7ER6ii">
-  <header class="top" data-page-node-id="s8to8VrHInVwGskvB7VPbP">
-    <div data-page-node-id="0myXgnquUyrYfLsLK6FGpB">
-      <h1 data-page-node-id="iRSfR9DcJIbqE0AqBChzJK">树莓社 · 内部管理台</h1>
-      <div class="sub" data-page-node-id="5K19a4UV9qUE8tIgrwK6e7">KV 快照浏览（表格视图）· 一键全量刷新</div>
+<div class="wrap" data-page-node-id="SJenhMl8HRHTEf1vbf6ygX">
+  <header class="top" data-page-node-id="eUzxh2HpCEHkdXitngSRj6">
+    <div data-page-node-id="dEmzBaCmcUdfkZHjBDLHLc">
+      <h1 data-page-node-id="tBmaOZ6BQvHSqv8ItsRkI1">树莓社 · 内部管理台</h1>
+      <div class="sub" data-page-node-id="J7alLr4JbdS5Sc0r5IrXPv">KV 快照浏览（AG Grid 表格）· 一键全量刷新</div>
     </div>
-    <div class="right" data-page-node-id="pxhr7o08xZ7lXIQ9AZnaJ1"><span id="userInfo" data-page-node-id="0lg93UafvtCl0e3BGCOYbN"></span><button id="logoutBtn" style="display:none" data-page-node-id="C5jFiGbpeynGvisXoeEjMN">退出</button></div>
+    <div class="right" data-page-node-id="QKQzYQ4DhRKDRa7rDbEBUh"><span id="userInfo" data-page-node-id="3Be7pWrh7AGG1XgFBqs4Kj"></span><button id="logoutBtn" style="display:none" data-page-node-id="RMf5cSmHgxHyKqq6Bxs6oH">退出</button></div>
   </header>
 
   <!-- ===== 登录 ===== -->
-  <div id="loginView" data-page-node-id="MNqFxC5z4WudjcRVvCXPsk">
-    <div class="logo" data-page-node-id="MDvG97e79WsEoMBnBJFv3N">树</div>
-    <h2 style="font-size:18px;font-weight:600;margin-bottom:2px" data-page-node-id="NS1v7i0veshdcsALTgVMU4">请输入管理口令</h2>
-    <p class="muted" data-page-node-id="o2zq8nGxlLvjhBfrWKij4a">口令 = 环境变量 <span class="mono" data-page-node-id="LPB2kFWkqFcxObWeRmDcNS">ADMIN_TOKEN</span> 的值（管理员生成并私发给你）</p>
-    <div class="field" data-page-node-id="BE3vnyNADCBZhcgyfd9uq7"><label for="tokenInput" data-page-node-id="GXxRk9U8EEDSthkxAmwjqY">管理口令</label><input type="password" id="tokenInput" placeholder="请输入 ADMIN_TOKEN" autocomplete="off" data-page-node-id="GUNU0CBw3KRGLmG2U0saoM"></div>
-    <button class="primary" id="btnLogin" data-page-node-id="AaiEWGTsT5MdzTNr1WAmsS">进入管理台</button>
-    <p class="tip" data-page-node-id="ANGzHz3Cwh1yz0MNLfRmbz">口令仅保存在本次浏览器会话中（sessionStorage），关闭页面即失效。</p>
+  <div id="loginView" data-page-node-id="wIe5WuCJ30jLiAVGV50Rus">
+    <div class="logo" data-page-node-id="Ia7iu31X7uPHbvCMlf4SGl">树</div>
+    <h2 style="font-size:18px;font-weight:600;margin-bottom:2px" data-page-node-id="T2pBByIRAgqBBfPq77vNFC">请输入管理口令</h2>
+    <p class="muted" data-page-node-id="uxBvgF3FiahuZIAI4GKVMA">口令 = 环境变量 <span class="mono" data-page-node-id="Huy8TZCljQMd3JzRy8qc8c">ADMIN_TOKEN</span> 的值（管理员生成并私发给你）</p>
+    <div class="field" data-page-node-id="9O4IzZ32q4sWZdLPnUQ8fI"><label for="tokenInput" data-page-node-id="S73UXbZOf3B6QReAtWp6Ou">管理口令</label><input type="password" id="tokenInput" placeholder="请输入 ADMIN_TOKEN" autocomplete="off" data-page-node-id="sk2xZqSGKA6tJ46aCrOlaZ"></div>
+    <button class="primary" id="btnLogin" data-page-node-id="iOBfs43SrOmMR60QlZ8iqR">进入管理台</button>
+    <p class="tip" data-page-node-id="QamhIcA0IeNEyyCtk3wR7A">口令仅保存在本次浏览器会话中（sessionStorage），关闭页面即失效。</p>
   </div>
 
   <!-- ===== 主面板 ===== -->
-  <div id="mainView" style="display:none" data-page-node-id="QPoZP3CwZ1P61SlidM8v1P">
-    <div class="tabs" data-page-node-id="24GaNZWQzXC7IBHDHZvi5S">
-      <div class="tab active" data-tab="kv" data-page-node-id="tfL7FoV4VuCwQqyl3zjXni">KV 快照查看</div>
-      <div class="tab" data-tab="refresh" data-page-node-id="OxHLED8oVlakPEEiuRLTmH">一键全量刷新</div>
+  <div id="mainView" style="display:none" data-page-node-id="Z1s6YmyfINeXjQ00QarZE4">
+    <div class="tabs" data-page-node-id="b6VnCBCxttToTde0l3saTs">
+      <div class="tab active" data-tab="kv" data-page-node-id="zGuGBkoov1cIXbWxmFo1XX">KV 快照查看</div>
+      <div class="tab" data-tab="refresh" data-page-node-id="BEEFhIdKA90pEtpU6ocVMZ">一键全量刷新</div>
     </div>
 
     <!-- KV -->
-    <div class="panel active" id="panel-kv" data-page-node-id="PKByzHBRgeC3XEH2mdUw1D">
-      <p class="muted" style="margin-bottom:12px" data-page-node-id="oduvztgCvxdlbNa4qEjCt1">点击任一 key 查看内容 —— 快照类 key 以<b data-page-node-id="BpVdTwVPAgeWSSPQZ5xIbT">表格</b>展示（行=记录、列=字段），可切换原始 JSON。内容为原文直出（内部授权工具），大表只取前 30 条样本。</p>
-      <table class="overview" data-page-node-id="P5NBYS3LWpAU29GUjdepvo">
-        <thead data-page-node-id="mqHy7qAwW433AjEVHEDhK1"><tr data-page-node-id="Mh6a8WqseGn6mxaEZN58Oe"><th data-page-node-id="PgR0EWHsHQPodrzo14Jyng">Key</th><th data-page-node-id="rBntFTbDWUJ2QxUsBuhlkE">说明</th><th data-page-node-id="fBMioDtNXTDf1jnf5oQHpY">条数</th><th data-page-node-id="L2bptVxRLPvJnH4OXXcGI5">体积</th><th data-page-node-id="Mx6HiI0PpGjpJKSQ7YTjk9">更新时间</th><th data-page-node-id="bn3RHmCoXcoookd3bO9YV0">状态</th></tr></thead>
-        <tbody id="kvBody" data-page-node-id="6BjL89JtRYC30pL2juDqxF"><tr data-page-node-id="HHHvpGzAAjuvteiS4Uoeqx"><td colspan="6" class="muted" data-page-node-id="cnwRcjjuUCWE2rs9WoY7wm">加载中…</td></tr></tbody>
+    <div class="panel active" id="panel-kv" data-page-node-id="7pLlijFoby4l4TzwKUgNjy">
+      <p class="muted" style="margin-bottom:12px" data-page-node-id="Hw32BldfuoH96UXxEsOJeL">点击任一 key 查看内容 —— 快照类 key 以<b data-page-node-id="AK4fcGSXIp6NbPUa0Wge1X">表格</b>展示（行=记录、列=字段；点列头排序、每列下方可过滤、底部分页、可导出 CSV）。内容为原文直出（内部授权工具）。</p>
+      <table class="overview" data-page-node-id="cstNGugPTzJgtSjxLPQwFL">
+        <thead data-page-node-id="IBFZ3VLckRUG4muaaBLeQu"><tr data-page-node-id="mru6E9m7kGvmYAXp3L5DKH"><th data-page-node-id="yoVIptUpFAEXWNSPmC0qbn">Key</th><th data-page-node-id="AMOEvN4vtoEpZyAYfBJh9i">说明</th><th data-page-node-id="yK6ExW1ZNtcDcu6nKhBP1p">条数</th><th data-page-node-id="Xi5OqwT6RzJvSS4NcFp3mr">体积</th><th data-page-node-id="BIilkNWOjY38nYyCRrDFvu">更新时间</th><th data-page-node-id="78URFYZtqGLhUZP3PXRjFG">状态</th></tr></thead>
+        <tbody id="kvBody" data-page-node-id="x9KIOtRGkBd9ZxDMCEFAvF"><tr data-page-node-id="3yACEh6CPIsPEMIBqGUCPH"><td colspan="6" class="muted" data-page-node-id="Nk7wtj9YLYWOiNICeNMA97">加载中…</td></tr></tbody>
       </table>
 
       <!-- 详情区 -->
-      <div id="kvDetail" data-page-node-id="KOs6vKwjRvVCoFeJlxlNsY">
-        <div class="detail-head" data-page-node-id="qBhYMrywKKcJXmYvnWh6q0">
-          <span class="k" id="kvDetailTitle" data-page-node-id="rp9b3QWgoFo7JXymcyRTMu"></span>
-          <span class="meta" id="kvMeta" data-page-node-id="ipcsRTqiUAwZuWBC4MaDm2"></span>
-          <span class="spacer" data-page-node-id="EkyBuqxrROYJJzUxsaNp0B"></span>
-          <div class="view-switch" id="viewSwitch" data-page-node-id="cHUQnlgsWH14vzBFCBnW2X">
-            <button id="vwTable" class="on" data-page-node-id="RoDtH5HUNFLzRZMqWmf8So">表格</button>
-            <button id="vwJson" data-page-node-id="tFAth5A5FbiQXphDgLX9KT">JSON</button>
+      <div id="kvDetail" data-page-node-id="7CvGbcRorXfHdOLvYrPwT9">
+        <div class="detail-head" data-page-node-id="pGLJgHPTij0CsHoJF2Eew6">
+          <span class="k" id="kvDetailTitle" data-page-node-id="LqAt6HzGM50bD28kCflsmQ"></span>
+          <span class="meta" id="kvMeta" data-page-node-id="L9Kw3tykXScf1vvMRyBbAu"></span>
+          <span class="spacer" data-page-node-id="ruAEAqrj1OmP9eu2mQBicy"></span>
+          <div class="view-switch" id="viewSwitch" data-page-node-id="8BzLtNf4s1r3OYnevhg2Ic">
+            <button id="vwTable" class="on" data-page-node-id="eqECsM04gvfja5p15xWbHY">表格</button>
+            <button id="vwJson" data-page-node-id="m25ZWBpMgaBWSL4pyhnjgz">JSON</button>
           </div>
-          <button class="mini" id="btnCloseDetail" data-page-node-id="qxR4pGXYSB9jAbJ2AKd8xM">关闭</button>
+          <button class="mini" id="btnCloseDetail" data-page-node-id="QRYM6eROpeAnj94dzNNOr3">关闭</button>
         </div>
 
-        <!-- 表格视图 -->
-        <div id="tblView" data-page-node-id="qcx7HzhT0TsaFdElxBGYgH">
-          <div class="kv-toolbar" data-page-node-id="BcMMmlFDDVMQcGWTan3YFi">
-            <input type="search" id="tblFilter" placeholder="筛选：输入任意值（如姓名/识别码片段）…" data-page-node-id="i28LLMALKTFRFgFPnUXeRW">
-            <span class="count" id="tblCount" data-page-node-id="KdVfy4DgngMGsppJZJLhL1"></span>
+        <!-- 表格视图（AG Grid） -->
+        <div id="tblView" data-page-node-id="DaynxZGIMpCIfQjhf932zN">
+          <div class="kv-toolbar" data-page-node-id="5ySxkx5DdJCbEHIpx6XKfq">
+            <span class="count" id="tblCount" data-page-node-id="6oKNKItqd0Zt8CHiSSGmvG">…</span>
+            <span class="hint" id="tblHint" data-page-node-id="05Wz6xnY96mTPSXphSIVU3">点列头排序 · 列下方输入框过滤 · 点行看单条详情</span>
+            <span class="spacer" data-page-node-id="sF3HHhRQTnSm7diWOecxbn"></span>
+            <button class="mini" id="btnLoadAll" style="display:none" data-page-node-id="Z9R8bvpmtAMg0kjF3W7kCU">加载全部</button>
+            <button class="mini" id="btnCsv" data-page-node-id="wtiiMC2Z9GsgPM0rGjBOrF">导出 CSV</button>
           </div>
-          <div class="tbl-scroll" data-page-node-id="xEsD4ViYwRBhnKruo3rS3B">
-            <table class="data" data-page-node-id="5rht1T2Ve6BzhWjgR3yeJl">
-              <thead id="tblHead" data-page-node-id="VyRCcdymkQZTlgbaRhbPyf"></thead>
-              <tbody id="tblBody" data-page-node-id="XJDshj3JiA4CgZAOInR0sm"></tbody>
-            </table>
-          </div>
+          <div id="gridBox" class="ag-theme-alpine" data-page-node-id="iresFIUTkKah42z0o2TTz7"></div>
         </div>
 
         <!-- 单条详情 -->
-        <div id="rowDetail" data-page-node-id="2Q4WFUJv6oFtXg5flGUmut">
-          <div class="rd-head" data-page-node-id="aS9S7SGZ70wH1pwWIQlrS1"><span id="rdTitle" data-page-node-id="bOjIBgVQOkeCu6RYS6eogk"></span><span class="spacer" data-page-node-id="Rg4X0PXiyLq7C6V66HaWt4"></span><button class="mini" id="btnCloseRow" data-page-node-id="dTI9GpGpCdV2yFY5SxCslE">收起</button></div>
-          <div class="rd-body" data-page-node-id="T8dvsQbwrAPF5NEjyKrl77"><table class="rd" data-page-node-id="EVDENweaSU9mF7sw0hfb5I"><tbody id="rdTable" data-page-node-id="iZGzmNyVvaDHTiJNHG9dH2"></tbody></table></div>
+        <div id="rowDetail" data-page-node-id="jpq0woNfV0Mwc1ZnxeAmOP">
+          <div class="rd-head" data-page-node-id="eq20zMXV9NN5uYsziUdkvt"><span id="rdTitle" data-page-node-id="c9MDfwnVViVG3DoPMnJ8PR"></span><span class="spacer" data-page-node-id="DlQHkGDAxhBGOuUrEX8Gbk"></span><button class="mini" id="btnCloseRow" data-page-node-id="ZVjjvVOlS8yg31IuE6TMwv">收起</button></div>
+          <div class="rd-body" data-page-node-id="FlydDNh9flZt7AGKNH4jl6"><table class="rd" data-page-node-id="21uUB9RsinLEGDPG7URljF"><tbody id="rdTable" data-page-node-id="EWHDAx5sYpN5uFWZQxO2lc"></tbody></table></div>
         </div>
 
         <!-- JSON 视图 -->
-        <pre class="json" id="jsonView" data-page-node-id="gKmA9dvOJ7mVpSGgKllfs6"></pre>
+        <pre class="json" id="jsonView" data-page-node-id="aGFNC8IixGmgleaJfKpaGd"></pre>
       </div>
     </div>
 
     <!-- 刷新 -->
-    <div class="panel" id="panel-refresh" data-page-node-id="DafbB1D9ZwkvoowaBlzuoc">
-      <p class="muted" style="margin-bottom:14px" data-page-node-id="iaWkP1GzP8c5rCBat3mVqh">触发 <span class="mono" data-page-node-id="UriP3575AAGMl9SkVjiHL2">POST /api/refresh</span>：全量拉取飞书并重建 4 个快照（社员 / 活动记录 / 活动项目 / 文件目录）。与飞书自动化同口径、同冷却（两次之间至少 30 秒）。</p>
-      <button class="refreshBig" id="btnRefresh" data-page-node-id="kWBk2Uuc0BFJGCHRuXPRy8">一键全量刷新</button>
-      <div class="result" id="refreshResult" data-page-node-id="t11K2HuGpZHO0HocGzR8Be"></div>
+    <div class="panel" id="panel-refresh" data-page-node-id="idRFO03mM4rjslhx3PKO6Y">
+      <p class="muted" style="margin-bottom:14px" data-page-node-id="Y7QjhJwvucYN7aakEseycf">触发 <span class="mono" data-page-node-id="MAHq6AB02n8kMGZQW0Jw0e">POST /api/refresh</span>：全量拉取飞书并重建 4 个快照（社员 / 活动记录 / 活动项目 / 文件目录）。与飞书自动化同口径、同冷却（两次之间至少 30 秒）。</p>
+      <button class="refreshBig" id="btnRefresh" data-page-node-id="MeA2bBkNogMu3HU1uCSN84">一键全量刷新</button>
+      <div class="result" id="refreshResult" data-page-node-id="dkv9dcJ1xfJ34sO1WbIrZ8"></div>
     </div>
   </div>
 
-  <div class="foot" data-page-node-id="oWApmmkzPEgUwC9vPq9wP8">nfc.raspjam.com/admin.html · 仅限内部使用 · 请求带 Bearer 口令 · 响应 no-store</div>
+  <div class="foot" data-page-node-id="39UCF2oPPUbHbUVNnMCZDU">nfc.raspjam.com/admin.html · 仅限内部使用 · 请求带 Bearer 口令 · 响应 no-store</div>
 </div>
 
+<script src="vendor/ag-grid/ag-grid-community.min.js"></script>
 <script>
 (function () {
   var TOKEN_KEY = "shumei_admin_token";
   var $ = function (id) { return document.getElementById(id); };
   var token = sessionStorage.getItem(TOKEN_KEY) || "";
-  var state = { currentKey: null, view: "table", rawData: null, columns: [], rows: [], totalEntries: null };
+  var state = {
+    currentKey: null, view: "table", rawData: null,
+    totalEntries: null, truncated: false, gridApi: null, gridCreated: false
+  };
+  var PRIO = ["recordId", "识别码", "memberCode", "姓名", "name", "id", "title", "activityName", "date"];
 
   function toast(msg) {
     var t = $("toast");
@@ -300,13 +307,16 @@
   }
 
   /* ---------- KV 详情 ---------- */
-  function loadKvDetail() {
+  function loadKvDetail(limit) {
     if (!state.currentKey) return;
     $("kvDetail").style.display = "block";
     $("kvDetailTitle").textContent = state.currentKey;
     $("rowDetail").style.display = "none";
     $("viewSwitch").style.display = "none";
+    $("tblCount").textContent = "加载中…";
+    $("btnLoadAll").style.display = "none";
     var url = "/api/admin/kv?key=" + encodeURIComponent(state.currentKey);
+    if (limit) url += "&limit=" + limit;
     api(url).then(function (res) {
       if (res.status === 401) { showLogin(); return; }
       var j = res.body;
@@ -316,7 +326,7 @@
       if (j.kind === "binary") { showJson("【图片字节缓存】" + (j.note || "") + "（字节 " + fmtBytes(j.bytes) + "）"); return; }
       state.rawData = j.data;
       state.totalEntries = j.entries;
-      // 表格优先：data 为 {items:[...]} 或裸数组且元素是对象
+      state.truncated = j.truncated === true;
       if (state.view === "table" && state.rawData && isRecordArray(state.rawData)) {
         renderTable();
       } else {
@@ -343,7 +353,7 @@
     $("jsonView").style.display = "none";
   }
 
-  /* ---------- 表格渲染 ---------- */
+  /* ---------- 行数据处理 ---------- */
   function flattenRow(rec) {
     // {recordId, fields:{...}} → recordId + fields 展开为一行
     if (rec.fields && typeof rec.fields === "object" && !Array.isArray(rec.fields)) {
@@ -354,93 +364,147 @@
     }
     return rec;
   }
-  function cellOf(v) {
-    if (v == null || v === "") return { cls: "cell-empty", text: "·", raw: "" };
-    if (Array.isArray(v)) {
-      var r = JSON.stringify(v);
-      return { cls: "cell-obj", text: "[" + v.length + "] " + shortStr(r, 48), raw: prettyStr(v) };
-    }
-    if (typeof v === "object") {
-      var r2 = JSON.stringify(v);
-      return { cls: "cell-obj", text: "{" + Object.keys(v).length + "} " + shortStr(r2, 48), raw: prettyStr(v) };
-    }
-    return { cls: "", text: shortStr(String(v), 56), raw: String(v) };
+  function prettyStr(v) {
+    try { return JSON.stringify(v, null, 1); } catch (e) { return String(v); }
   }
   function shortStr(s, n) {
     s = s.replace(/\s+/g, " ");
     return s.length > n ? s.slice(0, n) + "…" : s;
   }
-  function prettyStr(v) {
-    try { return JSON.stringify(v, null, 1); } catch (e) { return String(v); }
+  // 单元格显示值：对象/数组 → 摘要；空 → "·"
+  function cellText(v) {
+    if (v == null || v === "") return "·";
+    if (typeof v === "object") {
+      var s = JSON.stringify(v);
+      return (Array.isArray(v) ? "[" + v.length + "] " : "{" + Object.keys(v).length + "} ") + shortStr(s, 46);
+    }
+    var t = String(v);
+    return t.length > 60 ? shortStr(t, 60) : t;
   }
-
-  function renderTable() {
+  // 单元格原始内容（排序/过滤/tooltip 用）：对象 → 完整 JSON
+  function cellRaw(v) {
+    if (v == null) return "";
+    return typeof v === "object" ? JSON.stringify(v) : String(v);
+  }
+  function rowsOf() {
     var arr = Array.isArray(state.rawData) ? state.rawData : state.rawData.items;
-    state.rows = arr.map(flattenRow);
-    // 动态列
+    return arr.map(flattenRow);
+  }
+  function collectColumns(rows) {
     var cols = [], seen = {};
-    state.rows.forEach(function (r) {
+    rows.forEach(function (r) {
       Object.keys(r).forEach(function (k) {
         if (!seen[k]) { seen[k] = 1; cols.push(k); }
       });
     });
-    // 主键靠前排序
-    var prio = ["recordId", "id", "name", "memberCode", "title", "activityName", "date"];
     cols.sort(function (a, b) {
-      var ia = prio.indexOf(a), ib = prio.indexOf(b);
+      var ia = PRIO.indexOf(a), ib = PRIO.indexOf(b);
       ia = ia < 0 ? 99 : ia; ib = ib < 0 ? 99 : ib;
       return ia - ib;
     });
-    state.columns = cols;
-    var headHtml = "<tr><th>#</th>";
-    cols.forEach(function (c) { headHtml += "<th title=\"" + esc(c) + "\">" + esc(c) + "</th>"; });
-    headHtml += "</tr>";
-    $("tblHead").innerHTML = headHtml;
-    renderRows("");
-    var note = "";
-    if (state.totalEntries != null && state.totalEntries > state.rows.length) {
-      note = '<span class="rec-note">（样本前 ' + state.rows.length + " 条 / 共 " + state.totalEntries + " 条）</span>";
+    return cols;
+  }
+
+  /* ---------- AG Grid ---------- */
+  function ensureGrid() {
+    if (state.gridCreated) return;
+    state.gridCreated = true;
+    state.gridApi = agGrid.createGrid($("gridBox"), {
+      defaultColDef: {
+        sortable: true, resizable: true,
+        filter: "agTextColumnFilter", floatingFilter: true,
+        suppressHeaderMenuButton: false
+      },
+      pagination: true,
+      paginationPageSize: 100,
+      paginationPageSizeSelector: [50, 100, 200, 500],
+      enableBrowserTooltips: true,
+      animateRows: false,
+      rowSelection: "single",
+      onRowClicked: function (e) { if (e.node && e.node.data) showRowDetail(e.node.data); },
+      getRowId: function (p) { return p.data.__rid; }
+    });
+  }
+  function renderTable() {
+    var rows = rowsOf();
+    // 为行数据补唯一 id（供 getRowId）与原始序
+    rows.forEach(function (r, i) { r.__rid = "r" + i; });
+    var cols = collectColumns(rows);
+    var api = ensureGrid() || state.gridApi;
+
+    // 主键列（PRIO 顺序第一个存在的）与 # 列冻结在左
+    var pinCol = null;
+    for (var i = 0; i < cols.length; i++) {
+      if (PRIO.indexOf(cols[i]) >= 0) { pinCol = cols[i]; break; }
     }
-    $("tblCount").innerHTML = "共 " + state.rows.length + " 行 " + note;
+    var defs = [{
+      headerName: "#", width: 56, pinned: "left", sortable: false, filter: false, floatingFilter: false,
+      suppressMovable: true, cellClass: "cell-idx",
+      valueGetter: function (p) { return (p.node.rowIndex + 1); },
+      tooltipValueGetter: function () { return ""; }
+    }];
+    cols.forEach(function (c) {
+      defs.push({
+        field: c, headerName: c,
+        width: Math.max(120, Math.min(260, c.length * 16 + 70)), minWidth: 96,
+        pinned: (c === pinCol) ? "left" : null,
+        valueGetter: function (p) { return cellRaw(p.data[c]); },
+        valueFormatter: function (p) { return cellText(p.data[p.colDef.field]); },
+        tooltipValueGetter: function (p) {
+          var v = p.data[p.colDef.field];
+          if (v == null || v === "") return null;
+          return typeof v === "object" ? prettyStr(v) : String(v);
+        },
+        cellClass: function (p) {
+          var v = p.data[p.colDef.field];
+          return (v == null || v === "") ? "cell-empty" : "";
+        }
+      });
+    });
+
+    api.setGridOption("columnDefs", defs);
+    api.setGridOption("rowData", rows);
+    api.setFilterModel(null);
+    api.paginationGoToFirstPage();
     $("viewSwitch").style.display = "flex";
     showTableView();
-    $("tblFilter").value = "";
+    updateCount();
   }
-
-  function renderRows(filter) {
-    filter = (filter || "").trim().toLowerCase();
-    var html = "", shown = 0;
-    state.rows.forEach(function (r, i) {
-      if (filter) {
-        var hit = state.columns.some(function (c) {
-          var v = r[c];
-          if (v == null) return false;
-          return String(typeof v === "object" ? JSON.stringify(v) : v).toLowerCase().indexOf(filter) >= 0;
-        });
-        if (!hit) return;
+  function updateCount() {
+    var loaded = state.rawData ? (Array.isArray(state.rawData) ? state.rawData : state.rawData.items).length : 0;
+    if (state.truncated && state.totalEntries != null) {
+      $("tblCount").textContent = "已加载 " + loaded + " 行 · 共 " + state.totalEntries + " 条";
+      $("btnLoadAll").style.display = "";
+      $("btnLoadAll").textContent = "加载全部 " + state.totalEntries + " 条";
+    } else {
+      $("tblCount").textContent = "共 " + loaded + " 行";
+      $("btnLoadAll").style.display = "none";
+    }
+  }
+  $("btnLoadAll").onclick = function () {
+    var n = state.totalEntries != null ? state.totalEntries : 20000;
+    loadKvDetail(n <= 20000 ? n : 20000);
+    toast("正在加载全量数据…");
+  };
+  $("btnCsv").onclick = function () {
+    if (!state.gridApi || !state.gridApi.getDisplayedRowCount()) { toast("无数据可导出"); return; }
+    state.gridApi.exportDataAsCsv({
+      fileName: (state.currentKey || "kv") + ".csv",
+      processCellCallback: function (p) {
+        var v = p.value;
+        if (typeof v === "string" && v.length > 2000) return v.slice(0, 2000) + "…";
+        return v;
       }
-      shown++;
-      html += '<tr data-idx="' + i + '"><td><span class="row-idx">' + (i + 1) + "</span></td>";
-      state.columns.forEach(function (c) {
-        var cell = cellOf(r[c]);
-        html += '<td class="' + cell.cls + '" title="' + esc(cell.raw) + '">' + esc(cell.text) + "</td>";
-      });
-      html += "</tr>";
     });
-    $("tblBody").innerHTML = html || '<tr><td colspan="' + (state.columns.length + 1) + '" class="muted" style="padding:16px">无匹配记录</td></tr>';
-    var count = $("tblCount");
-    if (count && filter) count.textContent = "筛选出 " + shown + " / " + state.rows.length + " 行";
-  }
+  };
 
   /* 行点击 → 单条详情 */
-  $("tblBody").addEventListener("click", function (e) {
-    var tr = e.target.closest ? e.target.closest("tr[data-idx]") : null;
-    if (!tr) return;
-    var rec = state.rows[Number(tr.getAttribute("data-idx"))];
-    var title = rec.name || rec.title || rec.memberCode || rec.id || rec.recordId || ("记录 #" + (Number(tr.getAttribute("data-idx")) + 1));
+  function showRowDetail(rec) {
+    var title = rec["姓名"] || rec.name || rec.title || rec["识别码"] || rec.memberCode || rec.id || rec.recordId || "记录详情";
     $("rdTitle").textContent = String(title);
     var html = "";
     Object.keys(rec).forEach(function (k) {
+      if (k === "__rid") return;
       var v = rec[k];
       var isObj = v != null && typeof v === "object";
       var pretty = v == null ? "·" : prettyStr(v);
@@ -449,25 +513,25 @@
     $("rdTable").innerHTML = html;
     $("rowDetail").style.display = "block";
     $("rowDetail").scrollIntoView({ behavior: "smooth", block: "nearest" });
-  });
+  }
   $("btnCloseRow").onclick = function () { $("rowDetail").style.display = "none"; };
-
-  /* 筛选 */
-  var filterTimer = null;
-  $("tblFilter").addEventListener("input", function () {
-    clearTimeout(filterTimer);
-    var v = this.value;
-    filterTimer = setTimeout(function () { renderRows(v); }, 150);
-  });
 
   $("vwTable").onclick = function () {
     if (state.rawData && isRecordArray(state.rawData)) { renderTable(); }
     else toast("该 key 不是记录数组，无表格视图");
   };
   $("vwJson").onclick = function () {
-    showJson(state.rawData ? prettyStr(state.rawData) : "（空）");
+    var prefix = "";
+    if (state.truncated && state.totalEntries != null) {
+      prefix = "// 样本（前 " + (state.rawData && (Array.isArray(state.rawData) ? state.rawData : state.rawData.items).length) + " 条 / 共 " + state.totalEntries + " 条），点「表格 → 加载全部」查看全量\n\n";
+    }
+    showJson(prefix + (state.rawData ? prettyStr(state.rawData) : "（空）"));
   };
-  $("btnCloseDetail").onclick = function () { $("kvDetail").style.display = "none"; state.currentKey = null; };
+  $("btnCloseDetail").onclick = function () {
+    $("kvDetail").style.display = "none";
+    state.currentKey = null;
+    if (state.gridApi) state.gridApi.setGridOption("rowData", []);
+  };
 
   /* ---------- 一键刷新 ---------- */
   var cooldownUntil = 0;

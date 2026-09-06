@@ -16,7 +16,7 @@
  * POST /api/refresh             → 触发刷新（飞书自动化 HTTP 调用，拉全量写 KV）
  * 管理端点（内部 admin.html 用，Bearer ADMIN_TOKEN，响应 no-store）：
  * GET /api/admin/kv/list         → KV 快照状态一览（条数/体积/updatedAt）
- * GET /api/admin/kv?key=&reveal= → 单个 KV key 内容样本（默认脱敏 + 截断）
+ * GET /api/admin/kv?key=&limit= → 单个 KV key 内容（原文直出；大数组默认前 30 条，limit 1-20000）
  * POST /api/admin/refresh        → 同 /api/refresh（ADMIN_TOKEN 亦可用）
  */
 
@@ -1290,7 +1290,7 @@ async function handlePhoto(request, env, ctx) {
 //       内容直出原文（管理台为内部授权工具），大快照只给样本片段防整库倒出。
 // 端点：
 //   GET  /api/admin/kv/list          → 快照 key 状态（条数/字节/updatedAt/存在性）
-//   GET  /api/admin/kv?key=xxx       → key 内容（数组截前 30 条样本）
+//   GET  /api/admin/kv?key=xxx[&limit=N] → key 内容原文（数组默认前 30 条，N 1-20000）
 //   POST /api/admin/refresh          → 与 /api/refresh 等价（ADMIN_TOKEN 亦可用，30s 冷却共用）
 // ============================================================
 const ADMIN_SAMPLE_LIMIT = 30; // 大数组只回前 N 条作样本
@@ -1338,7 +1338,7 @@ async function handleAdminKvList(request, env) {
   return Response.json({ ok: true, items, now: Date.now() }, { headers: adminHeaders() });
 }
 
-/** 单个 key 内容样本（默认脱敏；大数组截断；图片类只回元信息）。 */
+/** 单个 key 内容（原文直出；大数组默认截前 ADMIN_SAMPLE_LIMIT 条，?limit= 可调至上限）。 */
 async function handleAdminKvGet(request, env) {
   if (!adminAuthed(request, env)) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401, headers: adminHeaders() });
@@ -1356,25 +1356,29 @@ async function handleAdminKvGet(request, env) {
     }, { headers: adminHeaders() });
   }
   let updatedAt = null, entries = null, data = null, sample = raw, truncated = false;
+  // limit：管理页可请求更多行（"加载全部"），默认与上限都防一次拉全量
+  let limit = ADMIN_SAMPLE_LIMIT;
+  const lp = parseInt(url.searchParams.get("limit") || "", 10);
+  if (Number.isFinite(lp) && lp >= 1) limit = Math.min(lp, 20000);
   try {
     let j = JSON.parse(raw);
     updatedAt = typeof j.updatedAt === "number" ? j.updatedAt : null;
     if (Array.isArray(j.items)) {
       entries = j.items.length;
-      // 大数组只保留前 N 条作为样本，控制传输体积（也防止整库倒出）
-      if (j.items.length > ADMIN_SAMPLE_LIMIT) {
-        j.items = j.items.slice(0, ADMIN_SAMPLE_LIMIT);
+      // 大数组只保留前 limit 条，控制传输体积
+      if (j.items.length > limit) {
+        j.items = j.items.slice(0, limit);
         truncated = true;
       }
     } else if (Array.isArray(j)) {
       entries = j.length;
-      if (j.length > ADMIN_SAMPLE_LIMIT) {
-        j = j.slice(0, ADMIN_SAMPLE_LIMIT);
+      if (j.length > limit) {
+        j = j.slice(0, limit);
         truncated = true;
       }
     }
     data = j;
-    sample = JSON.stringify(data, null, 1) + (truncated ? "\n…（共 " + entries + " 条，已截断前 " + ADMIN_SAMPLE_LIMIT + " 条）" : "");
+    sample = JSON.stringify(data, null, 1) + (truncated ? "\n…（共 " + entries + " 条，已截断前 " + limit + " 条）" : "");
   } catch (e) { /* 非 JSON（如 last_refresh_at 时间戳）：data 保持 null，前端按纯文本展示 */ }
   if (sample.length > ADMIN_SAMPLE_CHARS) {
     sample = sample.slice(0, ADMIN_SAMPLE_CHARS) + "\n…（内容过长已截断）";
