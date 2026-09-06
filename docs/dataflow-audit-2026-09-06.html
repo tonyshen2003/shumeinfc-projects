@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="ftZbyrcHJjRyQs5K0FaTGi">
+<head data-page-node-id="3maZh7sTLumDGYW60sfVNH">
+<meta charset="UTF-8" data-page-node-id="NNfUHzsFjGuMFRhR0QdqN9">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="E72zIEzJPadV1MOwjjakmm">
+<title>树莓社 · 数据流全景图与文档核对（2026-09-06）</title>
+<style>
+  :root{
+    --bg:#eef0f3; --card:#ffffff; --line:#d9dde3;
+    --ink:#1a1d21; --sub:#5b6470;
+    --blue:#3370ff; --blueBg:#e8f0ff;
+    --violet:#7a5af8; --violetBg:#f0ecff;
+    --green:#0d9f6e; --greenBg:#e6f7f0;
+    --teal:#0a96a0; --tealBg:#e4f6f7;
+    --orange:#e8590c; --orangeBg:#fdeee2;
+    --gray:#495057; --grayBg:#edf0f2;
+    --red:#d33a2c; --redBg:#fdecea;
+    --amber:#b45508; --amberBg:#fdf3e3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased;min-width:1100px;overflow-x:auto}
+  .wrap{max-width:1440px;margin:0 auto;padding:24px 20px 60px}
+  .mono{font-family:var(--mono);word-break:break-word}
+  .c-link{color:#3370ff;font-weight:700;text-decoration:none;border-bottom:1px dashed #3370ff;font-size:12px}
+  .c-link:hover{color:#e8590c;border-bottom-color:#e8590c}
+
+  /* ===== 头部 ===== */
+  header.top{background:linear-gradient(135deg,#10192b 0%,#1d2b45 100%);color:#fff;border-radius:14px;padding:22px 26px;position:relative;overflow:hidden}
+  header.top h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+  header.top .sub{margin-top:6px;color:#b9c6d9;font-size:13px}
+  header.top .sub b{color:#fff;font-weight:600}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;background:rgba(255,255,255,.08);color:#dce5f2;border:1px solid rgba(255,255,255,.14)}
+  .chip b{color:#fff;font-weight:600}
+
+  /* ===== 区段标题 ===== */
+  .sec-title{display:flex;align-items:center;gap:10px;margin:34px 0 14px;font-size:16px;font-weight:700;flex-wrap:wrap}
+  .sec-title .no{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:#10192b;color:#fff;font-size:13px;font-weight:700;flex:none}
+  .sec-title .desc{font-size:12.5px;color:var(--sub);font-weight:400}
+
+  /* ===== 摘要条 ===== */
+  .audit-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-top:18px}
+  .a-card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--red);border-radius:10px;padding:12px 14px}
+  .a-card.good{border-left-color:var(--green)}
+  .a-card p{font-size:12.5px;color:#343a41;line-height:1.65}
+  .a-card .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;margin-bottom:6px;font-weight:600}
+  .tag.red{background:var(--redBg);color:var(--red)}
+  .tag.amber{background:var(--amberBg);color:var(--amber)}
+  .tag.green{background:var(--greenBg);color:var(--green)}
+
+  /* ===== 图层卡 ===== */
+  .layer{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px;box-shadow:0 1px 2px rgba(16,25,43,.04)}
+  .layer-h{display:flex;align-items:baseline;gap:10px;padding:2px 2px 12px;border-bottom:1px dashed #e3e6ea;margin-bottom:14px;flex-wrap:wrap}
+  .layer-h .name{font-size:15px;font-weight:700}
+  .layer-h .note{font-size:12px;color:var(--sub)}
+  .grid{display:grid;gap:10px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(430px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .g6{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+
+  /* ===== 节点卡 ===== */
+  .node{background:#fbfcfd;border:1px solid #e2e6eb;border-radius:10px;padding:10px 12px;position:relative;min-width:0}
+  .node .nm{font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
+  .node .nm .bar{width:4px;height:16px;border-radius:2px;flex:none}
+  .node .nm .who{font-size:11px;color:var(--sub);font-weight:400;font-family:var(--mono)}
+  .node ul{list-style:none;margin-top:6px;display:flex;flex-direction:column;gap:3px}
+  .node li{font-size:12.3px;color:#3d444d;display:flex;gap:7px;align-items:baseline;line-height:1.55;min-width:0}
+  .node li::before{content:"";width:5px;height:5px;border-radius:50%;background:#b9c2cc;flex:none;transform:translateY(-1px)}
+  .node li .k{color:#5b6470;flex:none}
+  .endpoint{font-family:var(--mono);font-weight:700;font-size:12.5px;letter-spacing:-.2px;word-break:break-all}
+  .pill{display:inline-block;font-size:10.5px;line-height:1.4;padding:2px 7px;border-radius:999px;font-weight:600;vertical-align:1px;white-space:nowrap}
+  .pill.gray{background:var(--grayBg);color:var(--gray)}
+  .pill.blue{background:var(--blueBg);color:var(--blue)}
+  .pill.teal{background:var(--tealBg);color:var(--teal)}
+  .pill.green{background:var(--greenBg);color:var(--green)}
+  .pill.orange{background:var(--orangeBg);color:var(--orange)}
+  .pill.violet{background:var(--violetBg);color:var(--violet)}
+  .pill.amber{background:var(--amberBg);color:var(--amber)}
+  .miss,.ok{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#fff;border-radius:999px;padding:2px 8px;line-height:1.35;flex:none}
+  .miss{background:var(--red)}
+  .ok{background:var(--green)}
+  .ttl{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--sub);font-weight:400;white-space:nowrap}
+
+  /* ===== 箭头带 ===== */
+  .flow{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 0;color:var(--sub)}
+  .flow .arr{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#6a7280;flex-wrap:wrap;justify-content:center}
+  .flow .arr svg{flex:none}
+  .flow .note{font-size:11px;margin-top:1px;color:#8a929d}
+
+  /* ===== KV 卡 ===== */
+  .kv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+  .kv{background:#f6f8fa;border:1px solid #e2e6eb;border-left:3px solid #5c7cfa;border-radius:8px;padding:8px 10px;min-width:0}
+  .kv .key{font-family:var(--mono);font-weight:700;font-size:12px;color:#2f3e8f;word-break:break-all}
+  .kv .ttl{font-family:var(--mono);font-size:10px;color:#7a8396;float:right;margin-top:2px}
+  .kv p{font-size:11.3px;color:#434a55;margin-top:3px;line-height:1.5}
+  .kv p b{color:#5c6aa8;font-weight:600}
+
+  .src{background:#fbfcfd;border:1px solid #e2e6eb;border-radius:10px;padding:10px 12px;min-width:0}
+  .src .nm{font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px}
+  .src .nm .bar{width:4px;height:16px;border-radius:2px}
+  .src .id{font-family:var(--mono);font-size:10.5px;color:#7a8396;word-break:break-all}
+  .src ul{list-style:none;margin-top:5px;display:flex;flex-direction:column;gap:2px}
+  .src li{font-size:11.6px;color:#454c56;display:flex;gap:6px;min-width:0}
+  .src li::before{content:"";width:5px;height:5px;border-radius:50%;background:#c3cad3;flex:none;transform:translateY(6px)}
+
+  /* ===== 链路表 / 差异表 ===== */
+  .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff}
+  table.flows{width:100%;border-collapse:collapse;font-size:12.3px;min-width:900px}
+  table.flows th{background:#f2f4f7;color:#3a424c;font-size:11.5px;text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  table.flows td{padding:6px 10px;border-bottom:1px solid #edf0f3;vertical-align:top;color:#333a42}
+  table.flows tr:last-child td{border-bottom:none}
+  table.flows .ln{font-family:var(--mono);font-weight:700;color:#3370ff;white-space:nowrap}
+  table.flows .mono{font-size:11.3px}
+  .dot-ok{color:var(--green);font-weight:700}
+  .dot-no{color:var(--red);font-weight:700}
+
+  .diff{border:1px solid #f0d9d5;background:#fffdfc;border-radius:12px;overflow:hidden}
+  .diff .d-head{background:var(--redBg);color:#8c2418;font-weight:700;font-size:13px;padding:8px 14px}
+  .diff .table-scroll{border:none;border-radius:0}
+  .diff table{width:100%;border-collapse:collapse;font-size:12.4px;min-width:880px}
+  .diff td{padding:9px 14px;border-top:1px solid #f6e6e2;vertical-align:top;line-height:1.6}
+  .diff td.claim{width:24%;background:#fff7f5}
+  .diff td.fact{width:42%}
+  .diff td.fix{width:34%}
+  .diff .lbl{display:block;font-size:10.5px;font-weight:700;letter-spacing:1px;margin-bottom:2px}
+  .diff .lbl.c{color:var(--amber)} .diff .lbl.f{color:var(--red)} .diff .lbl.x{color:var(--green)}
+  .goodzone{border-color:#d3e8dd}
+  .goodzone .d-head{background:var(--greenBg);color:#0b5c3f}
+  .goodzone .table-scroll{border:none}
+
+  /* ===== 接口案例折叠块 ===== */
+  details.case{background:#fbfcfe;border:1px solid #e2e6eb;border-radius:10px;margin:10px 0 0;overflow:hidden}
+  details.case>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:9px 14px;font-weight:700;font-size:12.8px;background:#f4f6f9;user-select:none;flex-wrap:wrap}
+  details.case>summary::-webkit-details-marker{display:none}
+  details.case>summary .chev{color:#7c8590;font-size:10px;transition:transform .15s;flex:none}
+  details.case[open]>summary .chev{transform:rotate(90deg)}
+  details.case>summary .req{font-family:var(--mono);font-size:11.5px;color:#fff;background:#10192b;border-radius:6px;padding:2px 8px;font-weight:600;white-space:nowrap}
+  details.case>summary .tag2{margin-left:auto;font-size:10.5px;color:var(--sub);font-weight:400;white-space:nowrap}
+  details.case .body{padding:10px 14px 12px}
+  details.case .body .hint{font-size:11.6px;color:#5a626e;margin-bottom:8px;line-height:1.7}
+  details.case .body .hint b{color:#2f3740}
+  details.case .body .hint .warn{color:var(--red);font-weight:600}
+  pre.j{background:#0f172a;color:#dbe4f0;border-radius:8px;padding:10px 12px;font:11.5px/1.65 var(--mono);overflow-x:auto;white-space:pre;margin:0;min-width:600px}
+
+  .foot{margin-top:26px;color:#8a929d;font-size:11.5px;text-align:center;line-height:1.9}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:12px;color:#4a525c}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+</style>
+</head>
+<body data-page-node-id="H4PpQ85SB9LyYCgnsnr2rA">
+<div class="wrap" data-page-node-id="EKnyaN1yjbzQ2NSmUmsP5x">
+
+<!-- ============ 头部 ============ -->
+<header class="top" data-page-node-id="XsXFVLEFfG07YwG5Nz4I05">
+  <h1 data-page-node-id="0T1PsDABRYYWqBbq9MBkIS">树莓社 · 数据流全景图 <span style="font-size:13px;font-weight:400;opacity:.75" data-page-node-id="MaxeGYSh8Dws0MBHX20jzv">（含文档逐行核对 + 接口案例）</span></h1>
+  <div class="sub" data-page-node-id="uM9BJn2A9y01NjMePyNIZk">NFC 刷卡签到 H5 + 社员档案 / 活动展示 / 社员证明 API —— <b data-page-node-id="pn9W5pE3YBALFnzDPfmDBG">Cloudflare Worker · 飞书多维表 · KV 缓存 · 微信云函数中转</b></div>
+  <div class="meta-row" data-page-node-id="BnSujWdK6CHzZwaty0Ab5p">
+    <span class="chip" data-page-node-id="sFpSKzwU4HDRu4xBpjwhXw">核对基准：<b data-page-node-id="wLV2uzlT7iz1AvgatlcyFs">worker.js @ ba1377f</b>（2026-09-06 03:04）</span>
+    <span class="chip" data-page-node-id="JOzReB5HgnITUqmBVE02TN">路由：<b data-page-node-id="lMxESDkgcQvq5BEhLAEIep">13 条 API</b> + 静态资源</span>
+    <span class="chip" data-page-node-id="fYeHon5TYWaOgw7kpze9ej">KV：<b data-page-node-id="ZleWa0gKMyq861whJRic9S">6 个 key</b>（含 avatar_img_&lt;token&gt; 动态）</span>
+    <span class="chip" data-page-node-id="CT5pxdmLzjJ9IkNkmQrcBI">飞书表：<b data-page-node-id="flzSNp7v0X6sDV3DZXqhec">4 张</b> + 附件媒体</span>
+    <span class="chip" data-page-node-id="WJZN5W2hgDFXbwb6kTFkeW">下游：WPS 多维表 + 飞书机器人（签到双写）</span>
+    <span class="chip" data-page-node-id="KRzD4E67hv7kKhUEytgURN">审查对象：README.md / CHANGELOG.md / docs/activity-api-plan.md / AGENTS.md</span>
+  </div>
+</header>
+
+<!-- ============ 摘要 ============ -->
+<div class="sec-title" data-page-node-id="7rgpkTVSSBk1tDZBVWFvVC"><span class="no" data-page-node-id="aA9q4yDsMMtHhI6dQevHEK">0</span> 审查结论摘要 <span class="desc" data-page-node-id="nznIH1BiliAC0pKLpE4CLA">文档普遍滞后于代码约两个功能批次（2026-09-03 活动 API、2026-09-06 证明 API + 目录快照），下文图中红色「缺」徽标即文档未收录处</span></div>
+<div class="audit-strip" data-page-node-id="iKwkqOlbnhzqbxEzD1lkMa">
+  <div class="a-card" data-page-node-id="u6zKoPW9VaKA72S8VXyNH0"><span class="tag red" data-page-node-id="46GDrl6YK6Gp3TQu3bOdmq">高 · README.md 接口清单缺 5 条</span><p data-page-node-id="L2cXFXuqlmL47K83WAfTdK">README 仅列 8 条接口，实际 13 条：<span class="mono" data-page-node-id="lHKWWBW5nbx0HWlmiMINJQ">/api/activities</span>、<span class="mono" data-page-node-id="EORvRqAPAywqKXo3ijawH6">/api/activities/detail</span>、<span class="mono" data-page-node-id="55KiD3VF7IYWETA1xrYMFO">/api/photo</span>（09-03）与 <span class="mono" data-page-node-id="k74OmAIRZCirDgnlPzWrbj">/api/proof-files</span>、<span class="mono" data-page-node-id="GYlvY4LWwFGZ4UpFAOZFvD">/api/file</span>（09-06）全部缺失。</p></div>
+  <div class="a-card" data-page-node-id="7Az2zH9DkIy4EfO7Ab74ql"><span class="tag red" data-page-node-id="hkoLj6YB388O4uaneF2LtH">高 · KV key 表缺 3/6</span><p data-page-node-id="a1LqLwr26BK0emBKTBF6Eh">README「存储」表只写 <span class="mono" data-page-node-id="xpH4jBIK0oBWlvyiq1uRBo">members_full / avatar_img_&lt;token&gt; / last_refresh_at</span>，实际另有 <span class="mono" data-page-node-id="81vJi8ZyztW5YivEjLL7GM">activity_records_v3</span>、<span class="mono" data-page-node-id="mIQTcynQLHhY0zUrfNKaLR">activity_projects_v1</span>、<span class="mono" data-page-node-id="6o0tRBxPiegTWTZCoifeLM">file_catalog_v1</span> 三个生产 key。</p></div>
+  <div class="a-card" data-page-node-id="RNyfKvA4ytRLuvTYpRlH3s"><span class="tag red" data-page-node-id="HkgDr8n2lWXJPg9TZkTCcM">中 · 版本史停在 1.9.0</span><p data-page-node-id="yh6XZVD4XPMEkiL5WTgQyj">README 版本表与 CHANGELOG 均止于 2026-08-26 v1.9.0；09-03 活动功能、09-06 证明功能 + owner 字段 + 目录快照纳入 cron/refresh 均无版本条目。</p></div>
+  <div class="a-card" data-page-node-id="AuP3pQCEVahSTKL6nkWo0s"><span class="tag amber" data-page-node-id="oXNfZyTT9ahDt6fwdPmHwk">中 · Image Resizing 描述自相矛盾</span><p data-page-node-id="d2C3UX4KdmY02ybGgB4koN">README 称「不启用（付费），原图直出」；<span class="mono" data-page-node-id="csCCXvdAxCJkipgEoe5Vwv">/api/photo</span> 实际已用 <span class="mono" data-page-node-id="va8TGqiDZWaZx4kiGxaGEv">cf.image</span> 缩放（w=200/400/800/1200），activity-api-plan 八节亦实测「已开启」→ 以 README 表述为准需更正。</p></div>
+  <div class="a-card" data-page-node-id="fNKMha1JCMrR58o3WHLsoz"><span class="tag amber" data-page-node-id="hTbolx5mcpCtND0O7tBSeg">低 · worker.js 文件头注释漏 detail</span><p data-page-node-id="jh5YvbfMhu8xHHl3k9DhsQ">头注释 12 行未列 <span class="mono" data-page-node-id="HLn4eN2ivrmH5NnNuqxkeV">GET /api/members/detail</span>（第 783 行正文注释完整），建议补一行保持自文档化。</p></div>
+  <div class="a-card good" data-page-node-id="bdqUww55HHyQxn0AakeD97"><span class="tag green" data-page-node-id="myX6i6W5dAWkD6waGcul80">一致 · activity-api-plan.md</span><p data-page-node-id="reICVIr9Td78aDCxDwfh1i">与实现吻合：确认「无 activity_detail_v1」、详情接口不出参与人名单、Image Resizing 实测已开启、附件 token 白名单隔离等结论均已落地验证。</p></div>
+</div>
+
+<!-- ============ 图例 ============ -->
+<div class="legend" data-page-node-id="zLuDsf2yh6gV2mYxfHP5FK">
+  <span data-page-node-id="8smmg3RqBl8FzL4oPT6d3P"><i class="sw" style="background:#3370ff" data-page-node-id="qqQeqphqlfqt5dqoHTuFO6"></i>成员/档案链路</span>
+  <span data-page-node-id="olK9CPSjbUU7ibZC1bveyO"><i class="sw" style="background:#7a5af8" data-page-node-id="mX2FHgPqny9rXF6lwV9MoG"></i>活动链路</span>
+  <span data-page-node-id="Q4qnPWgyhUx8Oj7uxrP5Mk"><i class="sw" style="background:#0d9f6e" data-page-node-id="P0N7dGuxHJ0dYFZ62iwu3l"></i>证明文件链路</span>
+  <span data-page-node-id="DGT71mTFyU7nxSsFzNugnT"><i class="sw" style="background:#0a96a0" data-page-node-id="CFiFsfJfu9A34bRGwzesDC"></i>附件（图片/PDF）代理链路</span>
+  <span data-page-node-id="dtEAClHEemX7AhasR8dlup"><i class="sw" style="background:#e8590c" data-page-node-id="yGBPwcqFu3CnnpJnfBIhGf"></i>写入（签到双写）</span>
+  <span data-page-node-id="cjKcEsvJ5tRp9OKXfIROB5"><i class="sw" style="background:#495057" data-page-node-id="upTT2lHYsHBBWQp0TqsDDC"></i>快照刷新 / 自愈</span>
+  <span data-page-node-id="SPmYal3v6hCnvQT2gnSBQ8"><span class="miss" data-page-node-id="Lhdcqr5IHxUG9pWNQ8zFUq">缺</span> = README/CHANGELOG 未收录</span>
+  <span data-page-node-id="gW7po8wVmEz2AWB4h8pc1Y"><span class="ok" data-page-node-id="tm2Rozl9hSeAH56B83jmb8">✓</span> = 文档已收录且一致</span>
+</div>
+
+<!-- ============ L1 消费端 ============ -->
+<div class="sec-title" data-page-node-id="HLO9BH6D6WhBm0XTe9RN6p"><span class="no" data-page-node-id="WFFC0N696r2MB7BR3ww6A0">1</span> 消费端 <span class="desc" data-page-node-id="wjL8wtSx1emOC3T0XLH50A">三类入口：浏览器 H5（同域直连）· DeepMei App（同域直连）· 微信小程序（经腾讯云函数中转，绕开域名白名单）</span></div>
+<div class="layer" data-page-node-id="S6CX7oXgqTD4pACWAE7DAS">
+  <div class="layer-h" data-page-node-id="XI5VYm1evGTkKsh9219cOJ"><span class="name" data-page-node-id="t7pFF8FQ9CFn3unlNWmX4Z">客户端</span><span class="note" data-page-node-id="yTnycBIDCSWFtNjJvrlo4Q">worker.js 只信任服务端重查结果；前端全部缓存均为「展示/查人」加速，不作写依据</span></div>
+  <div class="grid g3" data-page-node-id="bN23aqJutEkbT4NdHxDeBG">
+
+    <div class="node" style="border-top:3px solid #3370ff" data-page-node-id="oKH5KxEYYZ9Lrfi56RVvHu">
+      <div class="nm" data-page-node-id="5Jrk0KyNU08JuG8HhXC16T"><span class="bar" style="background:#3370ff" data-page-node-id="kBL7TFLUrf95EjUTTC8gnU"></span>浏览器 H5 签到页<span class="who" data-page-node-id="6pZQAgwG2lO0Dfya06kHrB">index.html</span></div>
+      <ul data-page-node-id="1KsGGHhyrZlSokJmD9egZj">
+        <li data-page-node-id="CQSdaounc0jbIXGImvgLdh"><span class="k" data-page-node-id="lGlRPS8WQXISW8AaWxJAlV">输入</span>：NFC 卡号（Web NFC）/ 识别码扫码 / 新卡登记</li>
+        <li data-page-node-id="lzQUFNG2CXmrWFAYU5GTHA"><span class="k" data-page-node-id="NnldoHFuenrBZjWfvUNmNJ">缓存①</span> localStorage 单条登记 <span class="mono" data-page-node-id="8gHm2Ezwj37Z7VL7OzULY0">localCardMap</span></li>
+        <li data-page-node-id="WHiGu9YUVEfK7IjOtF9uK8"><span class="k" data-page-node-id="xlbV3SoYJ84nohg7OAXl2s">缓存②</span> localStorage 批量快照 <span class="mono" data-page-node-id="1kDsPBXRQIWuDn6lruF9El">shumei_member_cache</span>（24h TTL）</li>
+        <li data-page-node-id="qHRGgiX4UQOcIS2cptZECl"><span class="k" data-page-node-id="4WLnvQpMVjdxnm9ejGXxjO">读</span> <span class="endpoint" style="color:#3370ff" data-page-node-id="Z2fBR5wXY8tkg8h4hjTiCy">/api/member?uid=｜q=</span>（三级降级）<span class="pill blue" data-page-node-id="XFhQFccCraBeJ3g930kpvD">KV 优先</span></li>
+        <li data-page-node-id="lgOlXGh5VNoDtcBrQTKmnc"><span class="k" data-page-node-id="uLfM4lbeJwEVfnPCe2ECqz">读</span> <span class="endpoint" style="color:#3370ff" data-page-node-id="auDP8lhIU9zUAJ5L05RytK">/api/members</span> 刷新离线缓存 <span class="pill gray" data-page-node-id="VN8pBVXfZbMp8m6pMZFWS0">60s</span></li>
+        <li data-page-node-id="jxPeXfJ7eLWA2ZHlY8QwiX"><span class="k" data-page-node-id="Ng6leTp1WfPm6oGT0nNkB5">写</span> <span class="endpoint" style="color:#e8590c" data-page-node-id="ihKRY06o6EK2FZjGsf8LB5">POST /api/checkin</span>（NFC/扫码/新卡三入口共用）</li>
+        <li data-page-node-id="sbNemkTypRfVhKgX8rOGQK"><span class="k" data-page-node-id="WYJ9HBBtlHirIvaBxrJN7K">本地降级</span>：<span class="mono" data-page-node-id="SKkv6xJpWdASnozCarPCwb">public/members.js</span> 已废弃仅历史参考</li>
+      </ul>
+    </div>
+
+    <div class="node" style="border-top:3px solid #3370ff" data-page-node-id="YwJ48z4DJFXKuPqBVfUtvz">
+      <div class="nm" data-page-node-id="O8IF4bSlOtFnoGn84DpQDP"><span class="bar" style="background:#3370ff" data-page-node-id="Ezzm3WCDShwsmeFwtkVCtg"></span>DeepMei Android App<span class="who" data-page-node-id="C5gdxAYkXU9Fci6t4Uh3mJ">Kotlin + Compose</span></div>
+      <ul data-page-node-id="IkB78QhBwB6CTzC9lBfFEX">
+        <li data-page-node-id="2l5CaA2BTHMUODaXRJ9F7B"><span class="k" data-page-node-id="SGBJcHIN2ul7vizGSa9PXe">快照</span> <span class="endpoint" style="color:#3370ff" data-page-node-id="DUvKtargr46fQvMUZrwffJ">GET /api/members/full</span> → 本地 24h 批量缓存（秒级识别）<span class="pill blue" data-page-node-id="bHVMweu17ocC1cgcqrA212">KV 快照</span><span class="pill gray" data-page-node-id="EpKZNPvmrMUmQvK1Pt2dF3">60s</span></li>
+        <li data-page-node-id="74xCBYHahDSxnpts9lEpR1"><span class="k" data-page-node-id="WBkxL6m4NBQcc5xGlgEjfe">查人兜底</span> <span class="endpoint" style="color:#3370ff" data-page-node-id="Eh3cYzAh1kw1Rh9YJOLMVS">GET /api/member?uid=</span>（新卡/快照未覆盖）<span class="pill blue" data-page-node-id="tZdBKRYzOjb6agNBMHrp8g">KV→实时</span></li>
+        <li data-page-node-id="Y4YETIuXowCoBX7JmD6faW"><span class="k" data-page-node-id="HbiGiadI8PBqKQZCi7pNWU">图片</span> 头像走 <span class="mono" data-page-node-id="bvpHCB0AaJIAy8Gh5tLTy9">avatarProxy</span> 代理直链，不直连飞书</li>
+        <li data-page-node-id="04rxvqyn1GwRkrPQ7e1ddW"><span class="k" data-page-node-id="MEyAnvsoqZyNpkvgQ8rGhn">一致性</span> 读取识别码/<span class="mono" data-page-node-id="Vi3uRtRZtNUZd7lVWjEcPy">position</span>/<span class="mono" data-page-node-id="G25Ck8AT2wxfZyA9Plt57Z">joinYear</span> 与快照字段对齐（v1.6.0 起）</li>
+      </ul>
+    </div>
+
+    <div class="node" style="border-top:3px solid #7a5af8" data-page-node-id="jQzDiDv006XF1Z9wW7B8qx">
+      <div class="nm" data-page-node-id="4bxqkDobNMBg2BovgGdGxO"><span class="bar" style="background:#7a5af8" data-page-node-id="7x9PLGRynM6vm8XjV50ZlK"></span>微信小程序 · 三个页面 + 云函数中转</div>
+      <ul data-page-node-id="upLzK9ctYo7RcduXCCbFto">
+        <li data-page-node-id="gz5p5R52W4cJr4KHsoklhW"><span class="k" data-page-node-id="wwB5xXm8o65BKXsucKjidr">原因</span> <span class="mono" data-page-node-id="2AAjkGcZuEEhzmSs6vq5YR">nfc.raspjam.com</span> 未 ICP 备案 → 不能小程序直连，一律 <span class="mono" data-page-node-id="1txMvAWJinppHH8GoEpt1E">wx.cloud.callFunction</span></li>
+        <li data-page-node-id="4mRqJ1a0o7NDfgiZDSw7fM"><span class="k" data-page-node-id="rHaTVyEpIMXkDqZOG2Pg4K">member</span> 云函数 → <span class="endpoint" style="color:#3370ff" data-page-node-id="Xcjh9l052Tv5we6NcEU0qK">/api/members/detail</span> 转发；<span class="mono" data-page-node-id="5MWpZmynGueppDQOKE05sk">/api/avatar</span> 下载后 <span class="mono" data-page-node-id="IjVGNoARbYMkKMXMcCClof">cloud.uploadFile</span> 转存 <span class="mono" data-page-node-id="BPQruoHrcOJ1Tw2xDon8WN">cloud://</span></li>
+        <li data-page-node-id="Nmk9nmaDQQJinbPNnr46Pf"><span class="k" data-page-node-id="eU4Rg1k9dFqFvuye9qjcLf">activities</span> 云函数 → <span class="endpoint" style="color:#7a5af8" data-page-node-id="8uw4VGwTbiD5q4LFveOERp">/api/activities</span>｜<span class="endpoint" style="color:#7a5af8" data-page-node-id="YQGtBWDqPuR7hJPI090lDi">/api/activities/detail</span>｜<span class="endpoint" style="color:#0a96a0" data-page-node-id="zCXhMVR6hs7I2eEZ5TjQH3">/api/photo?w=400</span> 转存云存储</li>
+        <li data-page-node-id="xWhAus4HBYbqMXG9SDlbSV"><span class="k" data-page-node-id="INRg9dXqC9ZdAWZW6b7bk2">proofs</span> 云函数 → <span class="endpoint" style="color:#0d9f6e" data-page-node-id="MZHFuPK6AL1IJDsxZ8wonQ">/api/proof-files</span>｜<span class="endpoint" style="color:#0d9f6e" data-page-node-id="D0lxYgp5mbIuHapAgvV3d6">/api/file</span> 下载</li>
+        <li data-page-node-id="cNWcQ75NUR7wc1VR6ydiVE"><span class="k" data-page-node-id="kEnLj6MeJ4YeQF357kOLPR">资格判定</span> 在云函数本地：<span class="mono" data-page-node-id="lARoP2z4mjTupq28hxpv6U">发布时间 ≥ joinDate</span>（joinDate 由 detail 下发）<span class="pill green" data-page-node-id="45Xc0ZHvTABHMkE8nGFAc1">Worker 不过滤</span></li>
+        <li data-page-node-id="HVhJ8YwhqjZ13oJbboERBS"><span class="k" data-page-node-id="Kh36c7pCTTGodzjekYc5sF">缓存</span> 云函数侧目录缓存 12h / 图片按 token_w 去重</li>
+        <li class="k" style="color:#8a929d" data-page-node-id="u2NtqU2oj3EtWVHnHMGFqT">注：小程序/云函数代码不在本仓库（见 activity-api-plan §五）</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="flow" data-page-node-id="KYMoxuzDD3iGqFspMGWBc5">
+  <div class="arr" data-page-node-id="Gv1nWZV2NDSvFqyH4UBRbk">
+    <svg width="34" height="26" viewBox="0 0 34 26" data-page-node-id="dGLZCewlRuVPMYysp1jGuK"><path d="M17 2 L17 20 M8 13 L17 24 L26 13" stroke="#7c8590" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="bjTzmJv4oj0z10a7GdMinB"/></svg>
+    <b style="color:#4a525c" data-page-node-id="tewedIhP3YbAjTXuKaDuq9">HTTPS · nfc.raspjam.com</b><span data-page-node-id="36b6dYeIejS7icKGXsQEf3">（Cloudflare 边缘）</span>
+  </div>
+  <div class="note" data-page-node-id="WoYBABG9kNd3IcS56SQOVJ">H5 / App 直连 Worker；小程序 → 腾讯云函数 → https.get → Worker（接口面见下）</div>
+</div>
+
+<!-- ============ L2 Worker 接口面 ============ -->
+<div class="sec-title" data-page-node-id="wnccp21UBsAoFStv984HyQ"><span class="no" data-page-node-id="MQ0PG0lFTAPh2U9UoJ05Gj">2</span> Worker 接口面 <span class="desc" data-page-node-id="vtjTvnHjDEkpLEp4j0s3Dg">worker.js 路由表 13 条（文件头注释漏列 detail 1 条）· 读接口 KV 快照优先，写/实时接口直连飞书 · 附件代理带 token 白名单</span></div>
+<div class="layer" data-page-node-id="lWYhA3JcA71SFUDIhrsgnb">
+  <div class="layer-h" data-page-node-id="pM3hY94ntbmxQtaUhHKt51"><span class="name" data-page-node-id="BVAaTACNxmF5PBNeq6sofJ">Cloudflare Worker</span><span class="note" data-page-node-id="PKWCymXiDO2AcB6twr336W">凭据仅存环境变量（FEISHU_APP_ID/SECRET/TOKEN/TABLE_ID 等，前端不可见）；tenant token 进程内缓存 2h</span></div>
+
+  <p style="font-size:12.5px;font-weight:700;color:#3370ff;margin-bottom:8px" data-page-node-id="7jSrOZMbzugG9RXePODtWH">① 成员 / 档案 —— 快照优先</p>
+  <div class="grid g4" data-page-node-id="HmhGVZ8I6tlG4ycFp5aGhQ">
+    <div class="node" data-page-node-id="k1AJgLB9RqweCBxc9BiFEG">
+      <div class="nm" data-page-node-id="sW1JJYu0Nqixp8tZbmMj7p"><span class="ok" data-page-node-id="xo1Uz8um9YN7y0WaJqwvCr">✓</span><span class="endpoint" data-page-node-id="HpuCZirRa3KAnSaHYgutUV">GET /api/members</span><span class="pill blue" data-page-node-id="sHPvokEGbe5FGVvIc80ozr">KV</span><span class="ttl" data-page-node-id="k6ZyYQMGQ0vRv18zUbR1MI">CDN 60s</span></div>
+      <ul data-page-node-id="A01x4cdQTtgCzVqVS8maAu">
+        <li data-page-node-id="ieHrmRnzAcxEQxIVAb4cqb">KV <span class="mono" data-page-node-id="IXQyDpynZ7s2TYYPC3hVCk">members_full</span> → 构建 cardMap/barcodeMap/infoMap（H5 离线缓存源）</li>
+        <li data-page-node-id="wUxULeYg4ppHwH0oLNScc9">KV 空 → 实时拉飞书全表并回填（自愈）</li>
+        
+      <li>案例 → <a class="c-link" href="#case-members">§3-1</a></li></ul>
+    </div>
+    <div class="node" data-page-node-id="mVx8AHnevRAyLgelxPwPXQ">
+      <div class="nm" data-page-node-id="awKn8rBeDgZffr0P0YEiKq"><span class="ok" data-page-node-id="gl0c8xKcx49MQGtc1UAI85">✓</span><span class="endpoint" data-page-node-id="dpMA0U6pJ38ukEtXrZzmOp">GET /api/members/full</span><span class="pill blue" data-page-node-id="BQCf3Sdu72vhgOsRN5KCAz">KV</span><span class="ttl" data-page-node-id="7jvxWfRukWEc0jgMsQDi9p">CDN 60s</span></div>
+      <ul data-page-node-id="CFy9ZwrKjmVQEfprvy3jJn">
+        <li data-page-node-id="r7w8oIkUFHPvwv8cBIeaNu">原始全量 <span class="mono" data-page-node-id="WUMvA1CIigUcBHTkBc9BRE">{recordId, fields}</span>（609 人，附件带 tmp_url/url）</li>
+        <li data-page-node-id="492k4EuALYZcGTl9Q473V2">DeepMei App 24h 快照数据源；含「禁止查询」成员（不过滤）</li>
+        
+      <li>案例 → <a class="c-link" href="#case-full">§3-2</a></li></ul>
+    </div>
+    <div class="node" data-page-node-id="gtMGn1hv62G80sHgMMQonA">
+      <div class="nm" data-page-node-id="v0Yk20PyCskTi4QU84zPy6"><span class="ok" data-page-node-id="YXVeVJ8M4QzGCR1bBDhCPc">✓</span><span class="endpoint" data-page-node-id="tVAiYVGrU1fXehn1XUe9V3">GET /api/member</span><span class="pill blue" data-page-node-id="9kXosdbQHjfFdgEBsiniUe">KV→实时</span></div>
+      <ul data-page-node-id="LrOge6MMkBeRT2l5JEjIVh">
+        <li data-page-node-id="NUZKzMlWbwm1z1XnDtPr9f">uid：卡号（分号多卡拆整比对）/识别码/认读码，大小写与冒号归一</li>
+        <li data-page-node-id="dptC6orB1uwk4uU91zxEMB">q：姓名/别名/编号/识别码/认读码/序号（精确）</li>
+        <li data-page-node-id="VCPcJg5S9fz7kIiMuwYcvz">KV 未命中 → 飞书 CONTAINS 粗筛 + JS 整卡复核（防子串误命中）</li>
+        <li data-page-node-id="hAciJOnWB3efkvKUAieRBw">新卡登记场景保证签到不失败；查无返回 <span class="mono" data-page-node-id="VybfAEZzNB5ZLwxtB8BRCH">500+found:false</span>（既有行为）</li>
+        
+      <li>案例 → <a class="c-link" href="#case-member">§3-3</a></li></ul>
+    </div>
+    <div class="node" style="border:1px solid #ffd9d4" data-page-node-id="9opCh0o82oi81hxKAWGkOT">
+      <div class="nm" data-page-node-id="wyuxuhIimriWHkzgEtlukH"><span class="miss" data-page-node-id="kAWaGQT9shefv62BrRfI7u">缺</span><span class="endpoint" data-page-node-id="MQVtS6HwHBjqdLzGvIn0Lt">GET /api/members/detail</span><span class="pill blue" data-page-node-id="lB6bkBOFSeCVYyfN7pJ6h3">KV</span><span class="pill amber" data-page-node-id="kkTUofYjY92lrBPyBbpUVJ">Cache 300s</span></div>
+      <ul data-page-node-id="1JnE4SEf6NlrfLBKzTErFr">
+        <li data-page-node-id="sMuLj773yZbIvQvzfAlSIN">头注释漏列；正文注释/实现完整（README 有收录，行为一致）</li>
+        <li data-page-node-id="tAChGVUltdJKnqOGVQ35y5">「禁止查询」=true → <span class="mono" data-page-node-id="BF33KWQCnMOvGdjldA1szV">200 {found:false}</span>（不缓存，即时生效）</li>
+        <li data-page-node-id="l7DOWUJPA0DMyB8LDDBPeW">脱敏白名单 + <span class="mono" data-page-node-id="F40tz344F5V4d7gNZn86HB">avatarProxy</span>（有 file_token 跳过飞书换取，冷访问 0.4s）</li>
+        <li data-page-node-id="ohK7BCv5ShFzlIcxhaz8qE">无附件历史成员 → 旧换取兜底；<span class="mono" data-page-node-id="PNDpwwjdaDAaDQZGNbNGIg">joinDate</span> 字段（09-06 加，供证明资格判定）</li>
+        <li data-page-node-id="sZxRuljW3Lz73pOU37NiJD">activities ← <span class="mono" data-page-node-id="tYbV8du8uoQCqJ4ba9SXhp">activity_records_v3</span> 按 memberCode 过滤</li>
+        <li data-page-node-id="UrrqtovNcMZ8KJa2WxadUM">CORS * 已开</li>
+        
+      <li>案例 → <a class="c-link" href="#case-detail">§3-4</a></li></ul>
+    </div>
+  </div>
+
+  <p style="font-size:12.5px;font-weight:700;color:#7a5af8;margin:14px 0 8px" data-page-node-id="nCzkqzhNsl7mY52Yr1e4dL">② 活动 + 证明目录 —— 活动页 / 证明页专用（09-03 / 09-06 新增，README 未收录）</p>
+  <div class="grid g4" data-page-node-id="Da6kBdRXftD1QEL5jc1Cwn">
+    <div class="node" data-page-node-id="RvPvtvOFT3P22wwpKGqOuS">
+      <div class="nm" data-page-node-id="upUOtemD1lzxm34d55KIEt"><span class="miss" data-page-node-id="vmz3ITcqzEbJiQyRe8f8d4">缺</span><span class="endpoint" data-page-node-id="Sg5zQ2RV1dePcxH851OJH9">GET /api/activities</span><span class="pill violet" data-page-node-id="FEVeYOv3In8jRfKtriD0Gw">KV×2</span><span class="pill amber" data-page-node-id="biuKKqg0V2lE11O6zOKe7j">Cache 300s</span></div>
+      <ul data-page-node-id="rTwT3EDcTErnePBIJTLdMM">
+        <li data-page-node-id="4T3AOKy9fWEkInFjNDTcYV"><span class="mono" data-page-node-id="r7Kdm5gyIBz6HZFOp1h5fz">activity_projects_v1</span> 列表 + <span class="mono" data-page-node-id="Jn9dRkHv9LBGPm90kffB5j">activity_records_v3</span> 现场聚合 stats</li>
+        <li data-page-node-id="gVHiK8RvfiGj1TzAt4z0pA">筛：year（4 位 / <span class="mono" data-page-node-id="6tL1UlGc5UxNeA0TWlavS0">early</span>≤2023）/ type / q / limit≤200 / offset</li>
+        <li data-page-node-id="6sSEJ77xTyRJbuo73Eo2iU">返回 facets 全量筛选项；cover 为 <span class="mono" data-page-node-id="sjK2A6xPTEIpS831B0uajv">/api/photo?w=400</span> 直链</li>
+        
+      <li>案例 → <a class="c-link" href="#case-activities">§3-5</a></li></ul>
+    </div>
+    <div class="node" data-page-node-id="QvgnQnndiqcUNl52ipmr4E">
+      <div class="nm" data-page-node-id="G3CKhjx2ReZwVKFdnajEg3"><span class="miss" data-page-node-id="xOeznVe0wqpzTCrqhzFBfh">缺</span><span class="endpoint" data-page-node-id="VJLxbryqyhcGFmy7vXjeYU">GET /api/activities/detail</span><span class="pill violet" data-page-node-id="1sGYkcBObAF3B2A9xNjmsD">KV×2</span><span class="pill amber" data-page-node-id="1XT3q1BlZRywNahO6uIjic">Cache 300s</span></div>
+      <ul data-page-node-id="0kkE98ZRyPOob1shv0mdec">
+        <li data-page-node-id="cI4Q1Uez5WJHrJ0O6wVnyV"><span class="mono" data-page-node-id="7TU7aK790L8Y9RzfoMAQ5V">?id=</span> 查项目快照，无则 <span class="mono" data-page-node-id="C0kWfRyEBGCBWblDeu46cF">found:false</span></li>
+        <li data-page-node-id="OZ6eh5JCEAZ5y9JHjKIhdi">stats：参与人次/总时长/志愿时长（round1 去浮点尾）</li>
+        <li data-page-node-id="JwxwgwmG8BHqqkdHW81xv8"><b data-page-node-id="hfmriHGduleS0SMlqOIR0d">无 participants 字段</b>（隐私定案，天然无 isBlocked 泄露面）</li>
+        <li data-page-node-id="E1bqlCOg4m716wBmbA6DbO">photos：thumb w=400 + full w=1200（封面并入去重）</li>
+        
+      <li>案例 → <a class="c-link" href="#case-act-detail">§3-6</a></li></ul>
+    </div>
+    <div class="node" data-page-node-id="yEclCfVHkPOHVeQV9nVOh3">
+      <div class="nm" data-page-node-id="SgC1lTEqHtuKLhuLX3CoG9"><span class="miss" data-page-node-id="HiF1qgoNAcbcyCLoZxKeYK">缺</span><span class="endpoint" data-page-node-id="ekSqtZozphPaTSgHvCYMV8">GET /api/proof-files</span><span class="pill green" data-page-node-id="TmvwFDogcopAHNiiOukyCm">KV 60min</span></div>
+      <ul data-page-node-id="dcp7IGcYIickh8AYWOjdbm">
+        <li data-page-node-id="EH1x0ia3wkLJeO6SJ9odld"><span class="mono" data-page-node-id="V2GARY9WCmbRF4jinpsudq">file_catalog_v1</span> 整表目录（惰性 60min + cron/refresh force）</li>
+        <li data-page-node-id="5ibB6fplzEFQw3kghFxALU">出口过滤：仅「内容类型=社员证明」且已发布、有附件（缓存宽、出口窄）</li>
+        <li data-page-node-id="t0u7KcBw9BqO1kCNVOA5xT">返回 <span class="mono" data-page-node-id="iFH00sijOnvXvBTTR3q9qv">{title, owner, publishedAt, file:{name,size,fileToken}}</span></li>
+        <li data-page-node-id="ZUp0uZBIDoocKdMgezXGMU"><b data-page-node-id="jMHcuBOXIz0Z9ATF9Q45Oz">无资格过滤</b> —— 由云函数 proofs 用 joinDate 本地判定</li>
+        
+      <li>案例 → <a class="c-link" href="#case-proof-files">§3-7</a></li></ul>
+    </div>
+    <div class="node" style="background:#f6f8fa;border-style:dashed" data-page-node-id="WagIZOJJs4F2pamfspQK42">
+      <div class="nm" data-page-node-id="sEuI1hlteH5bqrnPdTEzY1"><span style="color:#5b6470" data-page-node-id="BDV1eOjZqqmbnx7oYRnpMk">附</span> 09-06 变更链</div>
+      <ul data-page-node-id="yl8GGxqXE0VBz7s8GnE0YC">
+        <li data-page-node-id="9Ln7omHn9PK7AqyX7CWQNs">目录快照 <b data-page-node-id="9GTvCWD1DqThRTyuwZJCc3">纳入 cron 与 POST /api/refresh</b>（force 跳过 60min 惰性）</li>
+        <li data-page-node-id="bJMXPSl8OlXtqpVYDwqj26">owner 资料负责人字段随目录/接口下发</li>
+        <li data-page-node-id="ImByxOcByJohclDAu1V4UM">detail 新增 <span class="mono" data-page-node-id="omKx6xfiB4qwpBfZ7ldadz">joinDate</span>（资格判定依据）</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="font-size:12.5px;font-weight:700;color:#0a96a0;margin:14px 0 8px" data-page-node-id="t0Pze0P47PuLyIMImJe7dT">③ 附件代理 —— token 白名单 · 边缘缓存为主，仅头像写 KV 永久</p>
+  <div class="grid g4" data-page-node-id="wgvLqsZtLZMNmYzxRCglNv">
+    <div class="node" data-page-node-id="N4QbnkUGfyR4flGjqQVi9M">
+      <div class="nm" data-page-node-id="tJQ6LBxi1MpTZtDym4M9h0"><span class="ok" data-page-node-id="03nbrVMIQbNwHC6kirIvWH">✓</span><span class="endpoint" data-page-node-id="EA2FRoS5RgFMC3UnsYA8Ec">GET /api/avatar</span><span class="pill amber" data-page-node-id="qzFZ8y09VufDxYFSP94rOG">L1 1d</span><span class="pill gray" data-page-node-id="hGIuGgExOFLyvV0b9KvImu">L2 永久</span></div>
+      <ul data-page-node-id="NjMMv06Gq6FwLN30BLG1SO">
+        <li data-page-node-id="fGgCFdc5mDaqEFlN1S5iC4">L1 Cache API 1 天 → L2 KV <span class="mono" data-page-node-id="qvJLfn3kOOMdootQQCFHfc">avatar_img_&lt;token&gt;</span> 0 过期（~97 张 ≈15MB）</li>
+        <li data-page-node-id="GJqreyW59LMwhKZkX2ntjM">白名单 = 成员快照「头像/个人照片」file_token</li>
+        <li data-page-node-id="J2p5D5CdE2Li2WL3rTExjY">双层 miss → tmp_url 换 authcode 直链 → 拉字节 → 回写双层</li>
+        <li data-page-node-id="yXD5Z1gPjDDiX4PjSZxvjU">飞书删图后仍可访问（KV 兜底）；CORS *</li>
+        
+      <li>案例 → <a class="c-link" href="#case-avatar">§3-8</a></li></ul>
+    </div>
+    <div class="node" data-page-node-id="ypOLKfyG5eoGyQONDo3Js5">
+      <div class="nm" data-page-node-id="XGqTumwwYin5FmGIciRdwJ"><span class="miss" data-page-node-id="Nu79dEuyQCGkr0hvn9EhOc">缺</span><span class="endpoint" data-page-node-id="xhblE7t9nkDx2ubj2i8V0e">GET /api/photo</span><span class="pill amber" data-page-node-id="ycIjs4jSH2nKtJANKgOUXZ">L1 7d</span></div>
+      <ul data-page-node-id="mSedWRNAUwA6RANvohHs3B">
+        <li data-page-node-id="s8gnvZt7OxLnFpuofMH6M5">白名单 = <span class="mono" data-page-node-id="pgU5rBSmUDqfDjprBNekoB">activity_projects_v1</span> 封面/相册 token（与成员头像互不可越权）</li>
+        <li data-page-node-id="BPDyvQBnvxX6FjBYkOCxy7">cf.image 缩放 w∈[200,400,800,1200]（非法回退 800）/ fmt jpeg·webp / q80</li>
+        <li data-page-node-id="HH9vL6AFEPtBaYgOBEAMdg"><b data-page-node-id="72pK9rmODPUOcrqM3Dd03P">只写 L1 不写 KV</b>（250 张 738MB 不适合 KV）</li>
+        <li data-page-node-id="jaCsNcpqjGmiQQpMKleHX6">双尺寸 key 隔离：<span class="mono" data-page-node-id="WMXUWrq8k6DNYyjNtQNInb">_cache/photo/&lt;token&gt;/&lt;w&gt;.&lt;fmt&gt;</span></li>
+        
+      <li>案例 → <a class="c-link" href="#case-photo">§3-9</a></li></ul>
+    </div>
+    <div class="node" data-page-node-id="B0GvbOqT8tVPDD07Th7p53">
+      <div class="nm" data-page-node-id="BZNDmt6abXx2Es8Wbnf9np"><span class="miss" data-page-node-id="xpWXqK9grZ9pfuAeFs3TWK">缺</span><span class="endpoint" data-page-node-id="fLBIRdYHvDWVwYdDDe696b">GET /api/file</span><span class="pill amber" data-page-node-id="G41uZAueqVx51Q1qTFiCJp">L1 7d</span></div>
+      <ul data-page-node-id="7t8SOOAG9ML8Vv7WgbkcA9">
+        <li data-page-node-id="roaWEbK2pmySVI1rxFosBr">社员证明 PDF 原样透传（任意 Content-Type，不走 cf.image）</li>
+        <li data-page-node-id="A8QQ9nZsLbwMb6dU1bz3kV">白名单 = <span class="mono" data-page-node-id="SrxdjCmqRi2gyZjVozBxjJ">file_catalog_v1</span>「社员证明」条目的 fileToken</li>
+        <li data-page-node-id="FPc2iAtGCJM8RqSdPNIjuT">取附件机制与 photo 一致：tmp_url 换直链 → url 带 Bearer 兜底</li>
+        <li data-page-node-id="vZ9zGBVCIaTFMRWf88B9R1">只写 L1 不写 KV</li>
+        
+      <li>案例 → <a class="c-link" href="#case-file">§3-10</a></li></ul>
+    </div>
+    <div class="node" style="background:#f6f8fa;border-style:dashed" data-page-node-id="aHjJYDDsSLGLMGN8LlDEKa">
+      <div class="nm" data-page-node-id="YjF4sxP8fRUMHzqci1GZrP"><span style="color:#5b6470" data-page-node-id="5JgieNQYstGuCH3RMmQEOo">同机制</span> 附件换链三姐妹</div>
+      <ul data-page-node-id="OaUW8oWoUfBYxkdw6DfTVh">
+        <li data-page-node-id="5OEBMsfqKhQlDt0SNU7X3E">生产 REST 附件带 <span class="mono" data-page-node-id="SCmF371MbLT4eOGrS6LFSk">tmp_url</span>（batch_get_tmp_download_url）</li>
+        <li data-page-node-id="LGIvIidHnVle8rvMFOJLev">Worker 携 tenant token POST tmp_url → 拿 authcode 临时直链</li>
+        <li data-page-node-id="1Xd5fj6G99d27ogNeG0mw5">失败兜底：原始 <span class="mono" data-page-node-id="4luraJVD5xhkanfBqbWMb0">url</span> + Authorization 头直取</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="font-size:12.5px;font-weight:700;color:#e8590c;margin:14px 0 8px" data-page-node-id="kzr267oALcS2svEaVvwCPK">④ 写入与刷新</p>
+  <div class="grid g3" data-page-node-id="3g502IwrOdfffx9XiK67CD">
+    <div class="node" style="border-top:3px solid #e8590c" data-page-node-id="mV9M4te0IH6rBSpenPBREX">
+      <div class="nm" data-page-node-id="ji9NbbislngRtTonjWrUsc"><span class="ok" data-page-node-id="JiAPaECFqFtK631LGBSTeq">✓</span><span class="endpoint" data-page-node-id="SC5TEsUZYUS2Sb1mccdxBd">POST /api/checkin</span><span class="pill orange" data-page-node-id="ohFTMX0o8NiZP4fCMjIaXx">实时 · 双写</span></div>
+      <ul data-page-node-id="ruQJzx313lC6XUpE9GQjmx">
+        <li data-page-node-id="8vJpgI43Wldpty3nEZaBI1">body：<span class="mono" data-page-node-id="VFshRbAgQJFQgYVoCOzIoZ">uid, mode(qr|nfc), activity, duration, lat, lng, name</span></li>
+        <li data-page-node-id="G7JqT7H5KDeq3PisEbXR5M"><b data-page-node-id="DsKZLvwwU8YnYQRXyCA6NQ">服务端按 uid 实时重查</b>（findMemberByUid 直连飞书，不信任前端成员信息）</li>
+        <li data-page-node-id="IlfkMk5mpGMyp6GvV1WjRG"><span class="mono" data-page-node-id="CnXUVLTmr4xLWDpjzA3j3p">ctx.waitUntil</span> 异步：飞书机器人卡片 + WPS 写入，失败互不影响</li>
+        <li data-page-node-id="4Psu6KiSAWZwBln5s3i1zX">查无成员时用前端 name 兜底（新卡登记）；签到秒回 <span class="mono" data-page-node-id="36AwEZUSKAswqIQWrCk3cQ">{ok:true}</span></li>
+        
+      <li>案例 → <a class="c-link" href="#case-checkin">§3-11</a></li></ul>
+    </div>
+    <div class="node" style="border-top:3px solid #495057" data-page-node-id="fMALfpBb9hRDwwISaDr8q9">
+      <div class="nm" data-page-node-id="aDFXIbXbM8YDZ5vPi4vgyb"><span class="ok" data-page-node-id="DMeDeEtcuVI9W80GAz07el">✓</span><span class="endpoint" data-page-node-id="fuz5nwvqajsQAiJ5V06l75">POST /api/refresh</span><span class="pill gray" data-page-node-id="mX9j2cyRVmRoKe208RAmRo">鉴权+30s 冷却</span></div>
+      <ul data-page-node-id="iQF8J0HAExIm4AMRgJY3FU">
+        <li data-page-node-id="afKHOEwSCM0nCvm4R8rOpa">鉴权：<span class="mono" data-page-node-id="GSXx3FyltSaRapIOWHPNcV">Authorization: Bearer</span> 或 <span class="mono" data-page-node-id="FCRpMCTuZsA0ZqHflBwxEW">?token=</span>（REFRESH_TOKEN）</li>
+        <li data-page-node-id="uFDEpr9v506hK7pKvYLYPz">冷却：KV <span class="mono" data-page-node-id="vmyl1FKHT1O3o3EDNPhGF6">last_refresh_at</span> 30s → 429（跨实例一致）</li>
+        <li data-page-node-id="mNSRk3gwlgXzkNJfgX3fcS">force 重建 <b data-page-node-id="zbrC0CIBB9sRyqSZhLIDB6">4 个快照</b>：members_full + activity_records_v3 + activity_projects_v1 + file_catalog_v1</li>
+        <li data-page-node-id="B5IsjJxwM5jv0p3KXzHK5I">供飞书自动化「记录变更 → HTTP」调用（即时刷新）</li>
+        
+      <li>案例 → <a class="c-link" href="#case-refresh">§3-12</a></li></ul>
+    </div>
+    <div class="node" style="background:#f6f8fa;border-style:dashed" data-page-node-id="P0h2WtnC77TYYI7TAdcuzg">
+      <div class="nm" data-page-node-id="SWJICvmPyTbBBAbznJ9inF"><span class="ok" data-page-node-id="SbHsE6rGI6LZKPINSrhGZP">✓</span>定时任务 scheduled()</div>
+      <ul data-page-node-id="VOkH23mVkLgWYlbz0DKP9A">
+        <li data-page-node-id="LgFgQBOcNtFmOu2fBncsO7">Cron <span class="mono" data-page-node-id="3k84ATqGwN2dBmLIwT8WRO">30 * * * *</span>（每小时第 30 分，wrangler.jsonc）</li>
+        <li data-page-node-id="u9G0hiZlPBVJGlfrxJFm4T">四段独立 try：members → activity_records_v3 → activity_projects_v1 → file_catalog_v1(force)</li>
+        <li data-page-node-id="v3HoKvoMgvL02T3KHo2Wf7">单段失败不影响其余（各自 catch 打日志）</li>
+        <li data-page-node-id="NUMDwCpSSdxnThmDCiJ2Ax">兜底：即使无人触发，数据陈旧 ≤ 1 小时</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ L3 接口案例速查 ============ -->
+<div class="sec-title" data-page-node-id="5XyaokjjfAhXjqSfF57DmF"><span class="no" data-page-node-id="DbM3VwkfBY8L6jV99kCfFx">3</span> 接口案例速查 <span class="desc" data-page-node-id="WY2T6k19V22GSvGWiz8cd7">13 个接口逐一给出请求形态与响应结构。值已脱敏，结构照实（真实抓包见 docs/api-baseline/，勿外传）</span></div>
+<div class="layer" data-page-node-id="Cg5R3MoUi6RIdeqbYqrzTH">
+  <div class="layer-h" data-page-node-id="jphbsR6fWPc2dq01q89MJW"><span class="name" data-page-node-id="Dm27ysMQzwzIVCBsjQnNvS">案例折叠</span><span class="note" data-page-node-id="fRxFJ0rHGIEjQZkTq3wwMX">点击展开 / 收起 · JSON 按真实代码结构整理，示例值均已打码</span></div>
+
+  <details class="case" id="case-members" data-page-node-id="YMhsAZ55C4ejkFGq1G6In2">
+    <summary data-page-node-id="jDeTOcaGGoI3FRRFTtkqmL"><span class="chev" data-page-node-id="RkojAnTQzvc63pzzuR0yDL">▶</span><span class="req" data-page-node-id="GizlnEQB0tAhQ6XtCpEDOD">GET /api/members</span> 全量映射（H5 离线缓存源）<span class="tag2" data-page-node-id="Bg6kqC8bq5HbdfUY3bgO4O">CDN 60s · KV 快照</span></summary>
+    <div class="body" data-page-node-id="BWWbyTtQ8qfZ2BjUDwfHNb">
+      <div class="hint" data-page-node-id="k0UKDribpx7bqAHVZApub3">请求：<b data-page-node-id="Y31V8bve4w84RgURzHzBT7">GET https://nfc.raspjam.com/api/members</b>　→　200 JSON。键：<b data-page-node-id="0YwQ0EYPJeSlEhaDtEs8AA">cardMap</b>=卡号→姓名（多卡已拆）、<b data-page-node-id="1GWL4LAwN1dVEOqg25Lhiq">barcodeMap</b>=识别码/认读码→姓名、<b data-page-node-id="XSfvyPLTw9AWucaiZzzpCq">infoMap</b>=姓名→档案摘要。无「禁止查询」过滤（全员可映射）。</div>
+      <pre class="j" data-page-node-id="PxICRu787xagRCFn2quJi1">{
+  "updatedAt": 1788424266510,
+  "cardMap": {
+    "0491D677D42A81": "示例社员甲",
+    "0430ACC3100389": "示例社员乙",
+    "…（609 人全量，每张卡一条；分号多卡已拆行）…"
+  },
+  "barcodeMap": {
+    "SM201809000100000": "示例社员甲",
+    "SM-201809-A001-002-01": "示例社员乙",
+    "…（识别码 + 认读码双键）…"
+  },
+  "infoMap": {
+    "示例社员甲": {
+      "idCode": "No.00000", "dept": "策划与宣传部",
+      "cls": "未知", "generation": "2018级",
+      "readable": "SM-201809-0001-000-00"
+    },
+    "…（每人一条）…"
+  }
+}</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-full" data-page-node-id="hT2fvc2bgiezsr3urrBWGe">
+    <summary data-page-node-id="DdfpBiVKdtISXm6e9LcGHQ"><span class="chev" data-page-node-id="VN85unsuWC2ufWIoHjgSDm">▶</span><span class="req" data-page-node-id="BOzYfjrXhq8QBCZnSriXQY">GET /api/members/full</span> 全量原始记录（DeepMei App 快照源）<span class="tag2" data-page-node-id="7KltEnTBNhzaBND4L36CCy">CDN 60s · KV 快照</span></summary>
+    <div class="body" data-page-node-id="fX4Uin87Mm3RcKFTvNjzXB">
+      <div class="hint" data-page-node-id="H4To8SwOR2btf6g9MNkjBS">请求：<b data-page-node-id="DG6uI1YvJg65K5bZ0h78ue">GET https://nfc.raspjam.com/api/members/full</b>　→　200 JSON（1.4MB / 609 条）。<span class="warn" data-page-node-id="hokhePF9dHTDOjOp25Vsad">⚠ 含 recordId 与原始 34 字段（含「登录密码」等敏感列），仅限 App 快照使用，禁止落公开文档/日志。</span></div>
+      <pre class="j" data-page-node-id="xsfBjqX0CIXmjvCCZ2sSwJ">{
+  "updatedAt": 1788425311234,
+  "items": [
+    {
+      "recordId": "recvqqWgKMYaR8",
+      "fields": {
+        "姓名": "…", "别名": "…", "性别": "…", "年级": "…",
+        "班级（分班后）": "…", "社团部门": "…", "社团职务": "…",
+        "社员卡号": "…; …（分号多卡）",
+        "社员识别码": "SM-…", "社员身份编码（认读码）": "…",
+        "社员编号": "No.…", "社员序号": "…",
+        "入社日期": 1535760000000, "禁止查询": false,
+        "头像": [{
+          "file_token": "…",
+          "name": "….jpg",
+          "tmp_url": "https://open.feishu.cn/open-apis/drive/v1/medias/batch_get_tmp_download_url?…",
+          "url": "https://open.feishu.cn/…"
+        }],
+        "登录密码": "（敏感——仅本地基线可见）",
+        "…其余统计 / 附件 / link 字段…"
+      }
+    },
+    "…共 609 条…"
+  ]
+}</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-member" data-page-node-id="TQKhOdP44gfPCjx8zxqdcj">
+    <summary data-page-node-id="eScZv7TJLj4als6T40P4uo"><span class="chev" data-page-node-id="xLvPX6IY7VfeBpPEnm3wm1">▶</span><span class="req" data-page-node-id="RPIjV3i8arREXpj9t9gaFV">GET /api/member?uid=｜q=</span> 单人多键查人（签到用）<span class="tag2" data-page-node-id="HiDB9m5P3umEAfeCSjNDHl">KV 优先 → 实时兜底</span></summary>
+    <div class="body" data-page-node-id="bYUBHLI7iQ8LClbSyxCXz8">
+      <div class="hint" data-page-node-id="OthuhCTwvAqIkBiZebjgEB">请求：<b data-page-node-id="8XAK4VUVG2394Q4Lfr2GdD">GET https://nfc.raspjam.com/api/member?uid=0430ACC3100389</b>（或 <b data-page-node-id="dGSa6rsl5PgzBiJMUsimnV">?q=姓名</b>）。uid 按卡号（分号多卡整卡比对）/识别码/认读码精确匹配；q 按姓名/别名/编号/识别码/认读码/序号。<span class="warn" data-page-node-id="n9ppO3JTYzJ1AlZok1ievJ">注意既有行为：查无此人 HTTP 500 + found:false（q 与 uid 相同）；缺参 400。</span></div>
+      <pre class="j" data-page-node-id="SJnDz4BPD3MaOnDOopEg4N">// 200 命中
+{
+  "found": true,
+  "member": {
+    "name": "示例社员乙", "alias": "…", "idCode": "No.00002",
+    "generation": "2018级", "className": "9班", "department": "摄影部",
+    "cardId": "0430ACC3100389;21D6E774;…（分号多卡原样返回）",
+    "readableCode": "SM-201809-A001-002-01",
+    "memberSeq": "2018002",
+    "position": "职务 A / 职务 B（多选以 / 分隔）",
+    "joinYear": "2018"
+  }
+}
+
+// 200 查无（命中 HTTP 500，q 口径同）
+{ "found": false }</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-detail" data-page-node-id="72j7WgkPf82wD7ft2XIvJh">
+    <summary data-page-node-id="45Aqv01DbDJkmZINDBQVwq"><span class="chev" data-page-node-id="Pvbo3gdmCZCWE3ourcD79q">▶</span><span class="req" data-page-node-id="W28QFT8s7qb4DYkrbBn0Up">GET /api/members/detail?code=</span> 单人脱敏档案（网页/小程序档案页）<span class="tag2" data-page-node-id="ioGmDH1pbNQOzyhHMG2LV4">Cache 300s · CORS *</span></summary>
+    <div class="body" data-page-node-id="XHxygF8kux303kzv4XHBBO">
+      <div class="hint" data-page-node-id="9Ivhnnbg4Zp4bA9SiKkt7W">请求：<b data-page-node-id="u6o0mvPwQw3Bbgu5Sa6UIu">GET https://nfc.raspjam.com/api/members/detail?code=SM201809A00100104</b>。仅输出展示字段（无登录密码/QQ/电话/身份证/卡号）；「禁止查询」=true 或不存在 → 200 found:false（<b data-page-node-id="ZrDq99tagKDnEqDVm1b4vY">不缓存，取消勾选后即时恢复</b>）；有头像 file_token → avatarProxy 直链、avatar 置空（跳过飞书换取）；无附件历史成员走旧换取兜底；activities 来自 activity_records_v3 过滤。</div>
+      <pre class="j" data-page-node-id="kjzGUaBWdqc4RVsJxY4f9c">{
+  "found": true,
+  "member": {
+    "id": "SM201809A00100104", "name": "示例社员丁", "alias": "",
+    "gender": "男", "grade": "2018级", "dept": "后期部", "rank": "社团领袖",
+    "clazz": "AP",
+    "role": "社长, 部长, …（字段以逗号分隔）", "honor": "…",
+    "bio": "…（详细介绍，含换行 \\n）", "grad": "某大学",
+    "activityCount": 20, "activityHours": 178, "totalHours": 65,
+    "joinYear": "2018", "joinDate": "2018-09-01",
+    "seq": "No.00001",
+    "avatar": "",
+    "avatarProxy": "https://nfc.raspjam.com/api/avatar?token=TBSobrG3moKjHhxpiyEcaabDnqe",
+    "activities": [
+      {
+        "memberCode": "SM201809A00100104", "activityId": "recv8cyTUVB5EK",
+        "activityName": "示例活动名称", "activityType": "数字媒体学习实践",
+        "date": "2025-12-31", "role": "",
+        "activityHours": 8, "volunteerHours": 8
+      },
+      "…按日期倒序，逐条参与记录…"
+    ]
+  }
+}</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-activities" data-page-node-id="2HhISkZM6BEbH6G79wBXWA">
+    <summary data-page-node-id="XGXBOGpNwxYJ71tBg0GoEH"><span class="chev" data-page-node-id="UmZthN6TZdf4bEMCfKfmtd">▶</span><span class="req" data-page-node-id="xA1vFUA2Ah7iOi1tXnfuxJ">GET /api/activities</span> 活动列表（年份/类型/关键词 + 分页）<span class="tag2" data-page-node-id="7YgxlNCrZRb3RpxLE6VaWp">Cache 300s · 双 KV 聚合</span></summary>
+    <div class="body" data-page-node-id="I0xN5CvUyvogK7txNO4zE9">
+      <div class="hint" data-page-node-id="rYEELk6SG2IKmoja4TnIzT">请求：<b data-page-node-id="pomUhTSW1CngiQ9vunSdHb">GET https://nfc.raspjam.com/api/activities?limit=5</b>；参数：<b data-page-node-id="cgViJIXV7SFME4lWmRIB0J">year</b>=4 位年份或 <b data-page-node-id="ZFBMNTUHWBD8OvlHWWe7C0">early</b>（≤2023）、<b data-page-node-id="r8qQHjvpIdfZ2u2CXqd203">type</b>=精确类型、<b data-page-node-id="YVZSHLs61VtH2jR9BjMGIW">q</b>=名称/地点关键词、<b data-page-node-id="SfFktqLH94Ep2nXvBI50oa">limit</b> 1~200 默认 20、<b data-page-node-id="2VkXMAslW7bfX1XiFObkpR">offset</b>。cover 空 = 无图（前端类型色块占位，62% 活动无图）。</div>
+      <pre class="j" data-page-node-id="b5VCI0DjWiCY2nQloOFOYD">{
+  "updatedAt": 1788425318150,
+  "total": 184, "offset": 0, "limit": 5,
+  "items": [
+    {
+      "id": "recvtFPWeezrFu", "name": "示例：高三祝福拍摄",
+      "type": "校园新闻采编制作", "date": "2026-08-29", "place": "",
+      "hoursPer": 0, "isVolunteer": true,
+      "photoCount": 0, "people": 3, "cover": ""
+    },
+    {
+      "id": "recvtC0ITV6RIz", "name": "示例：新生军训拍摄",
+      "type": "校园新闻采编制作", "date": "2026-08-28", "place": "",
+      "hoursPer": 0, "isVolunteer": true,
+      "photoCount": 1, "people": 11,
+      "cover": "https://nfc.raspjam.com/api/photo?token=…&amp;w=400"
+    }
+  ],
+  "facets": {
+    "types": [
+      { "type": "影视制作", "count": 12 },
+      { "type": "数字媒体学习实践", "count": 32 },
+      { "type": "树莓社发展建设", "count": 34 },
+      { "type": "树莓社宣传工作", "count": 16 },
+      { "type": "校园新闻采编制作", "count": 90 }
+    ],
+    "years": [
+      { "year": "2026", "count": 31 }, { "year": "2025", "count": 44 },
+      { "year": "2024", "count": 34 }, { "year": "2023", "count": 9 },
+      { "year": "2022", "count": 13 }, { "year": "2021", "count": 16 },
+      { "year": "2020", "count": 15 }, { "year": "2019", "count": 16 },
+      { "year": "2018", "count": 6 }
+    ]
+  }
+}</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-act-detail" data-page-node-id="TaG7iM6sHd0Bv8TQ2eiQy8">
+    <summary data-page-node-id="hkEv7bAUySLwTxiDfnF8vg"><span class="chev" data-page-node-id="tyF5Bj37ToNUdlENvTfs2k">▶</span><span class="req" data-page-node-id="mCJZh2nDw5U97Mg39Xosgz">GET /api/activities/detail?id=</span> 活动详情（只出统计与照片）<span class="tag2" data-page-node-id="R4ExK0AeVB4x6wZEeutKRU">Cache 300s · CORS *</span></summary>
+    <div class="body" data-page-node-id="nptl4dF8GvyExqKpMc6Nf8">
+      <div class="hint" data-page-node-id="Xu57GDGHeWnc6ONIxq6MCR">请求：<b data-page-node-id="ZIGWSntPXvnDQUBnuR7YRg">GET https://nfc.raspjam.com/api/activities/detail?id=recvtC0ITV6RIz</b>。<b data-page-node-id="2RlmwxsRY1vVFjaZTPzmAs">无 participants 字段</b>（隐私定案）；stats 由 activity_records_v3 现场聚合（round1 保留 1 位小数）；photos 封面并入去重，thumb=w400 / full=w1200；record 为公众号推文 Markdown 链接（小程序端抽 URL 做按钮）。</div>
+      <pre class="j" data-page-node-id="EZXrlkmMz10JWbJulbc2gH">{
+  "found": true,
+  "activity": {
+    "id": "recvtC0ITV6RIz", "name": "示例：新生军训拍摄",
+    "type": "校园新闻采编制作", "date": "2026-08-28", "place": "…",
+    "intro": "…（项目介绍，29% 活动有）", "result": "…",
+    "record": "[2026公众号推文](https://mp.weixin.qq.com/s/…)",
+    "hoursPer": 0, "isVolunteer": true,
+    "photos": [
+      {
+        "token": "…", "name": "fb8751957….jpeg",
+        "thumb": "https://nfc.raspjam.com/api/photo?token=…&amp;w=400",
+        "full":  "https://nfc.raspjam.com/api/photo?token=…&amp;w=1200"
+      }
+    ],
+    "stats": { "people": 11, "totalHours": 88, "volunteerHours": 10 }
+  }
+}
+
+// id 不存在 → 200
+{ "found": false }</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-proof-files" data-page-node-id="P6ERPDLzGWjHSsKVRTUipE">
+    <summary data-page-node-id="UhkVPlHwgrds1wK6grCB8v"><span class="chev" data-page-node-id="bfKB6WljDv55Gb2HVd4ZdP">▶</span><span class="req" data-page-node-id="ocJtF6vnxtqGE9ZE0mMzUl">GET /api/proof-files</span> 社员证明文件目录（09-06 新）<span class="tag2" data-page-node-id="h2EnsYM4CP19LamYvDVqt8">file_catalog_v1 60min · CORS *</span></summary>
+    <div class="body" data-page-node-id="C8iGC23DPhwKr6XoynOQHz">
+      <div class="hint" data-page-node-id="Jr2bxeIpRKXrA84STUGGME">请求：<b data-page-node-id="91rRKXQ7EnNaip9c6FxoiB">GET https://nfc.raspjam.com/api/proof-files</b>。数据源 = 文件资料表目录快照（惰性 60min；cron/refresh force 重建）；出口仅放行「内容类型=社员证明 且 已发布 且有附件」；<b data-page-node-id="wPg936Jca7LLrqiJ9mwBeG">不含资格判定</b>——资格比较（发布时间 ≥ joinDate）在微信云函数 proofs 本地完成，云函数侧再缓存目录 12h。含保密资料（实名查阅）不在此出口。</div>
+      <pre class="j" data-page-node-id="EUb8gapuAEBybZ2hEaRQ3n">{
+  "found": true,
+  "files": [
+    {
+      "title": "示例：社员证明（2024 年度）",
+      "owner": "资料负责人姓名（空串 = 未填）",
+      "publishedAt": "2024-09-01",
+      "files": [{
+        "name": "社员证明-2024.pdf",
+        "size": 123456,
+        "fileToken": "Bqs7bJyVAoZMTnxo7kdcRtE6nmd"
+      }]
+    },
+    "…（仅社员证明类型；无发布时间或附件的条目不出现）…"
+  ]
+}</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-avatar" data-page-node-id="GAtDXOzcogy6PEEbGVTy2m">
+    <summary data-page-node-id="JS9GEViOCXmskg6fbCW7wf"><span class="chev" data-page-node-id="al7MCHMNoz5Tf9ibA5bajO">▶</span><span class="req" data-page-node-id="QEs0WFYQG59fNAHYjS7eJ6">GET /api/avatar?token=</span> 头像代理直链（图片字节）<span class="tag2" data-page-node-id="CwhUy8aq9sUzxUHTE1MKPf">L1 1d + L2 KV 永久 · CORS *</span></summary>
+    <div class="body" data-page-node-id="Et0AC1E0vc4l1GTpzgec8w">
+      <div class="hint" data-page-node-id="KjYv4MsGRmDiREdtNCfaxF">请求：<b data-page-node-id="9ghCixALSYFDNk4g3JB7el">GET https://nfc.raspjam.com/api/avatar?token=TBSobrG3moKjHhxpiyEcaabDnqe</b>。成功 = 图片字节（基线实测 79.8KB JPEG）；token 不在成员快照白名单 → 404 文本；飞书删图 → KV 永久兜底仍可访问；双层 miss → 换 authcode 拉取并回写双层（首访 1~2s，再访 ~0.1s）。</div>
+      <pre class="j" data-page-node-id="oDA8MMLDdECjH6zAgdd6y5">// 200 —— 图片字节流（Content-Type 按附件实际类型）
+HTTP/1.1 200 OK
+content-type: image/jpeg
+cache-control: public, max-age=86400
+access-control-allow-origin: *
+
+// 404（白名单外 token）
+HTTP/1.1 404 Not Found
+not found</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-photo" data-page-node-id="qkxMoeCANyCB8biDr9heHu">
+    <summary data-page-node-id="nb4Nmn1KrQps8RbOJOSC7E"><span class="chev" data-page-node-id="8RdelScZNVinnjYlRw6iz9">▶</span><span class="req" data-page-node-id="15pa0JjCSrmatnSsrHVYiS">GET /api/photo?token=&w=</span> 活动照片代理 + 缩放 <span class="tag2" data-page-node-id="Pk2excIAt5CTD4JQvIbchH">L1 7d · 不写 KV · CORS *</span></summary>
+    <div class="body" data-page-node-id="gyyDjAyuHZTzzEEjOTPDDK">
+      <div class="hint" data-page-node-id="3pAApRVM5Fz2qPAx1aP0NX">请求：<b data-page-node-id="ewLkHwU7rJrX6tcs8FIjgV">GET https://nfc.raspjam.com/api/photo?token=…&amp;w=400</b>（thumb=400 / 详情大图=1200；可选 fmt=webp）。w 白名单 [200,400,800,1200]，非法回退 800；cf.image 缩放 q80 scale-down。实测：400×266 JPEG ≈33KB；二次访问命中边缘缓存 3.8s→0.6s；假 token 404；<b data-page-node-id="IvhwwL85MBbrZKfVPAqwe7">成员头像 token 不能越权取活动照片</b>（白名单隔离）。</div>
+      <pre class="j" data-page-node-id="9FsCTZdOuUtUz64O5ciiEu">// 200 —— image/jpeg 或 image/webp 字节流
+HTTP/1.1 200 OK
+content-type: image/jpeg
+cache-control: public, max-age=604800      // 7 天
+access-control-allow-origin: *
+
+// 404 白名单外 / 502 取图失败
+HTTP/1.1 404 Not Found
+not found</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-file" data-page-node-id="TqPv0BSq5tqk2CJZxzEKSg">
+    <summary data-page-node-id="zx3TndUr4wEWb0zSLm82N4"><span class="chev" data-page-node-id="9o88UWUGkXgPGshtDARw2z">▶</span><span class="req" data-page-node-id="KyonmpIOFjqf4jimiG95ln">GET /api/file?token=</span> 社员证明附件原样代理（PDF）<span class="tag2" data-page-node-id="sEcVWiEwPmGXQM9JggQnGu">L1 7d · 不写 KV · CORS *</span></summary>
+    <div class="body" data-page-node-id="5YBI0lAcyopXcqbQGSPtXY">
+      <div class="hint" data-page-node-id="oynM2I1lYezoDAysFaBQqz">请求：<b data-page-node-id="XEPxzRgGQgZtzQKLSHfL5M">GET https://nfc.raspjam.com/api/file?token=Bqs7bJyVAoZMTnxo7kdcRtE6nmd</b>。原样透传字节（PDF 等任意类型，不经 cf.image）；白名单 = file_catalog_v1 中「社员证明」条目的 fileToken；取附件机制与 /api/photo 一致（tmp_url 换 authcode → url 带 Bearer 兜底）。</div>
+      <pre class="j" data-page-node-id="5mT6UlBY1d9b0bBstmuFpC">// 200 —— 原样字节流（Content-Type 按附件实际类型）
+HTTP/1.1 200 OK
+content-type: application/pdf
+cache-control: public, max-age=604800      // 7 天
+access-control-allow-origin: *
+
+// 400 缺 token / 404 白名单外 / 502 取件失败
+HTTP/1.1 404 Not Found
+not found</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-checkin" data-page-node-id="mZt2JkLeJKcRvta4GWOIjk">
+    <summary data-page-node-id="p0e6RhBIbSa5jIog2BYB19"><span class="chev" data-page-node-id="EMTBpf31EEHyIF5vG9cNOq">▶</span><span class="req" data-page-node-id="BKcVgnnWSlDlpCa3xXTzX9">POST /api/checkin</span> 签到提交（WPS + 飞书群通知）<span class="tag2" data-page-node-id="G3VNiCxTDT9ZCGMeTEKJyM">实时 · 秒回 · 异步双写</span></summary>
+    <div class="body" data-page-node-id="ytn5nO7VvS4iCJZyT5qAzh">
+      <div class="hint" data-page-node-id="TBfpGxpRrP43dIwh6Wl0mx">服务端按 uid <b data-page-node-id="c7hIt2tMEFKWuljNiKzhbZ">实时重查飞书</b>（不信任前端传的成员信息）；查不到用 body.name 兜底（新卡登记）。飞书群卡片 + WPS 写入放 ctx.waitUntil 后台执行，失败互不影响，签到秒回。400 = 非法 JSON / 缺 uid。</div>
+      <pre class="j" data-page-node-id="M3JoAJc4CVu5P6Pu5O1HBi">// 请求
+POST https://nfc.raspjam.com/api/checkin
+Content-Type: application/json
+
+{
+  "uid": "0430ACC3100389",        // NFC 卡号或识别码（服务端重新查人）
+  "mode": "nfc",                  // "nfc" | "qr"
+  "activity": "示例：社团招新摆摊",
+  "duration": "2小时",
+  "lat": 31.3111, "lng": 120.6222, // 可缺省（null）
+  "name": ""                       // 仅新卡登记且查不到人时兜底
+}
+
+// 200 成功（member 为查得成员，查无时为 null）
+{ "ok": true, "member": { "name": "…", "…": "…" } }
+
+// 400
+{ "ok": false, "error": "missing uid" }</pre>
+    </div>
+  </details>
+
+  <details class="case" id="case-refresh" data-page-node-id="wAaswDN0GHcYjK3HyK4zIz">
+    <summary data-page-node-id="bWkE3IWTlCv3TgDgjKQ2uW"><span class="chev" data-page-node-id="14GCiDFrAmaE0nxJlnBuvN">▶</span><span class="req" data-page-node-id="zd8KpgA74Xnj27leTr7QwF">POST /api/refresh</span> 触发刷新（飞书自动化调用）<span class="tag2" data-page-node-id="b6Bsc7p8ArWtoCPnHAJPC4">Bearer 鉴权 · 30s 冷却</span></summary>
+    <div class="body" data-page-node-id="bDvEo6WCkapEXO3woQHzT1">
+      <div class="hint" data-page-node-id="Zvj9JytOSdR3dTDIdzD3Hw">请求头 <b data-page-node-id="hkQLEjDouEs1hM38WhBXlW">Authorization: Bearer &lt;REFRESH_TOKEN&gt;</b>（或 ?token=）。force 重建 4 快照：members_full + activity_records_v3 + activity_projects_v1 + file_catalog_v1（目录 force 跳过惰性缓存）；30 秒内重复调用 → 429；无/错 token → 401。</div>
+      <pre class="j" data-page-node-id="XqDzHeZEQsbopXYFNdYaoi">// 200 成功
+{
+  "ok": true,
+  "updatedAt": 1788426000000,
+  "items": 609,             // members_full 条数
+  "activityItems": 1138,    // activity_records_v3 条数
+  "activityProjects": 184,  // activity_projects_v1 条数
+  "fileItems": 120          // file_catalog_v1 条数
+}
+
+// 401 / 429
+{ "ok": false, "error": "unauthorized" }
+{ "ok": false, "error": "cooldown" }</pre>
+    </div>
+  </details>
+
+</div>
+
+<div class="flow" data-page-node-id="EfM575WWpOgZm5WGHWpybO">
+  <div class="arr" data-page-node-id="J4I5twQeyiAmDTxCZlmbC1">
+    <svg width="34" height="26" viewBox="0 0 34 26" data-page-node-id="wO6PzJhwmRBgY7XMpFSgJm"><path d="M17 2 L17 20 M8 13 L17 24 L26 13" stroke="#7c8590" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="ml34mDUqc1e34FvmnaGKxD"/></svg>
+    <b style="color:#4a525c" data-page-node-id="1brWHgQmFLafESxAzKCuni">KV 快照读写</b><span data-page-node-id="jOMbNYQ5zzlTMxkWlyIavj">命中直返 · 未命中实时拉飞书回填 · cron/refresh 主动重建</span>
+  </div>
+</div>
+
+<!-- ============ L4 KV 缓存层 ============ -->
+<div class="sec-title" data-page-node-id="s3vuqxkxVwd1BLiv2UxXUC"><span class="no" data-page-node-id="YMoAYZQIGJfDtyyjDW0SEX">4</span> KV 缓存层 <span class="desc" data-page-node-id="Fkma29fOwhGya52YyeXqVR">命名空间 SHUMEI_KV（绑定 f923c598…）· 6 类 key —— README「存储」表只收录前 3 类</span></div>
+<div class="layer" data-page-node-id="jHmcRAqjlM8werxpDydAeH">
+  <div class="layer-h" data-page-node-id="Cht6KnQFLBUVnW2GsZOQAe"><span class="name" data-page-node-id="J7UAmwgsuP9IR3FdyCdEwS">缓存内容与生命周期</span><span class="note" data-page-node-id="9yRu4V0NU1KrW4197xIhBT">读接口全部「KV 优先 → 未命中实时拉取并回填（冷启动自愈）」</span></div>
+  <div class="kv-grid" data-page-node-id="erRDxyo4kuCwqkaftUFbQU">
+    <div class="kv" data-page-node-id="j95sYG1h8yBF0BrpS8HgW2"><span class="key" data-page-node-id="gffqVfuHCHxN76Hko5Ro4W">members_full</span><span class="ttl" data-page-node-id="sqfvACi2fRGLQQ1VTDDTZO">~1.4MB / 609人</span>
+      <p data-page-node-id="ixv2UXjKjztCn6sDvEBVa4">全量原始 <span class="mono" data-page-node-id="Tw9Nll0FaECQH0Pn03Bajt">{updatedAt, items[{recordId,fields}]}</span>；服务 4 个成员接口 + avatar 白名单。<b data-page-node-id="8UcJQwzTB04O45ef7itpFZ">刷新：cron 30min + refresh + 自愈</b></p></div>
+    <div class="kv" data-page-node-id="ZzX6vi9wYfUyFf0SzAFfax"><span class="key" data-page-node-id="3KdQtRVpO6pTCtC6PhaC3p">activity_records_v3</span><span class="ttl" data-page-node-id="WFgkRCLqL1vwG1dP8HS88L">每人每条参与</span>
+      <p data-page-node-id="S2OyQRRNpNLcv5HFmjP0pv">明细表 join 项目/社员表，按 memberCode 展开（人→活动记录）。服务 detail.activities、activities 统计聚合。<b data-page-node-id="RcpVFyMB2oeKE7GrUvsPws">README/CHANGELOG 未收录</b>。</p></div>
+    <div class="kv" data-page-node-id="0G4FtvvUNZ0XvX1fPrhaze"><span class="key" data-page-node-id="BMTCpETPgnoYvbiMHmHvip">activity_projects_v1</span><span class="ttl" data-page-node-id="MdW3WOIqq3WuFBAy7cB66B">184 活动</span>
+      <p data-page-node-id="ffpqlYcCmf0YAtOmTneRNe">活动项目完整展示字段（封面/相册仅保留图片附件 + token/tmp_url）。服务 activities/detail 与 photo 白名单。<b data-page-node-id="VvDsNZvpBTpD4DQAZoVH13">未收录</b>。</p></div>
+    <div class="kv" data-page-node-id="k7nM4vGlnD4yOxYB4qHhzB"><span class="key" data-page-node-id="agwYlPIzNYEOGkorY9VcNC">file_catalog_v1</span><span class="ttl" data-page-node-id="aRXe88J5oA2bNDPTOaiabR">惰性 60min + force</span>
+      <p data-page-node-id="YCRtGCeDBrlHw7KWEBnlEq">文件资料表整表元数据（title/types/owner/publishedAt/files…）。服务 proof-files/file 白名单。<b data-page-node-id="uvcltEjzXXDfU4bMO98Ayh">09-06 起纳入 cron 与 refresh；未收录</b>。</p></div>
+    <div class="kv" data-page-node-id="07hvkaXNTkJx0hn6ObDYCq"><span class="key" data-page-node-id="jKWBF4YYHY9FSndtd1mtog">avatar_img_&lt;token&gt;</span><span class="ttl" data-page-node-id="YJIdsXM7quagGH8LeWKteg">永久 · ~15MB</span>
+      <p data-page-node-id="V1Dj7GLUs2kUpNtSFJIQsK">头像字节 arrayBuffer，0 过期（KV.put 默认）。/api/avatar 双层 miss 时首访回写；飞书删图仍可访问。README 已收录。</p></div>
+    <div class="kv" data-page-node-id="uzXekLo96U65b3AaEMkLG3"><span class="key" data-page-node-id="b2nylu7hnm8HrrRQT6byzG">last_refresh_at</span><span class="ttl" data-page-node-id="St7PR2SXyXydOauaCmwsW4">冷却时间戳</span>
+      <p data-page-node-id="ytbRNOLYFCIBlM6y6NqIZ5">/api/refresh 最近成功时刻（ms），30s 冷却节流防打爆飞书，跨实例一致。README 已收录。</p></div>
+  </div>
+</div>
+
+<div class="flow" data-page-node-id="866br7VbgsCHfIvDFfWTdK">
+  <div class="arr" data-page-node-id="SJqDdCzVZbxuKDtZwrE4iP">
+    <svg width="34" height="26" viewBox="0 0 34 26" data-page-node-id="5Y9G8kA9weobK5PICS8tCT"><path d="M17 2 L17 20 M8 13 L17 24 L26 13" stroke="#7c8590" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="hrM0Fdy6hhNaBAXTlG78nf"/></svg>
+    <b style="color:#4a525c" data-page-node-id="nE7zsslkB5cY8W6QN4pNS3">实时回源（未命中/实时接口）· 签到双写（WPS + 飞书群）</b>
+  </div>
+</div>
+
+<!-- ============ L5 数据源与写目标 ============ -->
+<div class="sec-title" data-page-node-id="AQmoSGFXB9I9qtMwhbU2gz"><span class="no" data-page-node-id="RmtdCyx94jfFMCjXsXIdob">5</span> 数据源与写目标 <span class="desc" data-page-node-id="FYU06N307VbEA2QWPTMPGS">飞书多维表 = 唯一数据源 · 附件（头像/封面/相册/证明文件）以 file_token 索引，经 tmp_url 换 authcode 拉取</span></div>
+<div class="layer" data-page-node-id="Rw0ABJFYv8WhcWWwgaY5LE">
+  <div class="layer-h" data-page-node-id="E4GEADvazYH7zL1Z3ZHOUd"><span class="name" data-page-node-id="Eyl5siSqz5vcl0KuAvr12I">外部系统</span><span class="note" data-page-node-id="YxD1yKwQek8qUcysr9yqht">飞书 tenant token 由 FEISHU_APP_ID/SECRET 换取（进程缓存 2h）；WPS/FEISHU_BOT webhook 均为 Secret 环境变量</span></div>
+  <div class="grid g6" data-page-node-id="1aIC7i2pCkV298r8liAQXO">
+    <div class="src" style="border-top:3px solid #3370ff" data-page-node-id="jBYmVxnpMhmrQZaLJv0Svv">
+      <div class="nm" data-page-node-id="yle7eb6GC27VjN6Jbba1v0"><span class="bar" style="background:#3370ff" data-page-node-id="Dlp5DX9XfYPceIxHdA9lxH"></span>社员登记表</div>
+      <div class="id" data-page-node-id="il4XZh9dbtr1VcCA1Rq5Ql">tblepAz1PHnzwxA2（FEISHU_TABLE_ID）</div>
+      <ul data-page-node-id="ysXEYmvXe6RiGNYrfZYRMZ">
+        <li data-page-node-id="hWgLRQkf7oh4GnaoVO0D94">609 人 · 姓名/卡号(;) /识别码/认读码</li>
+        <li data-page-node-id="fmJEc2RO3kGys1OLU6nUd7">「禁止查询」复选框（09-06 定列名精确匹配）</li>
+        <li data-page-node-id="CY3zk1T9q8j9bfBisBEDqs">头像/个人照片/入社日期/时长统计</li>
+      </ul>
+    </div>
+    <div class="src" style="border-top:3px solid #7a5af8" data-page-node-id="dQqCc8D9IXg0KEl1OdQuZ5">
+      <div class="nm" data-page-node-id="oQaYIG8cG3K7FjFlQWt3C5"><span class="bar" style="background:#7a5af8" data-page-node-id="JhmYE9GnYinTVoAFI2xHAO"></span>活动项目表</div>
+      <div class="id" data-page-node-id="c5lDEebkPNvdkrTCIZhO1k">tbl30yargX7IZ1kc</div>
+      <ul data-page-node-id="cEPmBBZoFLZHUL52QAlAmP">
+        <li data-page-node-id="Z5cSFSVidvH6ZMGYoEE7ln">184 活动 · 名称/类型/日期</li>
+        <li data-page-node-id="6FCtFBPQMNXxpU8mPXDAlO">封面图片（1张）/相册（仅图片入快照）</li>
+        <li data-page-node-id="TgJlcukVQBOdOLYEEkDpmn">介绍/成果/记录/人均时长/志愿标记</li>
+      </ul>
+    </div>
+    <div class="src" style="border-top:3px solid #7a5af8" data-page-node-id="dCf2KVv2SAoLXCDr4rkDHy">
+      <div class="nm" data-page-node-id="kPxVA0TdzkijeHG4c7kHDb"><span class="bar" style="background:#7a5af8" data-page-node-id="VdfMA34T3pr5zZHnGXpxqD"></span>活动参与明细表</div>
+      <div class="id" data-page-node-id="qlxg2DaVvqHpnVXdOr0mU7">tbl5Gr3qoPBatTmt</div>
+      <ul data-page-node-id="z895SIllFFKcheEBi1jNEd">
+        <li data-page-node-id="sKB89QGU0hCGVztKpK6PFk">≈1138 条 · 双向 link 项目↔社员</li>
+        <li data-page-node-id="cjf95dyXv6aBGhYtayjNK0">参与时长/志愿服务时长/参与角色</li>
+        <li data-page-node-id="lPlNiCEYOQ4O8yrKbyVzuY">join 展开成每人每条</li>
+      </ul>
+    </div>
+    <div class="src" style="border-top:3px solid #0d9f6e" data-page-node-id="wJVBjsoDeud0n05SqQaw32">
+      <div class="nm" data-page-node-id="WLMlFGSarSuc8kqq3Yz64I"><span class="bar" style="background:#0d9f6e" data-page-node-id="DxSog7SCaCNlvBuKJkF3fF"></span>文件资料管理表</div>
+      <div class="id" data-page-node-id="ILAbSpatIgE9vJQ5XxZNgS">tblO5pPurRqVPMR5（09-06）</div>
+      <ul data-page-node-id="wVnm7GG4tyvHRSnfq2CZwn">
+        <li data-page-node-id="hCyBpJLS0qnPJ7tmvgEW0H">≈120 条 · 资料名称/内容类型</li>
+        <li data-page-node-id="U2QJ7JyIeGbgb4AXerd7Br">发布时间/资料负责人/文件【首选】</li>
+        <li data-page-node-id="c2En9ADozoy8mMqzXiNVDI">含内部资料（保密效力=实名查阅）→ 出口窄白名单</li>
+      </ul>
+    </div>
+    <div class="src" style="border-top:3px solid #0a96a0" data-page-node-id="cTi4jemTgOGeHHkSPSFh62">
+      <div class="nm" data-page-node-id="cv9XW9fwcE90RkGsOBkmka"><span class="bar" style="background:#0a96a0" data-page-node-id="5IBvQbO3LUPV4ypM0RR7C9"></span>WPS 多维表（签到记录）</div>
+      <div class="id" data-page-node-id="VBOJUJmj1zuIu71I8CTwgS">webhook · WPS_WEBHOOK</div>
+      <ul data-page-node-id="AqfT20LFBAMena3qpixKmF">
+        <li data-page-node-id="Sik4korbdSeesHEY6sKHKz">checkin 成功 → POST 7 字段：cardUid / timestamp(东八区) / userName / department / className / activity / duration</li>
+        <li data-page-node-id="4xLaNSkCPYHQ3it6C7OcBl">ctx.waitUntil 异步，失败仅记日志</li>
+      </ul>
+    </div>
+    <div class="src" style="border-top:3px solid #e8590c" data-page-node-id="HlEe8B0pDqQuGofGpOABhE">
+      <div class="nm" data-page-node-id="aH6GD4ZfS5N3h4GkDnqshq"><span class="bar" style="background:#e8590c" data-page-node-id="BybEar9WZY38dNKCndljpR"></span>飞书群机器人</div>
+      <div class="id" data-page-node-id="Q9ekKemNAH3BEGHvkrzm6h">webhook · FEISHU_BOT</div>
+      <ul data-page-node-id="sSC9sdsXR8mNAIMzUmQ1Qn">
+        <li data-page-node-id="19FGHH8EtozNTVDivcyIpw">interactive 卡片 2.0：活动+时长双列 / 姓名·编号 / 识别码+卡号审计 / GPS+高德 / 查看记录按钮</li>
+        <li data-page-node-id="iSPygIYwQXg2RuIVHf26wP">summary「姓名 · 活动名」列表预览</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ L6 刷新与自愈 ============ -->
+<div class="sec-title" data-page-node-id="6uDYH0IyhCXbhwJAIB5BYh"><span class="no" data-page-node-id="DS3FWlEPEyUUknYtkrOCOw">6</span> 快照刷新与自愈闭环 <span class="desc" data-page-node-id="MghUeJ6PHS2p8mGrT2VBEo">三层保障：Cron 兜底 → 飞书自动化即时 → 冷启动自愈</span></div>
+<div class="layer" data-page-node-id="uhi5k8zYxJK6B6By0bKmux">
+  <div class="layer-h" data-page-node-id="rjIGMHOpV3Y1ijpohJ6VHy"><span class="name" data-page-node-id="Fk7j3h9ztCkURYsIhlMjv0">谁在写 KV</span><span class="note" data-page-node-id="fQpEp7TV6qmtlbKMNnojJE">数据流完整性：KV 从不直接对外承诺实时，实时性由自动化 + 边缘缓存 TTL 收敛</span></div>
+  <div class="grid g3" data-page-node-id="eetQ6P2vW9UZJHqmv331a0">
+    <div class="node" style="border-top:3px solid #495057" data-page-node-id="x4uo2Wq1DJiGBZWjgwpvT8">
+      <div class="nm" data-page-node-id="O3HZQsP069XzhXRJw0QzEL"><span class="bar" style="background:#495057" data-page-node-id="SGKMRK10jeTESBCHuYwzuD"></span>Cron 兜底</div>
+      <ul data-page-node-id="YCvJMv9TBfRFUNvqxnF2YU">
+        <li data-page-node-id="KvI9FPj30AjNfwzswxvXeU">每小时第 30 分（wrangler crons）</li>
+        <li data-page-node-id="2xgDeADLG9o8zR2lskO2IN">scheduled() 四段重建：members → activity_records_v3 → activity_projects_v1 → file_catalog_v1(force)</li>
+        <li data-page-node-id="ePFJnpsEKH73XJeY4nNICn">成员/活动/目录任一失败互不影响</li>
+      </ul>
+    </div>
+    <div class="node" style="border-top:3px solid #495057" data-page-node-id="WYNncD6RVFKLRJkkZEmfYb">
+      <div class="nm" data-page-node-id="igWGhjBQOZ3LIwvBTvG7fL"><span class="bar" style="background:#495057" data-page-node-id="2J3klJq3gMPtPg3mz4C7bK"></span>飞书自动化（即时）</div>
+      <ul data-page-node-id="cnsuXJZSzXUNwMMu9LZU3u">
+        <li data-page-node-id="KMiPVQpQByJlNzW7SHbDIo">飞书多维表内配「记录变更 → 发送 HTTP 请求」</li>
+        <li data-page-node-id="2jbiWS0aaThO5RmWjTPrhR">新增/更新/删除社员或活动 → POST /api/refresh（Bearer）</li>
+        <li data-page-node-id="Cy4w4xI6JAfCi2JtrAE2yk">30s 冷却防止自动化连发打爆飞书</li>
+        <li data-page-node-id="xEHq5qA1DMBFo4FxTj4iS1">网页与 App 秒级看到最新数据（≤ 边缘缓存 TTL）</li>
+      </ul>
+    </div>
+    <div class="node" style="border-top:3px solid #495057" data-page-node-id="qCSRsu145ndhfZ0KE6hBfn">
+      <div class="nm" data-page-node-id="0dmOv4SeqABEHDZYUVIOP4"><span class="bar" style="background:#495057" data-page-node-id="KqpfQMxQH15sm4s3EisBJh"></span>冷启动自愈</div>
+      <ul data-page-node-id="5H8jk0LCAtMGQ2U9GwVptN">
+        <li data-page-node-id="6AJ2t18rqRZQFktlpzBzEp">任一读接口 KV 空/过期（首次部署、KV 被清）</li>
+        <li data-page-node-id="7tGkrBoEwJb7kbsWdPMExo">getSnapshot / getActivityProjectSnapshot / getFileCatalog 实时拉取</li>
+        <li data-page-node-id="dcLNYEf9HzEK6TnwDdywwT">写回 KV 后再返回 → 系统自恢复</li>
+        <li data-page-node-id="4v36YQHjHRX9OoAf8rWFLr">file_catalog 另带惰性 60min TTL 判断</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ L7 链路清单 ============ -->
+<div class="sec-title" data-page-node-id="3o47NNYMSIFqZdp4cAvnAa"><span class="no" data-page-node-id="B79NAzT4DnXAOZYrZPhlMU">7</span> 关键数据流链路清单 <span class="desc" data-page-node-id="s1Hj6jDQ15mF4DpUJ56IlW">文档收录列：✓=README/CHANGELOG 有描述 · 缺=无（红）</span></div>
+<div class="table-scroll" data-page-node-id="rN2qxpaBltxTpzNrAH34mV">
+<table class="flows" data-page-node-id="rtaRVanNexqoYECfYs1dpE">
+  <thead data-page-node-id="f8O50sVTdGBC5zx8TMEDVD"><tr data-page-node-id="VdBpaDp4ovE157LQEWbySr"><th style="width:36px" data-page-node-id="xEPkhTX6NumdJqqqmeNxP8">#</th><th style="width:150px" data-page-node-id="IYdTyMQHZI2YWeBxGoQH2C">链路</th><th style="width:225px" data-page-node-id="bZI8nlWsECHhFAnDjPiiRc">路径</th><th data-page-node-id="VPdLBPCAvOFMIxDNMWXcLN">要点 / 缓存</th><th style="width:70px" data-page-node-id="W8CaL712Ucvzjj46z8aCkw">文档</th></tr></thead>
+  <tbody data-page-node-id="C9XVYYXBToGHIlkBd4UXA6">
+    <tr data-page-node-id="lLSZIkc339heBQ8jFfU205"><td class="ln" data-page-node-id="hGkdsvhSWJTcUBvWnF0xEp">L1</td><td data-page-node-id="MhVB29tln03EzyxN73O7An">H5 刷卡/扫码查人</td><td class="mono" data-page-node-id="z84ICpgUS6uSwq9Gmo71ec">NDEF/QR → localStorage ① → ② → /api/member?uid</td><td data-page-node-id="wgPTwchi8FrIScvnxKqsoy">三级降级；KV 快照精确匹配（多卡拆分）；新卡 miss 实时飞书</td><td data-page-node-id="VNgAY13iIZcPffZqtx9r0P"><span class="dot-ok" data-page-node-id="Ew2khZrbPHSvBqrsUD0XKy">✓</span></td></tr>
+    <tr data-page-node-id="jx9OL6WnrAf1J8WaVCGo4x"><td class="ln" data-page-node-id="oIzyVl5EfBkEIu2waXFwgx">L2</td><td data-page-node-id="hA6QcbPTB3SYltdSRkcnm0">H5 离线缓存初始化</td><td class="mono" data-page-node-id="NDQYogq9mxQMQVJ6e7m3TR">GET /api/members → localStorage 24h</td><td data-page-node-id="RzepEUyDG5pbwrgTYgbckG">首次访问/手动刷新按钮；KV 快照 + CDN 60s</td><td data-page-node-id="SVKQRsRtTnCWAIdPBLtIYK"><span class="dot-ok" data-page-node-id="ypDbYhhLDQxrnwn1I1SYTj">✓</span></td></tr>
+    <tr data-page-node-id="P6tpHBk3RgDC75KyN03w0q"><td class="ln" data-page-node-id="aSgSHEsmZHNNP0ABtFvMDM">L3</td><td data-page-node-id="c9b55dDS32VcJJeasss5lx">签到提交双写</td><td class="mono" data-page-node-id="BcKZskWyHJGx9AHoASpPRN">POST /api/checkin → 飞书卡片 + WPS</td><td data-page-node-id="efy7RYFClES3iqPcleEaHq">服务端重查人（实时飞书）；waitUntil 异步秒回；禁查不影响签到</td><td data-page-node-id="qEs2kOT90VhIhLnSr4aqlp"><span class="dot-ok" data-page-node-id="4nZovIk5CuCFXcQaswqciN">✓</span></td></tr>
+    <tr data-page-node-id="rPIvTHviG396FM60Hbtpib"><td class="ln" data-page-node-id="aCDGDZaYoCJNRU0e5JWkhe">L4</td><td data-page-node-id="46WwBBaJrUrbkRTVC6KpTU">App 快照与档案</td><td class="mono" data-page-node-id="HjUIylnaN5JHAO3dPCRhqr">GET /api/members/full、/api/member、detail</td><td data-page-node-id="7gUyl2AmdzQPIELW3HOsJG">24h 本地快照；字段与 App 对齐（v1.6.0）</td><td data-page-node-id="Z8OdRcUAZ3Q2cRUEMtALnl"><span class="dot-ok" data-page-node-id="QGIrih9eIKvu20BUTux9OS">✓</span></td></tr>
+    <tr data-page-node-id="pU7oVbBtEm0ZE5gc6kFlWw"><td class="ln" data-page-node-id="XzX2f7o5OB5Gec4GH05ic7">L5</td><td data-page-node-id="UNQXMxANSRNYtcjTAe4vDt">档案页（网页/小程序 member）</td><td class="mono" data-page-node-id="qhuDlaPlTh6lmSYzycaiAE">GET /api/members/detail?code= → KV → 响应</td><td data-page-node-id="wxsRV0ozSI1YidjDlYnSpn">Cache 300s；禁查→found:false；avatarProxy 方案 B；activities 过滤；joinDate 下发</td><td data-page-node-id="uTWoyFo7rKyxXQYJeTRWUR"><span class="dot-no" data-page-node-id="BJQOy2QrHZcOxz6DccFDo3">缺 joinDate</span></td></tr>
+    <tr data-page-node-id="LxF7vVP1Mx8WeErPZnBKVl"><td class="ln" data-page-node-id="lsXuFB4p562aSALxXDDtGL">L6</td><td data-page-node-id="Q7Nj7jw5e39XPderX8mKUg">头像图片链路</td><td class="mono" data-page-node-id="zCoCe1aGOeXRZCBaebGRlV">img /api/avatar → L1 1d → L2 KV 永久 → 飞书</td><td data-page-node-id="TEa07NQ4u5nao7sEhSOSMC">白名单=成员快照；换图≤5min（detail TTL）；删图仍可访问；小程序经云函数转存 cloud://</td><td data-page-node-id="nz18ZP0CAY8WtoNhXYwKwY"><span class="dot-ok" data-page-node-id="L9UkklvPfYdHiQJkhE1KMb">✓</span></td></tr>
+    <tr data-page-node-id="tvuiYPfyog0FJMlL0MLo3h"><td class="ln" data-page-node-id="ISERaoTobPA28S0OteRcC1">L7</td><td data-page-node-id="tpug1vPRQRQGrhyxBlZ29S">活动列表（小程序 activities）</td><td class="mono" data-page-node-id="FwhYKirM92t8nYPi3QIQna">云函数 → /api/activities → proj+recs 聚合</td><td data-page-node-id="XEgf68AGnYE8rwkpsPE4HR">Cache 300s；筛选/分页/facets；cover=photo w400</td><td data-page-node-id="4aBe6smPECnfRCaCHHaaI5"><span class="dot-no" data-page-node-id="ryIlqpiCXTootE5g9mindQ">缺</span></td></tr>
+    <tr data-page-node-id="KCmGfdI0ALEGvvXMOfCQZS"><td class="ln" data-page-node-id="LAagxnBqwMnX2Ki53DOuU8">L8</td><td data-page-node-id="hN2CtqV8LgwNUD3aVPOujM">活动详情 + 图片墙</td><td class="mono" data-page-node-id="dCIHDso56cdsgCychqVJPZ">/api/activities/detail → /api/photo w400/1200</td><td data-page-node-id="fBiYk95n4C9aVAEUo6X4o7">stats 聚合；无 participants；缩略图经云函数转存 cloud:// 后预览</td><td data-page-node-id="wwVaAjSH7iOvNha4nmo1X3"><span class="dot-no" data-page-node-id="0jKIAvLL6IDAb0aWhGGjqj">缺</span></td></tr>
+    <tr data-page-node-id="qvVpxQDfpxVvLAPMHofLNT"><td class="ln" data-page-node-id="e3rVHTAKYFGmxpblBBo9mA">L9</td><td data-page-node-id="AMhVW7ptwFpEy0jOpeJ4uk">证明目录 + 文件</td><td class="mono" data-page-node-id="hkeBTE9mOv8RPoUVUvvEjf">/api/proof-files → 云函数 12h 缓存 → /api/file</td><td data-page-node-id="bHUVtUPfZEdZekAPgKEH94">file_catalog 60min 惰性；资格比较在云函数（joinDate）；file L1 7d</td><td data-page-node-id="af8jgZrDHa0sUSiL3k5fsK"><span class="dot-no" data-page-node-id="inE84xxj6fWV9KGrfJEkus">缺</span></td></tr>
+    <tr data-page-node-id="A9NmFZjPlPxseWwBClEXIa"><td class="ln" data-page-node-id="zEatYs7s7tM32UTb0R10XH">L10</td><td data-page-node-id="lEfZzap0tGcKVfnlHsZ6nO">KV 主动刷新</td><td class="mono" data-page-node-id="Kx1QB43pmMLhO3A1gganhE">cron / 飞书自动化 → refresh → 4 快照</td><td data-page-node-id="vBuGiCAPnWDwfbbwm0BUTD">30s 冷却；force 目录快照；定时四段独立 try</td><td data-page-node-id="wzRIw0i4bQ3Kw6Y4G6vAeX"><span class="dot-no" data-page-node-id="oQBstKglOevIxAE4B7cYFw">缺 activity/file</span></td></tr>
+    <tr data-page-node-id="ZVGo4UkhQyIFr4cITav7Zu"><td class="ln" data-page-node-id="ImZ16POz6xpI82vkLbwDY7">L11</td><td data-page-node-id="IVwIu0bz8fDmQfQrfSLQJH">冷启动自愈</td><td class="mono" data-page-node-id="fYornDWCfP8RmEcmlywPHp">读接口 miss → 实时拉表 → 写回 KV → 返回</td><td data-page-node-id="QvmKDAbZnZzGHF5QEfrPjV">成员/活动/目录三套同构；README 仅描述 members</td><td data-page-node-id="q9apDdxlxtIjh3EcuH4j1Q"><span class="dot-no" data-page-node-id="q99FXQ0Hw5CpMRArlr9xSt">部分</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============ L8 差异清单 ============ -->
+<div class="sec-title" data-page-node-id="BynvUEHmXK0dDek1uMFNlp"><span class="no" data-page-node-id="WwoLGaD9w7wjSXY0JA0Q9s">8</span> 文档 vs 代码 —— 逐项差异清单 <span class="desc" data-page-node-id="X2JdB7CO4PDFSSt6x88xlL">三份文档（README / CHANGELOG / activity-api-plan / AGENTS）与 worker.js@ba1377f 对照</span></div>
+
+<div class="diff" data-page-node-id="jfgZ2PLgScLMEyyX3FX8Qg">
+  <div class="d-head" data-page-node-id="rDUokXLvFAboIIZ4KqvRxu">需要修正（按影响排序）</div>
+  <div class="table-scroll" data-page-node-id="rQ4iDehC60qtBY2oSdEpd4">
+  <table data-page-node-id="q6gMQtPCPlxpSGcdalAoIO">
+    <tr data-page-node-id="EesmggJanTBDKhOSOuxZkN">
+      <td class="claim" data-page-node-id="27jmlpc1uy5lgU38kCVhL9"><span class="lbl c" data-page-node-id="9eKp7BQqvE5itMLKzublig">文档声称</span>README「接口清单」列 8 条，号称读接口「前 5 个」KV 优先</td>
+      <td class="fact" data-page-node-id="4E7EoTr3dKuXdaMvX06k2B"><span class="lbl f" data-page-node-id="bdbKmkTVcfpyehMo6OWGIF">代码事实</span>路由 13 条：多出 activities / activities/detail / photo / proof-files / file 共 5 条；读接口实际 10 个，缓存形态三种（KV/CDN/Cache API）</td>
+      <td class="fix" data-page-node-id="LLHePi1VBdcfFww9ZuiV9X"><span class="lbl x" data-page-node-id="dOuCgKRqSxaSFkvlIjutIT">建议</span>README 接口表补 5 条 + 数据源/缓存列；「读接口全部 KV/边缘缓存优先」重写为分接口说明</td>
+    </tr>
+    <tr data-page-node-id="9ziiwMiJSUTlUp8c4jZ7F5">
+      <td class="claim" data-page-node-id="eRMwylEsWgqXGDblDiJmit"><span class="lbl c" data-page-node-id="AI40mijOfT6qGHq6UrtIFN">文档声称</span>README「存储」表只有 3 个 KV key；刷新机制只写 members_full</td>
+      <td class="fact" data-page-node-id="49PfmJpVAE7pGpX2GCMkQR"><span class="lbl f" data-page-node-id="mPaPb3gBa5ALojyPHHnrgD">代码事实</span>6 类 key：activity_records_v3 / activity_projects_v1 / file_catalog_v1 缺失；cron 与 refresh 均重建 4 快照</td>
+      <td class="fix" data-page-node-id="WxGyxtWk289yUudG3XYoQ8"><span class="lbl x" data-page-node-id="hr1FPcwSfqbU0a6DhdtTkA">建议</span>补 3 行 key 表（内容/体积/刷新源）；「数据如何刷新」补 activity 两 key + 目录快照（惰性 60min + force）</td>
+    </tr>
+    <tr data-page-node-id="Ox6GNeEJCXt1drgF7ko9i8">
+      <td class="claim" data-page-node-id="YswbSOkgzew5mIkC2HkCDz"><span class="lbl c" data-page-node-id="zf5DicqJOOghb0gGrBslnl">文档声称</span>README 版本史 1.9.0 止（08-26）；CHANGELOG 同</td>
+      <td class="fact" data-page-node-id="S2Gli15rcKh2e1oScmSzvo"><span class="lbl f" data-page-node-id="WTIMLVZESNdSE6OI5PAs3P">代码事实</span>09-03 活动三接口、09-06 证明两接口 + owner + joinDate + 目录刷新，全无版本条目</td>
+      <td class="fix" data-page-node-id="YZIAWNAbgmlLFxuAqXTe5Q"><span class="lbl x" data-page-node-id="h3lFeAluj82lbvdFcUYMFO">建议</span>补版本条目（可记 1.10.0/2.0.0 或按 git 提交归组），CHANGELOG 同步</td>
+    </tr>
+    <tr data-page-node-id="t7sFnmaNTCSNWMpuLoUTth">
+      <td class="claim" data-page-node-id="uSVcJV9bQOGIFDFEgrLfSm"><span class="lbl c" data-page-node-id="9AZZYQ6cO1InWA5Us9S6s8">文档声称</span>README 图片链路「不启用 Cloudflare Image Resizing：原图直出」</td>
+      <td class="fact" data-page-node-id="02xPIDrCvTzuIUFC2jvZql"><span class="lbl f" data-page-node-id="NKhbNGVRd0BhnJFVmeOS49">代码事实</span>/api/photo 用 cf.image 缩放（w 白名单、q80、fmt），activity 方案八节实测「实际已开启」；avatar 才是不缩放</td>
+      <td class="fix" data-page-node-id="FWstVD5114udwDehDvzzXF"><span class="lbl x" data-page-node-id="8mlE0iMuUznfihWO92Y7KD">建议</span>README 改为按端点区分：avatar 原图直出、photo 缩放；删除「不启用」全局表述</td>
+    </tr>
+    <tr data-page-node-id="Uyj29UaHxUAcZbnVju8Hk6">
+      <td class="claim" data-page-node-id="mBq5HdChHAPPEMcCct4jRi"><span class="lbl c" data-page-node-id="NCmU94PbkqI5toBvv9KqME">文档声称</span>README 版本维护规则 + AGENTS.md 仍是扣子托管/COZE_WEBHOOK 时代描述</td>
+      <td class="fact" data-page-node-id="Hl8ehr0OH4FawreJz9BAXW"><span class="lbl f" data-page-node-id="x8dFnQiez0G4cZNgM2iVLd">代码事实</span>部署已迁 Cloudflare Workers Builds（git 推送）；AGENTS.md 核心流程（扣子工作流推送）已不存在，页面仅用 webhook 常量判文案</td>
+      <td class="fix" data-page-node-id="tZhKc0bKXLDkxXZutSZPBB"><span class="lbl x" data-page-node-id="HlXPHlohkCMHkKEMd6mAlO">建议</span>AGENTS.md 重写为当前架构；README 维护节补「版本表 + CHANGELOG 必须同步」硬规则</td>
+    </tr>
+    <tr data-page-node-id="MINCwqVzALA6OdpVk61zI8">
+      <td class="claim" data-page-node-id="FttSERGgTD3mpnNvK8GXtG"><span class="lbl c" data-page-node-id="acGbfGGwNUX3f8l5WxDkf1">文档声称</span>worker.js 头注释 = 接口自文档</td>
+      <td class="fact" data-page-node-id="72CRUQln6pLMeosXXxiZAp"><span class="lbl f" data-page-node-id="kBN2DwnB5In12Kzek2SxaC">代码事实</span>头注释漏 GET /api/members/detail 一行（正文注释完整）</td>
+      <td class="fix" data-page-node-id="EBPyMzv3ZCgrXL8ba0AYWt"><span class="lbl x" data-page-node-id="SZSwVlbznT8vM2YX42bES9">建议</span>补一行「GET /api/members/detail?code= 单人脱敏档案（含 avatarProxy/activities）」，保持头注释=路由全集</td>
+    </tr>
+  </table>
+  </div>
+</div>
+
+<div class="diff goodzone" style="margin-top:14px" data-page-node-id="pw1EpaGV35g9QxOY1VCUQt">
+  <div class="d-head" data-page-node-id="p15FMiggwsUGPqmbpt9wZh">核对一致 · 无需改动</div>
+  <div class="table-scroll" data-page-node-id="fnMDWpazqzRoKUkcLpAG08">
+  <table data-page-node-id="F3YmizHqvHkDYFyWlb1Yk8">
+    <tr data-page-node-id="M1mc9RmGV7L25dfyIsy7b5"><td class="claim" data-page-node-id="6jLZCCFOlh7Ca3is4gC7jG"><span class="lbl c" data-page-node-id="ADaEHx5Ole2Xk2aPUtGyB7">activity-api-plan.md</span></td>
+      <td class="fact" data-page-node-id="SEEC5z89fHl5fjBN05sV0C"><span class="lbl f" data-page-node-id="jp7yzj2MKJe0YBJqXLbexJ">与代码</span>「无 activity_detail_v1（统计复用 activity_records_v3 现场聚合）」✓；详情无 participants ✓；isBlocked 隐私放接口层 ✓；附件图片扩展名过滤 ✓；Image Resizing 已开启的实测记录 ✓；token 白名单隔离 ✓</td>
+      <td class="fix" data-page-node-id="NORuoryuDT7z80rYWvnpmG"><span class="lbl x" data-page-node-id="mocmmhDJiDkHgG7EqVFicA">结论</span>该文档可作为活动功能的权威实现说明，README 摘要引用其链接即可</td></tr>
+    <tr data-page-node-id="HOokpolOpls6ZgexjtxE80"><td class="claim" data-page-node-id="lczWG2d0RreNovyJudA11K"><span class="lbl c" data-page-node-id="aG2mojaomrWHNoHwKel5gZ">README 缓存刷新/鉴权/冷却</span></td>
+      <td class="fact" data-page-node-id="GQB0WTZUws2v7jhA37nz7g"><span class="lbl f" data-page-node-id="Hw5ctiScj74Cvk4FSuFsSv">与代码</span>cron 30 * * * * ✓；refresh Bearer + 30s 冷却（KV 跨实例）✓；冷启动自愈 ✓；边缘缓存 TTL（detail 300s）✓</td>
+      <td class="fix" data-page-node-id="YtQK2jhS5Gjt1PGDkoDsXp"><span class="lbl x" data-page-node-id="xaitpiaBjiQwMFMhi7pz4f">结论</span>描述正确，仅需扩展覆盖面</td></tr>
+    <tr data-page-node-id="GufX7XYHDjCokKjuYEsacW"><td class="claim" data-page-node-id="TadNZZssf9WormxEms41TI"><span class="lbl c" data-page-node-id="A4GKEVucaQrJxSwj4wam5X">api-baseline 说明</span></td>
+      <td class="fact" data-page-node-id="hN9ZpcZrxOCHJcxw4dMuW7"><span class="lbl f" data-page-node-id="uWscuS7UjcSTZ2HojGn1qM">与代码</span>q 查无 500 为既有行为 ✓；members_full 带附件 tmp_url ✓；识别码数组形态 ✓</td>
+      <td class="fix" data-page-node-id="17koN672eArqkFq2MY5ui1"><span class="lbl x" data-page-node-id="UQGO0JGK4866CpZmPyLGue">结论</span>历史快照自洽，无需改</td></tr>
+  </table>
+  </div>
+</div>
+
+<div class="foot" data-page-node-id="FX3scfAd1mpcy9c6U3iJn6">
+  数据流全景图 + 接口案例 + 差异清单 · 生成于 2026-09-06 22:40（GMT+8）· 依据 worker.js @ ba1377f 逐行核对 + docs/api-baseline 实测基线<br data-page-node-id="hXhA897VJJ545JDebWbbeG">
+  案例值为脱敏结构示例（真实抓包仅在本地 docs/api-baseline/，已被 .gitignore/.wranglerignore 排除，勿外传）。<br data-page-node-id="BR9rbttPQ2L6x43BsecO61">
+  本文件为审查交付物：若推送到 git 会被 Cloudflare assets 部署公开（.wranglerignore 仅排除 *.md 与 api-baseline），不打算公开请加入排除规则或移出仓库。
+</div>
+</div>
+</body>
+</html>

@@ -1,5 +1,28 @@
 # 更新日志
 
+## 1.12.0 - 2026-09-06
+- 新增内部管理台 `admin.html`（`https://nfc.raspjam.com/admin.html`）+ 管理 API：
+  - `GET /api/admin/kv/list`：KV 快照状态一览（条数/体积/updatedAt/健康）
+  - `GET /api/admin/kv?key=&reveal=`：单 key 内容样本（默认敏感字段打码、数组截前 30 条防整库倒出；图片类仅回字节数）
+  - `POST /api/admin/refresh`：一键全量刷新（与 /api/refresh 等价）
+- 新增 Secret `ADMIN_TOKEN`（独立于 REFRESH_TOKEN）；`/api/refresh` 鉴权兼容两种口令
+- 管理端点安全设计：全部 Bearer 鉴权、响应 no-store、不加 CORS（仅同源管理页可调）；admin.html 口令仅存 sessionStorage
+
+## 1.11.0 - 2026-09-06
+- 新增 `GET /api/proof-files`：社员证明文件目录（内容类型=社员证明 白名单出口；含 title/owner/publishedAt/file）
+- 新增 `GET /api/file?token=`：社员证明附件原样代理（PDF 等任意类型；L1 边缘缓存 7 天，不写 KV）
+- 新增文件资料表目录快照 `file_catalog_v1`（整表元数据，惰性 60min TTL；纳入 cron 与 POST /api/refresh force 重建）
+- `/api/members/detail` 新增 `joinDate`（YYYY-MM-DD，入社日期，北京时区）—— 资格判定（发布时间 >= 入社日期）在微信云函数 proofs 本地比较
+- 目录与 proof-files 接口新增 `owner`（资料负责人）字段
+- 出入口白名单设计：缓存「宽」（整表进 KV 供未来开放新类型）、出口「窄」（仅社员证明可下载）
+
+## 1.10.0 - 2026-09-03
+- 新增活动页 API：`GET /api/activities`（年份/类型/关键词筛选 + 分页 + facets）、`GET /api/activities/detail?id=`（只出统计数字与照片，**不出参与人名单**）、`GET /api/photo`（活动照片代理 + cf.image 缩放，w∈[200,400,800,1200]，L1 边缘缓存 7 天，不写 KV）
+- 新增 KV key `activity_projects_v1`：活动项目完整快照（含封面/相册附件 token，仅保留图片附件——图片扩展名白名单过滤，剔除混入的文档/PPT/音视频）
+- 统计口径复用现有 `activity_records_v3` 现场聚合（未新增 activity_detail_v1）；`/api/avatar` 保持原逻辑不变
+- 头像取图逻辑调整：detail/avatar 仅取「头像」字段，不再回退「个人照片」（commit 95af447）
+- 项目快照纳入 cron 与 refresh 同步刷新
+
 ## 1.9.0 - 2026-08-26
 - 新增「禁止查询」访问控制：飞书多维表勾选该复选框的成员，`/api/members/detail` 返回 `found:false`（档案页显示"识别码未找到"）
 - 仅拦截 detail 档案查询；签到查人（`/api/member`）、App 快照（`/api/members/full`）、头像代理（`/api/avatar`）不受影响

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="vGBeYBIUUHJj5M6FvlSc7v">
+<head data-page-node-id="HPX2d46IFXQIuNoqNENN7i">
+<meta charset="UTF-8" data-page-node-id="Yjyb840Iyhxa1p0L1Ai909">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="Y805SqRKyFuHDb7dKqwF1y">
+<title>树莓社 · 内部管理台</title>
+<style>
+  /* 设计规范：DESIGN.md —— 飞书风格（浅色；不用暗色主题/渐变按钮；圆角 <= 12px） */
+  :root{
+    --bg:#F5F6F7;            /* 飞书标准页面背景 */
+    --card:#FFFFFF;          /* 卡片/容器 */
+    --blue:#3370FF;          /* 飞书蓝（主按钮） */
+    --blue-hover:#2B5FD9;
+    --green:#34C724;         /* 成功态 */
+    --green-bg:#EAF9E9;
+    --red:#F54A4A;           /* 失败态 */
+    --red-bg:#FEEEEE;
+    --orange:#FF8800;        /* 陈旧提醒（参照飞书通知橙） */
+    --orange-bg:#FFF4E5;
+    --ink:#1F2329;           /* 文字主色 */
+    --sub:#646A73;           /* 次要文字 */
+    --faint:#8F959E;         /* 辅助文字 */
+    --line:#DEE0E3;          /* 边框 */
+    --divider:#F0F1F2;       /* 分割线 */
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"SF Pro","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;min-height:100vh;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 18px 48px}
+  .mono{font-family:var(--mono)}
+
+  /* ===== 顶部（白卡片 + 细边框，飞书工作台风格） ===== */
+  header.top{
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:16px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  header.top h1{font-size:18px;font-weight:600}
+  header.top .sub{color:var(--sub);font-size:12px;margin-top:2px}
+  header.top .right{margin-left:auto;font-size:12px;color:var(--faint)}
+
+  /* ===== 按钮 ===== */
+  button{font:inherit;cursor:pointer;border:none;border-radius:8px;padding:9px 20px;font-weight:500;font-size:14px;transition:background .15s ease}
+  button:active{transform:scale(.98)}
+  button.primary{background:var(--blue);color:#fff}
+  button.primary:hover{background:var(--blue-hover)}
+  button.primary:disabled{background:#A9C0F0;cursor:not-allowed}
+  button.ghost{background:#fff;border:1px solid var(--line);color:var(--sub)}
+  button.ghost:hover{border-color:var(--blue);color:var(--blue)}
+
+  /* ===== 输入框 ===== */
+  input[type=password]{font:inherit;border:1px solid var(--line);border-radius:8px;padding:9px 12px;width:100%;background:#fff;color:var(--ink)}
+  input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(51,112,255,.12)}
+
+  .muted{color:var(--sub);font-size:12px}
+
+  /* ===== 登录 ===== */
+  #loginView{max-width:400px;margin:9vh auto 0;text-align:center}
+  #loginView .logo{
+    width:52px;height:52px;border-radius:10px;background:var(--blue);color:#fff;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:22px;font-weight:700;margin-bottom:14px;
+  }
+  #loginView .tip{font-size:12px;color:var(--faint);margin-top:12px;line-height:1.8}
+  .field{margin:12px 0;text-align:left}
+  .field label{font-size:12px;color:var(--sub);display:block;margin-bottom:4px}
+
+  /* ===== Tab（飞书下划线式） ===== */
+  .tabs{display:flex;gap:28px;margin-top:16px;border-bottom:1px solid var(--line);padding:0 4px}
+  .tab{
+    padding:10px 2px;font-weight:500;color:var(--sub);cursor:pointer;font-size:14px;
+    border-bottom:2px solid transparent;margin-bottom:-1px;
+  }
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+  .panel{display:none;padding-top:4px}
+  .panel.active{display:block}
+
+  /* ===== KV 表 ===== */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{
+    text-align:left;color:var(--faint);font-weight:500;font-size:12px;
+    padding:8px;border-bottom:1px solid var(--line);background:#FAFBFC;white-space:nowrap;
+  }
+  td{padding:10px 8px;border-bottom:1px solid var(--divider);vertical-align:middle;font-size:13px}
+  tr.kvrow{cursor:pointer}
+  tr.kvrow:hover td{background:#F7F9FC}
+  tr.kvrow:last-child td{border-bottom:none}
+  .badge{display:inline-block;font-size:11px;border-radius:4px;padding:1px 8px;font-weight:500;white-space:nowrap}
+  .badge.ok{background:var(--green-bg);color:var(--green)}
+  .badge.stale{background:var(--orange-bg);color:#E07000}
+  .badge.miss{background:var(--red-bg);color:var(--red)}
+  .kname{font-family:var(--mono);font-size:12px;font-weight:600}
+
+  /* ===== KV 详情（浅色代码块，白卡片+细边框） ===== */
+  #kvDetail{margin-top:14px;border-top:1px solid var(--divider);padding-top:14px;display:none}
+  #kvDetail .head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  #kvDetail pre{
+    background:#FAFBFC;border:1px solid var(--line);border-radius:8px;
+    color:#2B3038;padding:12px 14px;
+    font:12px/1.65 var(--mono);overflow:auto;max-height:56vh;white-space:pre;word-break:break-all;
+  }
+  .reveal-tip{font-size:12px;color:#E07000;background:var(--orange-bg);border-radius:6px;padding:6px 12px;display:none;margin-bottom:8px}
+
+  /* ===== 刷新 ===== */
+  .refreshBig{width:100%;padding:14px;font-size:15px;font-weight:600;border-radius:8px;background:var(--blue);color:#fff}
+  .refreshBig:hover{background:var(--blue-hover)}
+  .refreshBig:disabled{background:#A9C0F0;cursor:not-allowed}
+  .result{margin-top:16px;display:none;border-top:1px solid var(--divider);padding-top:14px;font-size:13px}
+  .result .ok{color:var(--green);font-weight:600}
+  .result .err{color:var(--red);font-weight:600}
+  table.rt{width:auto;margin-top:10px}
+  table.rt td{font-family:var(--mono);font-size:12px;padding:6px 18px 6px 0;border-bottom:none}
+
+  /* ===== Toast ===== */
+  #toast{
+    position:fixed;top:20px;left:50%;transform:translateX(-50%);
+    background:#fff;color:var(--ink);padding:8px 18px;border-radius:8px;font-size:13px;
+    box-shadow:0 4px 16px rgba(31,35,41,.14);border:1px solid var(--line);
+    display:none;z-index:99;max-width:80vw;
+  }
+  .foot{margin-top:24px;color:var(--faint);font-size:11px;text-align:center}
+</style>
+</head>
+<body data-page-node-id="fcfYoFV321RVolZcH5jBFi">
+<div id="toast" data-page-node-id="wb70fBwJ8tXwdVzLRq81Ur"></div>
+
+<div class="wrap" data-page-node-id="Bbh98AqNDOEu34sEafba9J">
+  <header class="top" data-page-node-id="SPCLZaEIPjX3MYmKWFyeJD">
+    <div data-page-node-id="VVgyA1jd1v3F7HBDsnEwye">
+      <h1 data-page-node-id="XvpCHpkTAefQHqmMGFqemy">树莓社 · 内部管理台</h1>
+      <div class="sub" data-page-node-id="cfusENi2Zu3vZ2eFcqRfP8">KV 快照查看 · 一键全量刷新（仅供内部核心成员）</div>
+    </div>
+    <div class="right" id="userInfo" data-page-node-id="OygyPnwUSMnVurv4tWUwQa"></div>
+  </header>
+
+  <!-- ===== 登录 ===== -->
+  <div id="loginView" data-page-node-id="qO6YGiKhKIaCndDRgy5xQw">
+    <div class="logo" data-page-node-id="f3I8ug6RhxzEphdOutLeVn">树</div>
+    <h2 style="font-size:18px;font-weight:600;margin-bottom:2px" data-page-node-id="DSB76Fgbp34dplNsJ20WO3">请输入管理口令</h2>
+    <p class="muted" data-page-node-id="RAZzR8sEvPKYqYHgB3QPKn">口令 = 环境变量 <span class="mono" data-page-node-id="I2GDy2wB8oZOCCAQs3ZncK">ADMIN_TOKEN</span> 的值（管理员生成并私发给你）</p>
+    <div class="field" data-page-node-id="Y1J0PyMtCPYXeExPWpxt2s"><label for="tokenInput" data-page-node-id="mXNLHFaF7jWkow4oJPgyuw">管理口令</label><input type="password" id="tokenInput" placeholder="请输入 ADMIN_TOKEN" autocomplete="off" data-page-node-id="csnfD1UqRQV5lPqwUBbRyq"></div>
+    <button class="primary" id="btnLogin" style="width:100%" data-page-node-id="KEYb3kFHHA1ZKHMKFhHDiJ">进入管理台</button>
+    <p class="tip" data-page-node-id="x4G25bJqCFV2rQ41AFVUmU">口令仅保存在本次浏览器会话中（sessionStorage），关闭页面即失效。</p>
+  </div>
+
+  <!-- ===== 主面板 ===== -->
+  <div id="mainView" style="display:none" data-page-node-id="y7k0sttmaFg0pFfrdUzm4w">
+    <div class="tabs" data-page-node-id="VLx3WJ8uCIluupzT8zHtyE">
+      <div class="tab active" data-tab="kv" data-page-node-id="71Py0vUb9AxA8A3OvZBDls">KV 快照查看</div>
+      <div class="tab" data-tab="refresh" data-page-node-id="fgGAtmj75daiMiHkS88JF7">一键全量刷新</div>
+    </div>
+
+    <!-- KV -->
+    <div class="panel active" id="panel-kv" data-page-node-id="qxpb3AAO2WP5CjnO8avmXg">
+      <p class="muted" style="margin:14px 0 10px" data-page-node-id="Y1MDW5ufYn1WOw7dvsACoR">列表读取 KV 元信息（字节数 / 条数 / 更新时间）。点击某一行查看内容样本：<b data-page-node-id="XMlve4hrgPJDgK008Bv1WY">默认脱敏</b>（敏感字段打码）、大数组只截前 30 条，避免整库倒出。</p>
+      <table data-page-node-id="Lzedtrc5R3D97fAHZMIXiU">
+        <thead data-page-node-id="nm3P0J6TZvsjvqlIlXzqCr"><tr data-page-node-id="j2CqMDoaQv4DvFCCZBGEPQ"><th data-page-node-id="WGIOhBhVDPYsUz9hW7CgVo">Key</th><th data-page-node-id="GcGSxvTwo5XrFAL33FDmWj">说明</th><th data-page-node-id="wNiwyHwEOgPDJN3qvJ3ZCC">条数</th><th data-page-node-id="JE2kA0Vub9W0DFoui8AS3j">体积</th><th data-page-node-id="REwYfIvVlGs4oYNOkZbNEl">更新时间</th><th data-page-node-id="LD62R2RmGvfnXzQyo2sQxy">状态</th></tr></thead>
+        <tbody id="kvBody" data-page-node-id="TBbZaYVj7opd9rESZR5GEW"><tr data-page-node-id="xEM9BX04QtWq8aDo4Zeh7u"><td colspan="6" class="muted" data-page-node-id="2hGnk37Qq0tY4tZ6h3ppx2">加载中…</td></tr></tbody>
+      </table>
+      <div id="kvDetail" data-page-node-id="LSQMmcjPcAFAjlYCFQSNqN">
+        <div class="head" data-page-node-id="lclCUQoHmFu5aCkh1yKlEe">
+          <b id="kvDetailTitle" class="mono" style="font-size:13px" data-page-node-id="hiCG9JWmdLnhKThRYmuyJq"></b>
+          <span id="kvMeta" class="muted" data-page-node-id="RH9MyY5fW5gEAjAhNDEuyq"></span>
+          <button class="ghost" id="btnReveal" style="margin-left:auto" data-page-node-id="b56p4mticfB2EmmFAX4jCR">显示敏感值</button>
+          <button class="ghost" id="btnCloseDetail" data-page-node-id="Gk9y4FqjVrSL1Kna2RCNxW">关闭</button>
+        </div>
+        <div class="reveal-tip" id="revealTip" data-page-node-id="znNSxqP30kRKcJ2HNbVlTg">当前为脱敏预览：敏感字段（登录密码 / 生日 / 年龄）已打码。查看原文请点「显示敏感值」。</div>
+        <pre id="kvContent" data-page-node-id="CKMAyHgE5VHRhLz6vnPNBH"></pre>
+      </div>
+    </div>
+
+    <!-- 刷新 -->
+    <div class="panel" id="panel-refresh" data-page-node-id="zX3d76YIFle7aCJPRGsGIu">
+      <p class="muted" style="margin:14px 0 14px" data-page-node-id="tgv1rK3lHzMDytsfPLbTMV">触发 <span class="mono" data-page-node-id="a6zZs4wdeBNXU4I42JkcU7">POST /api/refresh</span>：全量拉取飞书并重建 4 个快照（社员 / 活动记录 / 活动项目 / 文件目录）。与飞书自动化同口径、同冷却（两次之间至少 30 秒）。</p>
+      <button class="refreshBig" id="btnRefresh" data-page-node-id="SQZbOt1aeMTQEUyiuCYXIx">一键全量刷新</button>
+      <div class="result" id="refreshResult" data-page-node-id="5bUKgcVx592nfruzwitX5S"></div>
+    </div>
+  </div>
+
+  <div class="foot" data-page-node-id="iUtmBRSTS1WO6yvsFnUAq3">nfc.raspjam.com/admin.html · 仅限内部使用 · 请求带 Bearer 口令 · 响应 no-store</div>
+</div>
+
+<script>
+(function () {
+  var TOKEN_KEY = "shumei_admin_token";
+  var $ = function (id) { return document.getElementById(id); };
+  var token = sessionStorage.getItem(TOKEN_KEY) || "";
+
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.style.display = "block";
+    clearTimeout(t._h);
+    t._h = setTimeout(function () { t.style.display = "none"; }, 2600);
+  }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function fmtBytes(n) {
+    if (n == null) return "-";
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+    return (n / 1048576).toFixed(2) + " MB";
+  }
+  function fmtTime(ts, now) {
+    if (!ts) return "-";
+    var d = new Date(ts);
+    var p = function (x) { return String(x).padStart(2, "0"); };
+    var s = d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+    if (!now) return s;
+    var mins = Math.max(0, Math.round((now - ts) / 60000));
+    return s + "（" + mins + " 分钟前）";
+  }
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers || {});
+    if (token) opts.headers["Authorization"] = "Bearer " + token;
+    return fetch(path, opts).then(function (r) {
+      return r.json().then(function (j) { return { status: r.status, body: j }; });
+    });
+  }
+
+  // ---- 视图切换 ----
+  function showMain() {
+    $("loginView").style.display = "none";
+    $("mainView").style.display = "block";
+    $("userInfo").textContent = "已登录 · " + (token.length > 8 ? token.slice(0, 6) + "…" + token.slice(-4) : "");
+    loadKvList();
+  }
+  function showLogin() { $("mainView").style.display = "none"; $("loginView").style.display = "block"; }
+
+  // ---- KV 列表 ----
+  var currentKey = null, currentReveal = false;
+  function loadKvList() {
+    $("kvBody").innerHTML = '<tr><td colspan="6" class="muted">加载中…</td></tr>';
+    api("/api/admin/kv/list").then(function (res) {
+      if (res.status === 401) { showLogin(); toast("口令无效或已过期，请重新登录"); return; }
+      var items = res.body.items || [];
+      var now = res.body.now || Date.now();
+      var html = "";
+      items.forEach(function (it) {
+        var badge = "";
+        if (!it.exists) badge = '<span class="badge miss">不存在</span>';
+        else if (it.key.indexOf("last_refresh") >= 0 || it.key.indexOf("avatar_img_") >= 0) badge = '<span class="badge ok">正常</span>';
+        else {
+          var mins = it.updatedAt ? (now - it.updatedAt) / 60000 : null;
+          badge = (mins != null && mins < 70) ? '<span class="badge ok">健康 ≤' + Math.round(mins) + "min</span>"
+                : '<span class="badge stale">已陈旧</span>';
+        }
+        var ent = it.entries != null ? it.entries : "-";
+        html += '<tr class="kvrow" data-key="' + esc(it.key) + '">'
+              + '<td class="kname">' + esc(it.key) + '</td>'
+              + '<td>' + esc(it.label || "") + (it.note ? ' <span class="muted">' + esc(it.note) + "</span>" : "") + '</td>'
+              + '<td>' + ent + '</td>'
+              + '<td>' + fmtBytes(it.bytes) + '</td>'
+              + '<td>' + fmtTime(it.updatedAt, now) + '</td>'
+              + '<td>' + badge + '</td></tr>';
+      });
+      $("kvBody").innerHTML = html;
+      Array.prototype.forEach.call(document.querySelectorAll("tr.kvrow"), function (tr) {
+        tr.onclick = function () { currentKey = tr.getAttribute("data-key"); currentReveal = false; loadKvDetail(); };
+      });
+    }).catch(function () { $("kvBody").innerHTML = '<tr><td colspan="6" class="muted">加载失败，请检查网络</td></tr>'; });
+  }
+
+  function loadKvDetail() {
+    if (!currentKey) return;
+    $("kvDetail").style.display = "block";
+    $("kvDetailTitle").textContent = currentKey;
+    var url = "/api/admin/kv?key=" + encodeURIComponent(currentKey) + (currentReveal ? "&reveal=1" : "");
+    $("kvContent").textContent = "加载中…";
+    $("revealTip").style.display = "none";
+    api(url).then(function (res) {
+      if (res.status === 401) { showLogin(); return; }
+      var j = res.body;
+      if (!j.found) { $("kvContent").textContent = "（该 key 不存在）"; return; }
+      var meta = "字节 " + fmtBytes(j.bytes) + (j.updatedAt ? " · 更新 " + fmtTime(j.updatedAt) : "") + (j.entries != null ? " · 共 " + j.entries + " 条" : "");
+      $("kvMeta").textContent = meta;
+      if (j.kind === "binary") {
+        $("kvContent").textContent = "【图片字节缓存】" + (j.note || "") + "（字节 " + fmtBytes(j.bytes) + "）";
+        $("btnReveal").style.display = "none";
+      } else {
+        $("kvContent").textContent = j.sample || "（空）";
+        if (j.redacted) {
+          $("btnReveal").style.display = "";
+          $("revealTip").style.display = "block";
+        } else {
+          $("btnReveal").style.display = "none";
+          $("revealTip").style.display = "none";
+        }
+      }
+    }).catch(function () { $("kvContent").textContent = "加载失败"; });
+  }
+
+  $("btnReveal").onclick = function () {
+    if (!window.confirm("将显示敏感字段原文（如登录密码 / 生日 / 年龄）。确认仅你本人查看？")) return;
+    currentReveal = true;
+    loadKvDetail();
+  };
+  $("btnCloseDetail").onclick = function () { $("kvDetail").style.display = "none"; };
+
+  // ---- 刷新 ----
+  var cooldownUntil = 0;
+  function tickRefresh() {
+    var btn = $("btnRefresh");
+    var left = cooldownUntil - Date.now();
+    if (left > 0) {
+      btn.disabled = true;
+      btn.textContent = "冷却中… " + Math.ceil(left / 1000) + "s 后可再次刷新";
+      setTimeout(tickRefresh, 500);
+    } else {
+      btn.disabled = false;
+      btn.textContent = "一键全量刷新";
+    }
+  }
+  $("btnRefresh").onclick = function () {
+    if (Date.now() < cooldownUntil) return;
+    var btn = $("btnRefresh");
+    btn.disabled = true;
+    btn.textContent = "正在全量拉取飞书并重建 4 快照…（约 10~40 秒）";
+    $("refreshResult").style.display = "block";
+    $("refreshResult").innerHTML = '<span class="muted">执行中…</span>';
+    api("/api/admin/refresh", { method: "POST" }).then(function (res) {
+      var j = res.body || {};
+      if (res.status === 401) { $("refreshResult").innerHTML = '<span class="err">鉴权失败（401）：口令无效</span>'; showLogin(); return; }
+      if (res.status === 429) {
+        $("refreshResult").innerHTML = '<span class="err">触发过密（429）：30 秒冷却中，请稍候</span>';
+        cooldownUntil = Date.now() + 30000; tickRefresh(); return;
+      }
+      if (!j.ok) { $("refreshResult").innerHTML = '<span class="err">刷新失败：' + esc(j.error || "未知错误") + "</span>"; tickRefresh(); return; }
+      var rows = "";
+      [
+        ["members_full（社员）", j.items], ["activity_records_v3（参与记录）", j.activityItems],
+        ["activity_projects_v1（活动项目）", j.activityProjects], ["file_catalog_v1（文件目录）", j.fileItems]
+      ].forEach(function (r) { rows += "<tr><td>" + r[0] + "</td><td>" + r[1] + " 条</td></tr>"; });
+      $("refreshResult").innerHTML = '<span class="ok">✓ 刷新成功</span><span class="muted"> · 4 个快照已重建：</span><table class="rt"><tbody>' + rows + "</tbody></table>";
+      cooldownUntil = Date.now() + 30000;
+      tickRefresh();
+      loadKvList();
+    }).catch(function () {
+      $("refreshResult").innerHTML = '<span class="err">网络错误，刷新未完成</span>';
+      tickRefresh();
+    });
+  };
+
+  // ---- 登录 ----
+  $("btnLogin").onclick = function () {
+    var v = $("tokenInput").value.trim();
+    if (!v) { toast("请输入管理口令"); return; }
+    token = v;
+    sessionStorage.setItem(TOKEN_KEY, v);
+    api("/api/admin/kv/list").then(function (res) {
+      if (res.status === 401) {
+        token = ""; sessionStorage.removeItem(TOKEN_KEY);
+        toast("口令无效");
+        return;
+      }
+      showMain();
+      toast("登录成功");
+    }).catch(function () { showMain(); toast("已进入（网络请稍后自检）"); });
+  };
+  $("tokenInput").addEventListener("keydown", function (e) { if (e.key === "Enter") $("btnLogin").click(); });
+
+  // ---- Tab ----
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
+    t.onclick = function () {
+      Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (x) { x.classList.remove("active"); });
+      Array.prototype.forEach.call(document.querySelectorAll(".panel"), function (x) { x.classList.remove("active"); });
+      t.classList.add("active");
+      $("panel-" + t.getAttribute("data-tab")).classList.add("active");
+      if (t.getAttribute("data-tab") === "kv") loadKvList();
+    };
+  });
+
+  if (token) showMain();
+  else showLogin();
+})();
+</script>
+</body>
+</html>

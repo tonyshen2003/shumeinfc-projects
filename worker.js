@@ -2,6 +2,7 @@
  * Cloudflare Worker — 静态站点 + 成员查询 API
  * GET /api/members              → 返回全部成员（供前端离线缓存）
  * GET /api/members/full         → 返回全部成员原始记录（含 record_id，供 App 本地快照）
+ * GET /api/members/detail?code= → 单人脱敏档案（禁查过滤 + avatarProxy + joinDate + activities）[2026-09-06]
  * GET /api/member?uid=<卡号>     → 查询飞书多维表
  * GET /api/member?q=<姓名>       → 搜索飞书多维表
  * GET /api/avatar?token=<token>  → 头像代理直链（边缘缓存 1 天 + KV 永久，飞书删图仍可访问）
@@ -13,6 +14,10 @@
  *   资格（发布时间 >= 入社日期）由微信云函数 proofs 本地比较，joinDate 随 /api/members/detail 下发
  * POST /api/checkin             → 签到提交（写 WPS + 发飞书通知）
  * POST /api/refresh             → 触发刷新（飞书自动化 HTTP 调用，拉全量写 KV）
+ * 管理端点（内部 admin.html 用，Bearer ADMIN_TOKEN，响应 no-store）：
+ * GET /api/admin/kv/list         → KV 快照状态一览（条数/体积/updatedAt）
+ * GET /api/admin/kv?key=&reveal= → 单个 KV key 内容样本（默认脱敏 + 截断）
+ * POST /api/admin/refresh        → 同 /api/refresh（ADMIN_TOKEN 亦可用）
  */
 
 let cachedToken = null;
@@ -1279,6 +1284,120 @@ async function handlePhoto(request, env, ctx) {
 }
 
 // ============================================================
+// [API] 管理端点（admin.html 内部页用，2026-09-06）
+// 鉴权：Authorization: Bearer <ADMIN_TOKEN>（独立 Secret，勿与 REFRESH_TOKEN 混用）
+// 安全：响应一律 no-store；不加 CORS（仅同源管理页可调，防第三方网页盗读）；
+//       内容默认脱敏（敏感字段打码）+ 大快照只给样本片段，防整库倒出。
+// 端点：
+//   GET  /api/admin/kv/list          → 快照 key 状态（条数/字节/updatedAt/存在性）
+//   GET  /api/admin/kv?key=xxx[&reveal=1] → key 内容样本（默认脱敏 + 数组截前 30 条）
+//   POST /api/admin/refresh          → 与 /api/refresh 等价（ADMIN_TOKEN 亦可用，30s 冷却共用）
+// ============================================================
+const SENSITIVE_FIELDS = ["登录密码", "生日", "年龄"];
+const ADMIN_SAMPLE_LIMIT = 30; // 大数组只回前 N 条作样本
+const ADMIN_SAMPLE_CHARS = 60000;
+
+function adminAuthed(request, env) {
+  const auth = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  return Boolean(env.ADMIN_TOKEN) && auth === env.ADMIN_TOKEN;
+}
+function adminHeaders() {
+  return { "Cache-Control": "no-store" };
+}
+
+/** 递归打码敏感字段；reveal=true 时原样返回。 */
+function sanitizeValue(v, reveal, depth) {
+  if (depth > 8) return "[…]";
+  if (Array.isArray(v)) return v.map(x => sanitizeValue(x, reveal, depth + 1));
+  if (v && typeof v === "object") {
+    const o = {};
+    for (const k of Object.keys(v)) {
+      if (!reveal && SENSITIVE_FIELDS.indexOf(k) >= 0) { o[k] = "***"; continue; }
+      o[k] = sanitizeValue(v[k], reveal, depth + 1);
+    }
+    return o;
+  }
+  return v;
+}
+
+/** 快照 key 状态一览（不拉全量内容，仅 get 后统计元信息）。 */
+async function handleAdminKvList(request, env) {
+  if (!adminAuthed(request, env)) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401, headers: adminHeaders() });
+  }
+  const targets = [
+    { key: KV_KEY, label: "社员全量快照" },
+    { key: ACTIVITY_KV_KEY, label: "活动参与记录" },
+    { key: ACTIVITY_PROJECTS_KV_KEY, label: "活动项目快照" },
+    { key: FILE_KV_KEY, label: "文件目录快照" },
+    { key: LAST_REFRESH_KEY, label: "最近刷新时间戳" },
+  ];
+  const items = [];
+  for (const t of targets) {
+    const raw = await env.SHUMEI_KV.get(t.key);
+    if (raw === null) { items.push({ key: t.key, label: t.label, exists: false }); continue; }
+    const bytes = new TextEncoder().encode(raw).length;
+    let updatedAt = null, entries = null;
+    try {
+      const j = JSON.parse(raw);
+      updatedAt = typeof j.updatedAt === "number" ? j.updatedAt : null;
+      entries = Array.isArray(j.items) ? j.items.length : (Array.isArray(j) ? j.length : null);
+    } catch (e) { /* 非 JSON 值（如时间戳字符串）*/ }
+    items.push({ key: t.key, label: t.label, exists: true, bytes, updatedAt, entries });
+  }
+  let avatarCount = 0;
+  try { const l = await env.SHUMEI_KV.list({ prefix: "avatar_img_" }); avatarCount = l.keys.length; } catch (e) {}
+  items.push({
+    key: "avatar_img_<token>", label: "头像图片（字节缓存）", exists: avatarCount > 0,
+    entries: avatarCount || 0, bytes: null, updatedAt: null, note: "仅计数，不逐个拉取体积",
+  });
+  return Response.json({ ok: true, items, now: Date.now() }, { headers: adminHeaders() });
+}
+
+/** 单个 key 内容样本（默认脱敏；大数组截断；图片类只回元信息）。 */
+async function handleAdminKvGet(request, env) {
+  if (!adminAuthed(request, env)) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401, headers: adminHeaders() });
+  }
+  const url = new URL(request.url);
+  const key = (url.searchParams.get("key") || "").trim();
+  const reveal = url.searchParams.get("reveal") === "1";
+  if (!key) return Response.json({ ok: false, error: "missing key" }, { status: 400, headers: adminHeaders() });
+  const raw = await env.SHUMEI_KV.get(key);
+  if (raw === null) return Response.json({ ok: true, found: false, key }, { headers: adminHeaders() });
+  const bytes = new TextEncoder().encode(raw).length;
+  if (key.indexOf("avatar_img_") === 0) {
+    return Response.json({
+      ok: true, found: true, key, kind: "binary", bytes,
+      note: "头像图片字节缓存，不支持文本预览（正常访问走 /api/avatar）",
+    }, { headers: adminHeaders() });
+  }
+  let updatedAt = null, entries = null, sample = raw;
+  try {
+    const j = JSON.parse(raw);
+    updatedAt = typeof j.updatedAt === "number" ? j.updatedAt : null;
+    if (Array.isArray(j.items)) { entries = j.items.length; }
+    else if (Array.isArray(j)) { entries = j.length; }
+    // 大数组只保留前 N 条作为样本，控制传输体积（也防止整库倒出）
+    const slim = j;
+    if (Array.isArray(slim.items) && slim.items.length > ADMIN_SAMPLE_LIMIT) {
+      slim.items = slim.items.slice(0, ADMIN_SAMPLE_LIMIT);
+      slim.items.push("…（共 " + entries + " 条，已截断前 " + ADMIN_SAMPLE_LIMIT + " 条）");
+    }
+    sample = JSON.stringify(sanitizeValue(slim, reveal, 0), null, 1);
+  } catch (e) { /* 非 JSON（如 last_refresh_at 时间戳）按原文 */ }
+  if (sample.length > ADMIN_SAMPLE_CHARS) sample = sample.slice(0, ADMIN_SAMPLE_CHARS) + "\n…（内容过长已截断）";
+  return Response.json({
+    ok: true, found: true, key, kind: "json", bytes, updatedAt, entries,
+    redacted: !reveal, sample,
+  }, { headers: adminHeaders() });
+}
+
+async function handleAdminRefresh(request, env) {
+  return handleRefresh(request, env);
+}
+
+// ============================================================
 // [API] 触发刷新：拉飞书全量 → 写 KV（供飞书自动化「发送 HTTP 请求」调用）
 // POST /api/refresh  鉴权：Authorization: Bearer <REFRESH_TOKEN> 或 ?token=
 // 覆盖：社员全表 members_full + 活动 activity_records_v3 / activity_projects_v1
@@ -1292,7 +1411,10 @@ async function handleRefresh(request, env) {
   const url = new URL(request.url);
   const auth = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const token = auth || url.searchParams.get("token") || "";
-  if (!env.REFRESH_TOKEN || token !== env.REFRESH_TOKEN) {
+  // 允许两种口令：REFRESH_TOKEN（飞书自动化专用）与 ADMIN_TOKEN（admin.html 管理页专用）
+  const okRefresh = Boolean(env.REFRESH_TOKEN) && token === env.REFRESH_TOKEN;
+  const okAdmin = Boolean(env.ADMIN_TOKEN) && token === env.ADMIN_TOKEN;
+  if (!okRefresh && !okAdmin) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   // 冷却用 KV 存时间戳（跨实例一致，防止自动化频繁触发打爆飞书）
@@ -1340,6 +1462,10 @@ export default {
     if (url.pathname === "/api/photo") return handlePhoto(request, env, ctx);
     if (url.pathname === "/api/refresh" && request.method === "POST") return handleRefresh(request, env);
     if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env, ctx);
+    // 管理端点（admin.html 内部页，2026-09-06）：一律 ADMIN_TOKEN 鉴权 + no-store
+    if (url.pathname === "/api/admin/kv/list" && request.method === "GET") return handleAdminKvList(request, env);
+    if (url.pathname === "/api/admin/kv" && request.method === "GET") return handleAdminKvGet(request, env);
+    if (url.pathname === "/api/admin/refresh" && request.method === "POST") return handleAdminRefresh(request, env);
     return env.ASSETS.fetch(request);
   },
 

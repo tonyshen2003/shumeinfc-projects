@@ -9,3 +9,7 @@ key.pem
 
 # 敏感数据：API 基线快照（即使误提交也不得部署公开）
 docs/api-baseline/
+
+# 审查交付物：数据流全景图/接口案例（内部核对用，不入线上静态资源）
+docs/dataflow-audit-*.html
+
