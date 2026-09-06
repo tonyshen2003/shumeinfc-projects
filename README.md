@@ -87,15 +87,15 @@
 ### 管理 API（内部 `admin.html` 用，2026-09-06）
 
 > 仅限核心成员使用：`https://nfc.raspjam.com/admin.html`。鉴权统一 `Authorization: Bearer <ADMIN_TOKEN>`；
-> 所有响应 **no-store 且不带 CORS**（仅同源管理页可调，第三方网页无法读取）；查看接口**默认脱敏 + 截断**，防整库倒出。
+> 所有响应 **no-store 且不带 CORS**（仅同源管理页可调，第三方网页无法读取）；查看接口返回**原文**（内部授权工具），大数组截前 30 条防整库倒出。
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/admin/kv/list` | KV 快照状态一览：条数 / 字节 / updatedAt / 健康（avatar 前缀仅计数） |
-| GET | `/api/admin/kv?key=<key>&reveal=1` | 单个 KV key 内容样本：默认敏感字段打码（登录密码/生日/年龄）、大数组截前 30 条；`reveal=1` 显示原文；图片类只回字节数 |
+| GET | `/api/admin/kv?key=<key>` | 单个 KV key 内容（原文直出，内部工具）；大数组截前 30 条；图片类只回字节数 |
 | POST | `/api/admin/refresh` | 与 `/api/refresh` 等价，鉴权同时接受 `ADMIN_TOKEN`（30s 冷却共用） |
 
-> 安全备注：`members_full` 含「登录密码」等原始列，管理页查看**默认打码**；如部署 CF Zero Trust Access，可把 `/admin.html` 与 `/api/admin/*` 再包一层登录墙（可选加固，见部署节）。
+> 安全备注：`members_full` 含「登录密码」等原始列——管理页可看原文（管理台为内部授权工具，访问受 `ADMIN_TOKEN` 保护）；如部署 CF Zero Trust Access，可把 `/admin.html` 与 `/api/admin/*` 再包一层登录墙（可选加固，见部署节）。
 
 > 读接口缓存形态三种，按接口不同：
 > - **KV 快照**（members/full/detail/member/activities 系列）：命中快照直接返回；KV 为空（首次/被清）自动实时拉飞书并回填 KV（冷启动自愈）
@@ -224,7 +224,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 - 访问入口：`https://nfc.raspjam.com/admin.html`，登录口令 = Secret `ADMIN_TOKEN`（管理员在 Cloudflare Dashboard 生成后**私发**给核心成员，不入仓库、不入聊天群）。
 - 口令仅存浏览器 sessionStorage，关闭页面即失效；管理端点无 CORS + no-store，第三方网页无法跨域调用。
-- 查看 KV 默认脱敏（members_full 的「登录密码/生日/年龄」打码），需点「显示敏感值」二次确认才见原文。
+- 查看 KV 直接显示原文（含 members_full 的「登录密码/生日/年龄」等敏感列）——请仅在安全环境、本人使用时打开；口令勿外借。
 - **可选加固（CF Zero Trust Access）**：Cloudflare Dashboard → Zero Trust → Access → Applications 新建应用，策略托管 `/admin.html` 与 `/api/admin/*`（include 规则用域名路径），成员用自己的邮箱/账号登录后再访问；适合想让"口令管理"交给 CF 时启用（免费版 50 用户内可用）。启用后管理员口令仍保留为兜底。
 - 定期轮换：改口令 = Dashboard 里改一个 Secret 值 + 通知成员重新登录，随时可执行。
 
@@ -265,7 +265,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
-| **1.12.0** | 2026-09-06 | 内部管理台：`admin.html` + `/api/admin/kv/list`、`/api/admin/kv?key=`（脱敏样本）、`/api/admin/refresh`；独立 Secret `ADMIN_TOKEN`，管理端点 no-store 无 CORS |
+| **1.12.0** | 2026-09-06 | 内部管理台：`admin.html` + `/api/admin/kv/list`、`/api/admin/kv?key=`、`/api/admin/refresh`；独立 Secret `ADMIN_TOKEN`，管理端点 no-store 无 CORS |
 | **1.11.0** | 2026-09-06 | 社员证明：`/api/proof-files` + `/api/file`（白名单 PDF 代理，边缘 7d）；文件目录快照 `file_catalog_v1`（惰性 60min）纳入 cron/refresh；detail 新增 `joinDate`；目录接口新增 owner 字段 |
 | **1.10.0** | 2026-09-03 | 活动页 API：`/api/activities` + `/api/activities/detail`（无参与人名单）+ `/api/photo`（cf.image 缩放）；新增 `activity_projects_v1` 完整快照；头像获取不再回退「个人照片」 |
 | **1.9.0** | 2026-08-26 | 「禁止查询」复选框：勾选后 `/api/members/detail` 返回 `found:false`（签到查人 / App 快照 / 头像代理不受影响） |

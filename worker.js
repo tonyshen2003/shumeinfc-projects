@@ -1287,13 +1287,12 @@ async function handlePhoto(request, env, ctx) {
 // [API] 管理端点（admin.html 内部页用，2026-09-06）
 // 鉴权：Authorization: Bearer <ADMIN_TOKEN>（独立 Secret，勿与 REFRESH_TOKEN 混用）
 // 安全：响应一律 no-store；不加 CORS（仅同源管理页可调，防第三方网页盗读）；
-//       内容默认脱敏（敏感字段打码）+ 大快照只给样本片段，防整库倒出。
+//       内容直出原文（管理台为内部授权工具），大快照只给样本片段防整库倒出。
 // 端点：
 //   GET  /api/admin/kv/list          → 快照 key 状态（条数/字节/updatedAt/存在性）
-//   GET  /api/admin/kv?key=xxx[&reveal=1] → key 内容样本（默认脱敏 + 数组截前 30 条）
+//   GET  /api/admin/kv?key=xxx       → key 内容（数组截前 30 条样本）
 //   POST /api/admin/refresh          → 与 /api/refresh 等价（ADMIN_TOKEN 亦可用，30s 冷却共用）
 // ============================================================
-const SENSITIVE_FIELDS = ["登录密码", "生日", "年龄"];
 const ADMIN_SAMPLE_LIMIT = 30; // 大数组只回前 N 条作样本
 const ADMIN_SAMPLE_CHARS = 60000;
 
@@ -1303,21 +1302,6 @@ function adminAuthed(request, env) {
 }
 function adminHeaders() {
   return { "Cache-Control": "no-store" };
-}
-
-/** 递归打码敏感字段；reveal=true 时原样返回。 */
-function sanitizeValue(v, reveal, depth) {
-  if (depth > 8) return "[…]";
-  if (Array.isArray(v)) return v.map(x => sanitizeValue(x, reveal, depth + 1));
-  if (v && typeof v === "object") {
-    const o = {};
-    for (const k of Object.keys(v)) {
-      if (!reveal && SENSITIVE_FIELDS.indexOf(k) >= 0) { o[k] = "***"; continue; }
-      o[k] = sanitizeValue(v[k], reveal, depth + 1);
-    }
-    return o;
-  }
-  return v;
 }
 
 /** 快照 key 状态一览（不拉全量内容，仅 get 后统计元信息）。 */
@@ -1361,7 +1345,6 @@ async function handleAdminKvGet(request, env) {
   }
   const url = new URL(request.url);
   const key = (url.searchParams.get("key") || "").trim();
-  const reveal = url.searchParams.get("reveal") === "1";
   if (!key) return Response.json({ ok: false, error: "missing key" }, { status: 400, headers: adminHeaders() });
   const raw = await env.SHUMEI_KV.get(key);
   if (raw === null) return Response.json({ ok: true, found: false, key }, { headers: adminHeaders() });
@@ -1372,24 +1355,34 @@ async function handleAdminKvGet(request, env) {
       note: "头像图片字节缓存，不支持文本预览（正常访问走 /api/avatar）",
     }, { headers: adminHeaders() });
   }
-  let updatedAt = null, entries = null, sample = raw;
+  let updatedAt = null, entries = null, data = null, sample = raw, truncated = false;
   try {
     const j = JSON.parse(raw);
     updatedAt = typeof j.updatedAt === "number" ? j.updatedAt : null;
-    if (Array.isArray(j.items)) { entries = j.items.length; }
-    else if (Array.isArray(j)) { entries = j.length; }
-    // 大数组只保留前 N 条作为样本，控制传输体积（也防止整库倒出）
-    const slim = j;
-    if (Array.isArray(slim.items) && slim.items.length > ADMIN_SAMPLE_LIMIT) {
-      slim.items = slim.items.slice(0, ADMIN_SAMPLE_LIMIT);
-      slim.items.push("…（共 " + entries + " 条，已截断前 " + ADMIN_SAMPLE_LIMIT + " 条）");
+    if (Array.isArray(j.items)) {
+      entries = j.items.length;
+      // 大数组只保留前 N 条作为样本，控制传输体积（也防止整库倒出）
+      if (j.items.length > ADMIN_SAMPLE_LIMIT) {
+        j.items = j.items.slice(0, ADMIN_SAMPLE_LIMIT);
+        truncated = true;
+      }
+    } else if (Array.isArray(j)) {
+      entries = j.length;
+      if (j.length > ADMIN_SAMPLE_LIMIT) {
+        j = j.slice(0, ADMIN_SAMPLE_LIMIT);
+        truncated = true;
+      }
     }
-    sample = JSON.stringify(sanitizeValue(slim, reveal, 0), null, 1);
-  } catch (e) { /* 非 JSON（如 last_refresh_at 时间戳）按原文 */ }
-  if (sample.length > ADMIN_SAMPLE_CHARS) sample = sample.slice(0, ADMIN_SAMPLE_CHARS) + "\n…（内容过长已截断）";
+    data = j;
+    sample = JSON.stringify(data, null, 1) + (truncated ? "\n…（共 " + entries + " 条，已截断前 " + ADMIN_SAMPLE_LIMIT + " 条）" : "");
+  } catch (e) { /* 非 JSON（如 last_refresh_at 时间戳）：data 保持 null，前端按纯文本展示 */ }
+  if (sample.length > ADMIN_SAMPLE_CHARS) {
+    sample = sample.slice(0, ADMIN_SAMPLE_CHARS) + "\n…（内容过长已截断）";
+    data = null; // 文本被截断后 JSON 可能不完整，表格视图不可用，回退文本
+  }
   return Response.json({
     ok: true, found: true, key, kind: "json", bytes, updatedAt, entries,
-    redacted: !reveal, sample,
+    sample, data, truncated,
   }, { headers: adminHeaders() });
 }
 

@@ -1,93 +1,65 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-page-node-id="vGBeYBIUUHJj5M6FvlSc7v">
-<head data-page-node-id="HPX2d46IFXQIuNoqNENN7i">
-<meta charset="UTF-8" data-page-node-id="Yjyb840Iyhxa1p0L1Ai909">
-<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="Y805SqRKyFuHDb7dKqwF1y">
+<html lang="zh-CN" data-page-node-id="G3jzb9N4XXPW8oqSNVhFBw">
+<head data-page-node-id="7tpRuEHleOGyTqhH6Lfdyf">
+<meta charset="UTF-8" data-page-node-id="eweK0Lxc1cpdUkqzp8lWIL">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="anESAZrZyUWPovwEOK6zy0">
 <title>树莓社 · 内部管理台</title>
 <style>
   /* 设计规范：DESIGN.md —— 飞书风格（浅色；不用暗色主题/渐变按钮；圆角 <= 12px） */
   :root{
-    --bg:#F5F6F7;            /* 飞书标准页面背景 */
-    --card:#FFFFFF;          /* 卡片/容器 */
-    --blue:#3370FF;          /* 飞书蓝（主按钮） */
-    --blue-hover:#2B5FD9;
-    --green:#34C724;         /* 成功态 */
-    --green-bg:#EAF9E9;
-    --red:#F54A4A;           /* 失败态 */
-    --red-bg:#FEEEEE;
-    --orange:#FF8800;        /* 陈旧提醒（参照飞书通知橙） */
-    --orange-bg:#FFF4E5;
-    --ink:#1F2329;           /* 文字主色 */
-    --sub:#646A73;           /* 次要文字 */
-    --faint:#8F959E;         /* 辅助文字 */
-    --line:#DEE0E3;          /* 边框 */
-    --divider:#F0F1F2;       /* 分割线 */
+    --bg:#F5F6F7; --card:#FFFFFF;
+    --blue:#3370FF; --blue-hover:#2B5FD9; --blue-bg:#EBF1FF;
+    --green:#34C724; --green-bg:#EAF9E9;
+    --red:#F54A4A; --red-bg:#FEEEEE;
+    --orange:#FF8800; --orange-bg:#FFF4E5;
+    --ink:#1F2329; --sub:#646A73; --faint:#8F959E;
+    --line:#DEE0E3; --divider:#F0F1F2; --hover:#F7F9FC;
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{
-    background:var(--bg);color:var(--ink);
-    font:14px/1.6 -apple-system,BlinkMacSystemFont,"SF Pro","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    -webkit-font-smoothing:antialiased;min-height:100vh;
-  }
-  .wrap{max-width:1080px;margin:0 auto;padding:20px 18px 48px}
+  body{background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"SF Pro","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+  .wrap{max-width:1200px;margin:0 auto;padding:20px 18px 48px}
   .mono{font-family:var(--mono)}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:7px 16px;font-weight:500;font-size:13px;transition:background .15s ease;background:#fff;color:var(--sub)}
+  button:hover{border-color:var(--blue);color:var(--blue)}
+  button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+  button.primary:hover{background:var(--blue-hover);color:#fff}
+  button.primary:disabled{background:#A9C0F0;cursor:not-allowed;border-color:transparent}
+  button.mini{padding:3px 12px;font-size:12px}
+  input[type=password],input[type=search]{font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:#fff;color:var(--ink)}
+  input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(51,112,255,.12)}
+  .muted{color:var(--sub);font-size:12px}
+  .faint{color:var(--faint);font-size:11px}
 
-  /* ===== 顶部（白卡片 + 细边框，飞书工作台风格） ===== */
-  header.top{
-    background:var(--card);border:1px solid var(--line);border-radius:10px;
-    padding:16px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  }
+  header.top{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   header.top h1{font-size:18px;font-weight:600}
   header.top .sub{color:var(--sub);font-size:12px;margin-top:2px}
   header.top .right{margin-left:auto;font-size:12px;color:var(--faint)}
+  #logoutBtn{cursor:pointer;color:var(--blue);margin-left:12px;font-size:12px;background:none;border:none}
+  #logoutBtn:hover{text-decoration:underline}
 
-  /* ===== 按钮 ===== */
-  button{font:inherit;cursor:pointer;border:none;border-radius:8px;padding:9px 20px;font-weight:500;font-size:14px;transition:background .15s ease}
-  button:active{transform:scale(.98)}
-  button.primary{background:var(--blue);color:#fff}
-  button.primary:hover{background:var(--blue-hover)}
-  button.primary:disabled{background:#A9C0F0;cursor:not-allowed}
-  button.ghost{background:#fff;border:1px solid var(--line);color:var(--sub)}
-  button.ghost:hover{border-color:var(--blue);color:var(--blue)}
-
-  /* ===== 输入框 ===== */
-  input[type=password]{font:inherit;border:1px solid var(--line);border-radius:8px;padding:9px 12px;width:100%;background:#fff;color:var(--ink)}
-  input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(51,112,255,.12)}
-
-  .muted{color:var(--sub);font-size:12px}
-
-  /* ===== 登录 ===== */
+  /* 登录 */
   #loginView{max-width:400px;margin:9vh auto 0;text-align:center}
-  #loginView .logo{
-    width:52px;height:52px;border-radius:10px;background:var(--blue);color:#fff;
-    display:inline-flex;align-items:center;justify-content:center;
-    font-size:22px;font-weight:700;margin-bottom:14px;
-  }
+  #loginView .logo{width:52px;height:52px;border-radius:10px;background:var(--blue);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;margin-bottom:14px}
   #loginView .tip{font-size:12px;color:var(--faint);margin-top:12px;line-height:1.8}
   .field{margin:12px 0;text-align:left}
   .field label{font-size:12px;color:var(--sub);display:block;margin-bottom:4px}
+  #btnLogin{width:100%;padding:10px}
 
-  /* ===== Tab（飞书下划线式） ===== */
-  .tabs{display:flex;gap:28px;margin-top:16px;border-bottom:1px solid var(--line);padding:0 4px}
-  .tab{
-    padding:10px 2px;font-weight:500;color:var(--sub);cursor:pointer;font-size:14px;
-    border-bottom:2px solid transparent;margin-bottom:-1px;
-  }
+  /* Tab */
+  .tabs{display:flex;gap:28px;border-bottom:1px solid var(--line);padding:0 4px}
+  .tab{padding:10px 2px;font-weight:500;color:var(--sub);cursor:pointer;font-size:14px;border-bottom:2px solid transparent;margin-bottom:-1px}
   .tab:hover{color:var(--ink)}
   .tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
-  .panel{display:none;padding-top:4px}
+  .panel{display:none;padding-top:14px}
   .panel.active{display:block}
 
-  /* ===== KV 表 ===== */
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th{
-    text-align:left;color:var(--faint);font-weight:500;font-size:12px;
-    padding:8px;border-bottom:1px solid var(--line);background:#FAFBFC;white-space:nowrap;
-  }
-  td{padding:10px 8px;border-bottom:1px solid var(--divider);vertical-align:middle;font-size:13px}
+  /* KV 总览表 */
+  table.overview{width:100%;border-collapse:collapse;font-size:13px}
+  table.overview th{text-align:left;color:var(--faint);font-weight:500;font-size:12px;padding:8px;border-bottom:1px solid var(--line);background:#FAFBFC;white-space:nowrap}
+  table.overview td{padding:9px 8px;border-bottom:1px solid var(--divider);vertical-align:middle}
   tr.kvrow{cursor:pointer}
-  tr.kvrow:hover td{background:#F7F9FC}
+  tr.kvrow:hover td{background:var(--hover)}
   tr.kvrow:last-child td{border-bottom:none}
   .badge{display:inline-block;font-size:11px;border-radius:4px;padding:1px 8px;font-weight:500;white-space:nowrap}
   .badge.ok{background:var(--green-bg);color:var(--green)}
@@ -95,93 +67,149 @@
   .badge.miss{background:var(--red-bg);color:var(--red)}
   .kname{font-family:var(--mono);font-size:12px;font-weight:600}
 
-  /* ===== KV 详情（浅色代码块，白卡片+细边框） ===== */
-  #kvDetail{margin-top:14px;border-top:1px solid var(--divider);padding-top:14px;display:none}
-  #kvDetail .head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
-  #kvDetail pre{
-    background:#FAFBFC;border:1px solid var(--line);border-radius:8px;
-    color:#2B3038;padding:12px 14px;
-    font:12px/1.65 var(--mono);overflow:auto;max-height:56vh;white-space:pre;word-break:break-all;
-  }
-  .reveal-tip{font-size:12px;color:#E07000;background:var(--orange-bg);border-radius:6px;padding:6px 12px;display:none;margin-bottom:8px}
+  /* KV 详情 */
+  #kvDetail{margin-top:16px;border:1px solid var(--line);border-radius:10px;display:none;overflow:hidden}
+  .detail-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;background:#FAFBFC;border-bottom:1px solid var(--divider)}
+  .detail-head .k{font-family:var(--mono);font-size:14px;font-weight:700}
+  .detail-head .meta{font-size:12px;color:var(--faint)}
+  .detail-head .spacer{flex:1}
+  .view-switch{display:none;flex-direction:row;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .view-switch button{border:none;border-radius:0;background:#fff;padding:4px 16px;font-size:12.5px}
+  .view-switch button.on{background:var(--blue);color:#fff}
+  .reveal-tip{font-size:12px;color:#E07000;background:var(--orange-bg);padding:6px 16px;border-bottom:1px solid var(--divider);display:none}
 
-  /* ===== 刷新 ===== */
-  .refreshBig{width:100%;padding:14px;font-size:15px;font-weight:600;border-radius:8px;background:var(--blue);color:#fff}
-  .refreshBig:hover{background:var(--blue-hover)}
+  /* 工具栏 */
+  .kv-toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--divider)}
+  .kv-toolbar input{flex:1;min-width:180px;max-width:340px}
+  .kv-toolbar .count{font-size:12px;color:var(--faint);white-space:nowrap}
+
+  /* 数据表 */
+  .tbl-scroll{overflow:auto;max-height:60vh}
+  table.data{border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:100%}
+  table.data thead th{position:sticky;top:0;z-index:3;background:#F2F4F7;color:var(--sub);font-weight:600;font-size:11.5px;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left;font-family:var(--mono);max-width:220px;overflow:hidden;text-overflow:ellipsis}
+  table.data tbody td{padding:7px 10px;border-bottom:1px solid var(--divider);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:top}
+  table.data tbody tr{cursor:pointer}
+  table.data tbody tr:hover td{background:var(--hover)}
+  table.data th:first-child,table.data td:first-child{position:sticky;left:0;background:#fff;z-index:1;min-width:44px;max-width:44px;text-align:center}
+  table.data thead th:first-child{z-index:4;background:#F2F4F7}
+  table.data tbody tr:hover td:first-child{background:#F0F5FF}
+  .cell-empty{color:#C4CAD2}
+  .cell-obj{color:var(--blue);font-family:var(--mono);font-size:11.5px}
+  .row-idx{color:var(--faint);font-size:11px}
+  .rec-note{color:var(--faint);font-size:11px;white-space:nowrap}
+
+  /* 行展开详情 */
+  #rowDetail{display:none;border-top:1px solid var(--line);background:#FBFCFE}
+  #rowDetail .rd-head{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--divider);font-weight:600;font-size:13px}
+  #rowDetail .rd-head .spacer{flex:1}
+  #rowDetail .rd-body{overflow:auto;max-height:32vh}
+  table.rd{border-collapse:collapse;width:100%;font-size:12.5px}
+  table.rd td{padding:5px 12px;border-bottom:1px solid var(--divider);vertical-align:top}
+  table.rd td:first-child{width:200px;font-family:var(--mono);font-size:11.5px;color:var(--sub);background:#FAFBFC;white-space:nowrap}
+  table.rd td:last-child{color:#2B3038;word-break:break-all;white-space:pre-wrap;font-family:var(--mono);font-size:11.5px}
+  .v-obj{color:var(--blue)}
+
+  /* JSON 视图 */
+  pre.json{background:#FAFBFC;color:#2B3038;padding:14px 16px;font:12px/1.65 var(--mono);overflow:auto;max-height:60vh;white-space:pre;display:none;margin:0}
+
+  /* 刷新页 */
+  .refreshBig{width:100%;padding:14px;font-size:15px;font-weight:600;border-radius:8px;background:var(--blue);color:#fff;border:none}
+  .refreshBig:hover{background:var(--blue-hover);color:#fff}
   .refreshBig:disabled{background:#A9C0F0;cursor:not-allowed}
-  .result{margin-top:16px;display:none;border-top:1px solid var(--divider);padding-top:14px;font-size:13px}
+  .result{margin-top:14px;display:none;font-size:13px}
   .result .ok{color:var(--green);font-weight:600}
   .result .err{color:var(--red);font-weight:600}
-  table.rt{width:auto;margin-top:10px}
-  table.rt td{font-family:var(--mono);font-size:12px;padding:6px 18px 6px 0;border-bottom:none}
+  table.rt{width:auto;margin-top:10px;border-collapse:collapse}
+  table.rt td{font-family:var(--mono);font-size:12px;padding:5px 20px 5px 0;border:none}
 
-  /* ===== Toast ===== */
-  #toast{
-    position:fixed;top:20px;left:50%;transform:translateX(-50%);
-    background:#fff;color:var(--ink);padding:8px 18px;border-radius:8px;font-size:13px;
-    box-shadow:0 4px 16px rgba(31,35,41,.14);border:1px solid var(--line);
-    display:none;z-index:99;max-width:80vw;
-  }
+  #toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#fff;color:var(--ink);padding:8px 18px;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(31,35,41,.14);border:1px solid var(--line);display:none;z-index:99;max-width:80vw}
   .foot{margin-top:24px;color:var(--faint);font-size:11px;text-align:center}
 </style>
 </head>
-<body data-page-node-id="fcfYoFV321RVolZcH5jBFi">
-<div id="toast" data-page-node-id="wb70fBwJ8tXwdVzLRq81Ur"></div>
+<body data-page-node-id="XVYg5Yk3NmCZjyABCKLbEo">
+<div id="toast" data-page-node-id="kBOAtWCcBvdLWlEcysBgxl"></div>
 
-<div class="wrap" data-page-node-id="Bbh98AqNDOEu34sEafba9J">
-  <header class="top" data-page-node-id="SPCLZaEIPjX3MYmKWFyeJD">
-    <div data-page-node-id="VVgyA1jd1v3F7HBDsnEwye">
-      <h1 data-page-node-id="XvpCHpkTAefQHqmMGFqemy">树莓社 · 内部管理台</h1>
-      <div class="sub" data-page-node-id="cfusENi2Zu3vZ2eFcqRfP8">KV 快照查看 · 一键全量刷新（仅供内部核心成员）</div>
+<div class="wrap" data-page-node-id="Y6A0QJHGNeOtLxOq7ER6ii">
+  <header class="top" data-page-node-id="s8to8VrHInVwGskvB7VPbP">
+    <div data-page-node-id="0myXgnquUyrYfLsLK6FGpB">
+      <h1 data-page-node-id="iRSfR9DcJIbqE0AqBChzJK">树莓社 · 内部管理台</h1>
+      <div class="sub" data-page-node-id="5K19a4UV9qUE8tIgrwK6e7">KV 快照浏览（表格视图）· 一键全量刷新</div>
     </div>
-    <div class="right" id="userInfo" data-page-node-id="OygyPnwUSMnVurv4tWUwQa"></div>
+    <div class="right" data-page-node-id="pxhr7o08xZ7lXIQ9AZnaJ1"><span id="userInfo" data-page-node-id="0lg93UafvtCl0e3BGCOYbN"></span><button id="logoutBtn" style="display:none" data-page-node-id="C5jFiGbpeynGvisXoeEjMN">退出</button></div>
   </header>
 
   <!-- ===== 登录 ===== -->
-  <div id="loginView" data-page-node-id="qO6YGiKhKIaCndDRgy5xQw">
-    <div class="logo" data-page-node-id="f3I8ug6RhxzEphdOutLeVn">树</div>
-    <h2 style="font-size:18px;font-weight:600;margin-bottom:2px" data-page-node-id="DSB76Fgbp34dplNsJ20WO3">请输入管理口令</h2>
-    <p class="muted" data-page-node-id="RAZzR8sEvPKYqYHgB3QPKn">口令 = 环境变量 <span class="mono" data-page-node-id="I2GDy2wB8oZOCCAQs3ZncK">ADMIN_TOKEN</span> 的值（管理员生成并私发给你）</p>
-    <div class="field" data-page-node-id="Y1J0PyMtCPYXeExPWpxt2s"><label for="tokenInput" data-page-node-id="mXNLHFaF7jWkow4oJPgyuw">管理口令</label><input type="password" id="tokenInput" placeholder="请输入 ADMIN_TOKEN" autocomplete="off" data-page-node-id="csnfD1UqRQV5lPqwUBbRyq"></div>
-    <button class="primary" id="btnLogin" style="width:100%" data-page-node-id="KEYb3kFHHA1ZKHMKFhHDiJ">进入管理台</button>
-    <p class="tip" data-page-node-id="x4G25bJqCFV2rQ41AFVUmU">口令仅保存在本次浏览器会话中（sessionStorage），关闭页面即失效。</p>
+  <div id="loginView" data-page-node-id="MNqFxC5z4WudjcRVvCXPsk">
+    <div class="logo" data-page-node-id="MDvG97e79WsEoMBnBJFv3N">树</div>
+    <h2 style="font-size:18px;font-weight:600;margin-bottom:2px" data-page-node-id="NS1v7i0veshdcsALTgVMU4">请输入管理口令</h2>
+    <p class="muted" data-page-node-id="o2zq8nGxlLvjhBfrWKij4a">口令 = 环境变量 <span class="mono" data-page-node-id="LPB2kFWkqFcxObWeRmDcNS">ADMIN_TOKEN</span> 的值（管理员生成并私发给你）</p>
+    <div class="field" data-page-node-id="BE3vnyNADCBZhcgyfd9uq7"><label for="tokenInput" data-page-node-id="GXxRk9U8EEDSthkxAmwjqY">管理口令</label><input type="password" id="tokenInput" placeholder="请输入 ADMIN_TOKEN" autocomplete="off" data-page-node-id="GUNU0CBw3KRGLmG2U0saoM"></div>
+    <button class="primary" id="btnLogin" data-page-node-id="AaiEWGTsT5MdzTNr1WAmsS">进入管理台</button>
+    <p class="tip" data-page-node-id="ANGzHz3Cwh1yz0MNLfRmbz">口令仅保存在本次浏览器会话中（sessionStorage），关闭页面即失效。</p>
   </div>
 
   <!-- ===== 主面板 ===== -->
-  <div id="mainView" style="display:none" data-page-node-id="y7k0sttmaFg0pFfrdUzm4w">
-    <div class="tabs" data-page-node-id="VLx3WJ8uCIluupzT8zHtyE">
-      <div class="tab active" data-tab="kv" data-page-node-id="71Py0vUb9AxA8A3OvZBDls">KV 快照查看</div>
-      <div class="tab" data-tab="refresh" data-page-node-id="fgGAtmj75daiMiHkS88JF7">一键全量刷新</div>
+  <div id="mainView" style="display:none" data-page-node-id="QPoZP3CwZ1P61SlidM8v1P">
+    <div class="tabs" data-page-node-id="24GaNZWQzXC7IBHDHZvi5S">
+      <div class="tab active" data-tab="kv" data-page-node-id="tfL7FoV4VuCwQqyl3zjXni">KV 快照查看</div>
+      <div class="tab" data-tab="refresh" data-page-node-id="OxHLED8oVlakPEEiuRLTmH">一键全量刷新</div>
     </div>
 
     <!-- KV -->
-    <div class="panel active" id="panel-kv" data-page-node-id="qxpb3AAO2WP5CjnO8avmXg">
-      <p class="muted" style="margin:14px 0 10px" data-page-node-id="Y1MDW5ufYn1WOw7dvsACoR">列表读取 KV 元信息（字节数 / 条数 / 更新时间）。点击某一行查看内容样本：<b data-page-node-id="XMlve4hrgPJDgK008Bv1WY">默认脱敏</b>（敏感字段打码）、大数组只截前 30 条，避免整库倒出。</p>
-      <table data-page-node-id="Lzedtrc5R3D97fAHZMIXiU">
-        <thead data-page-node-id="nm3P0J6TZvsjvqlIlXzqCr"><tr data-page-node-id="j2CqMDoaQv4DvFCCZBGEPQ"><th data-page-node-id="WGIOhBhVDPYsUz9hW7CgVo">Key</th><th data-page-node-id="GcGSxvTwo5XrFAL33FDmWj">说明</th><th data-page-node-id="wNiwyHwEOgPDJN3qvJ3ZCC">条数</th><th data-page-node-id="JE2kA0Vub9W0DFoui8AS3j">体积</th><th data-page-node-id="REwYfIvVlGs4oYNOkZbNEl">更新时间</th><th data-page-node-id="LD62R2RmGvfnXzQyo2sQxy">状态</th></tr></thead>
-        <tbody id="kvBody" data-page-node-id="TBbZaYVj7opd9rESZR5GEW"><tr data-page-node-id="xEM9BX04QtWq8aDo4Zeh7u"><td colspan="6" class="muted" data-page-node-id="2hGnk37Qq0tY4tZ6h3ppx2">加载中…</td></tr></tbody>
+    <div class="panel active" id="panel-kv" data-page-node-id="PKByzHBRgeC3XEH2mdUw1D">
+      <p class="muted" style="margin-bottom:12px" data-page-node-id="oduvztgCvxdlbNa4qEjCt1">点击任一 key 查看内容 —— 快照类 key 以<b data-page-node-id="BpVdTwVPAgeWSSPQZ5xIbT">表格</b>展示（行=记录、列=字段），可切换原始 JSON。内容为原文直出（内部授权工具），大表只取前 30 条样本。</p>
+      <table class="overview" data-page-node-id="P5NBYS3LWpAU29GUjdepvo">
+        <thead data-page-node-id="mqHy7qAwW433AjEVHEDhK1"><tr data-page-node-id="Mh6a8WqseGn6mxaEZN58Oe"><th data-page-node-id="PgR0EWHsHQPodrzo14Jyng">Key</th><th data-page-node-id="rBntFTbDWUJ2QxUsBuhlkE">说明</th><th data-page-node-id="fBMioDtNXTDf1jnf5oQHpY">条数</th><th data-page-node-id="L2bptVxRLPvJnH4OXXcGI5">体积</th><th data-page-node-id="Mx6HiI0PpGjpJKSQ7YTjk9">更新时间</th><th data-page-node-id="bn3RHmCoXcoookd3bO9YV0">状态</th></tr></thead>
+        <tbody id="kvBody" data-page-node-id="6BjL89JtRYC30pL2juDqxF"><tr data-page-node-id="HHHvpGzAAjuvteiS4Uoeqx"><td colspan="6" class="muted" data-page-node-id="cnwRcjjuUCWE2rs9WoY7wm">加载中…</td></tr></tbody>
       </table>
-      <div id="kvDetail" data-page-node-id="LSQMmcjPcAFAjlYCFQSNqN">
-        <div class="head" data-page-node-id="lclCUQoHmFu5aCkh1yKlEe">
-          <b id="kvDetailTitle" class="mono" style="font-size:13px" data-page-node-id="hiCG9JWmdLnhKThRYmuyJq"></b>
-          <span id="kvMeta" class="muted" data-page-node-id="RH9MyY5fW5gEAjAhNDEuyq"></span>
-          <button class="ghost" id="btnReveal" style="margin-left:auto" data-page-node-id="b56p4mticfB2EmmFAX4jCR">显示敏感值</button>
-          <button class="ghost" id="btnCloseDetail" data-page-node-id="Gk9y4FqjVrSL1Kna2RCNxW">关闭</button>
+
+      <!-- 详情区 -->
+      <div id="kvDetail" data-page-node-id="KOs6vKwjRvVCoFeJlxlNsY">
+        <div class="detail-head" data-page-node-id="qBhYMrywKKcJXmYvnWh6q0">
+          <span class="k" id="kvDetailTitle" data-page-node-id="rp9b3QWgoFo7JXymcyRTMu"></span>
+          <span class="meta" id="kvMeta" data-page-node-id="ipcsRTqiUAwZuWBC4MaDm2"></span>
+          <span class="spacer" data-page-node-id="EkyBuqxrROYJJzUxsaNp0B"></span>
+          <div class="view-switch" id="viewSwitch" data-page-node-id="cHUQnlgsWH14vzBFCBnW2X">
+            <button id="vwTable" class="on" data-page-node-id="RoDtH5HUNFLzRZMqWmf8So">表格</button>
+            <button id="vwJson" data-page-node-id="tFAth5A5FbiQXphDgLX9KT">JSON</button>
+          </div>
+          <button class="mini" id="btnCloseDetail" data-page-node-id="qxR4pGXYSB9jAbJ2AKd8xM">关闭</button>
         </div>
-        <div class="reveal-tip" id="revealTip" data-page-node-id="znNSxqP30kRKcJ2HNbVlTg">当前为脱敏预览：敏感字段（登录密码 / 生日 / 年龄）已打码。查看原文请点「显示敏感值」。</div>
-        <pre id="kvContent" data-page-node-id="CKMAyHgE5VHRhLz6vnPNBH"></pre>
+
+        <!-- 表格视图 -->
+        <div id="tblView" data-page-node-id="qcx7HzhT0TsaFdElxBGYgH">
+          <div class="kv-toolbar" data-page-node-id="BcMMmlFDDVMQcGWTan3YFi">
+            <input type="search" id="tblFilter" placeholder="筛选：输入任意值（如姓名/识别码片段）…" data-page-node-id="i28LLMALKTFRFgFPnUXeRW">
+            <span class="count" id="tblCount" data-page-node-id="KdVfy4DgngMGsppJZJLhL1"></span>
+          </div>
+          <div class="tbl-scroll" data-page-node-id="xEsD4ViYwRBhnKruo3rS3B">
+            <table class="data" data-page-node-id="5rht1T2Ve6BzhWjgR3yeJl">
+              <thead id="tblHead" data-page-node-id="VyRCcdymkQZTlgbaRhbPyf"></thead>
+              <tbody id="tblBody" data-page-node-id="XJDshj3JiA4CgZAOInR0sm"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 单条详情 -->
+        <div id="rowDetail" data-page-node-id="2Q4WFUJv6oFtXg5flGUmut">
+          <div class="rd-head" data-page-node-id="aS9S7SGZ70wH1pwWIQlrS1"><span id="rdTitle" data-page-node-id="bOjIBgVQOkeCu6RYS6eogk"></span><span class="spacer" data-page-node-id="Rg4X0PXiyLq7C6V66HaWt4"></span><button class="mini" id="btnCloseRow" data-page-node-id="dTI9GpGpCdV2yFY5SxCslE">收起</button></div>
+          <div class="rd-body" data-page-node-id="T8dvsQbwrAPF5NEjyKrl77"><table class="rd" data-page-node-id="EVDENweaSU9mF7sw0hfb5I"><tbody id="rdTable" data-page-node-id="iZGzmNyVvaDHTiJNHG9dH2"></tbody></table></div>
+        </div>
+
+        <!-- JSON 视图 -->
+        <pre class="json" id="jsonView" data-page-node-id="gKmA9dvOJ7mVpSGgKllfs6"></pre>
       </div>
     </div>
 
     <!-- 刷新 -->
-    <div class="panel" id="panel-refresh" data-page-node-id="zX3d76YIFle7aCJPRGsGIu">
-      <p class="muted" style="margin:14px 0 14px" data-page-node-id="tgv1rK3lHzMDytsfPLbTMV">触发 <span class="mono" data-page-node-id="a6zZs4wdeBNXU4I42JkcU7">POST /api/refresh</span>：全量拉取飞书并重建 4 个快照（社员 / 活动记录 / 活动项目 / 文件目录）。与飞书自动化同口径、同冷却（两次之间至少 30 秒）。</p>
-      <button class="refreshBig" id="btnRefresh" data-page-node-id="SQZbOt1aeMTQEUyiuCYXIx">一键全量刷新</button>
-      <div class="result" id="refreshResult" data-page-node-id="5bUKgcVx592nfruzwitX5S"></div>
+    <div class="panel" id="panel-refresh" data-page-node-id="DafbB1D9ZwkvoowaBlzuoc">
+      <p class="muted" style="margin-bottom:14px" data-page-node-id="iaWkP1GzP8c5rCBat3mVqh">触发 <span class="mono" data-page-node-id="UriP3575AAGMl9SkVjiHL2">POST /api/refresh</span>：全量拉取飞书并重建 4 个快照（社员 / 活动记录 / 活动项目 / 文件目录）。与飞书自动化同口径、同冷却（两次之间至少 30 秒）。</p>
+      <button class="refreshBig" id="btnRefresh" data-page-node-id="kWBk2Uuc0BFJGCHRuXPRy8">一键全量刷新</button>
+      <div class="result" id="refreshResult" data-page-node-id="t11K2HuGpZHO0HocGzR8Be"></div>
     </div>
   </div>
 
-  <div class="foot" data-page-node-id="iUtmBRSTS1WO6yvsFnUAq3">nfc.raspjam.com/admin.html · 仅限内部使用 · 请求带 Bearer 口令 · 响应 no-store</div>
+  <div class="foot" data-page-node-id="oWApmmkzPEgUwC9vPq9wP8">nfc.raspjam.com/admin.html · 仅限内部使用 · 请求带 Bearer 口令 · 响应 no-store</div>
 </div>
 
 <script>
@@ -189,6 +217,7 @@
   var TOKEN_KEY = "shumei_admin_token";
   var $ = function (id) { return document.getElementById(id); };
   var token = sessionStorage.getItem(TOKEN_KEY) || "";
+  var state = { currentKey: null, view: "table", rawData: null, columns: [], rows: [], totalEntries: null };
 
   function toast(msg) {
     var t = $("toast");
@@ -217,7 +246,6 @@
     var mins = Math.max(0, Math.round((now - ts) / 60000));
     return s + "（" + mins + " 分钟前）";
   }
-
   function api(path, opts) {
     opts = opts || {};
     opts.headers = Object.assign({}, opts.headers || {});
@@ -227,21 +255,22 @@
     });
   }
 
-  // ---- 视图切换 ----
+  /* ---------- 视图 ---------- */
   function showMain() {
     $("loginView").style.display = "none";
     $("mainView").style.display = "block";
     $("userInfo").textContent = "已登录 · " + (token.length > 8 ? token.slice(0, 6) + "…" + token.slice(-4) : "");
+    $("logoutBtn").style.display = "";
     loadKvList();
   }
-  function showLogin() { $("mainView").style.display = "none"; $("loginView").style.display = "block"; }
+  function showLogin() { $("mainView").style.display = "none"; $("loginView").style.display = "block"; $("logoutBtn").style.display = "none"; }
+  $("logoutBtn").onclick = function () { sessionStorage.removeItem(TOKEN_KEY); token = ""; showLogin(); toast("已退出"); };
 
-  // ---- KV 列表 ----
-  var currentKey = null, currentReveal = false;
+  /* ---------- KV 总览 ---------- */
   function loadKvList() {
     $("kvBody").innerHTML = '<tr><td colspan="6" class="muted">加载中…</td></tr>';
     api("/api/admin/kv/list").then(function (res) {
-      if (res.status === 401) { showLogin(); toast("口令无效或已过期，请重新登录"); return; }
+      if (res.status === 401) { showLogin(); toast("口令无效或已过期"); return; }
       var items = res.body.items || [];
       var now = res.body.now || Date.now();
       var html = "";
@@ -265,48 +294,182 @@
       });
       $("kvBody").innerHTML = html;
       Array.prototype.forEach.call(document.querySelectorAll("tr.kvrow"), function (tr) {
-        tr.onclick = function () { currentKey = tr.getAttribute("data-key"); currentReveal = false; loadKvDetail(); };
+        tr.onclick = function () { state.currentKey = tr.getAttribute("data-key"); loadKvDetail(); };
       });
     }).catch(function () { $("kvBody").innerHTML = '<tr><td colspan="6" class="muted">加载失败，请检查网络</td></tr>'; });
   }
 
+  /* ---------- KV 详情 ---------- */
   function loadKvDetail() {
-    if (!currentKey) return;
+    if (!state.currentKey) return;
     $("kvDetail").style.display = "block";
-    $("kvDetailTitle").textContent = currentKey;
-    var url = "/api/admin/kv?key=" + encodeURIComponent(currentKey) + (currentReveal ? "&reveal=1" : "");
-    $("kvContent").textContent = "加载中…";
-    $("revealTip").style.display = "none";
+    $("kvDetailTitle").textContent = state.currentKey;
+    $("rowDetail").style.display = "none";
+    $("viewSwitch").style.display = "none";
+    var url = "/api/admin/kv?key=" + encodeURIComponent(state.currentKey);
     api(url).then(function (res) {
       if (res.status === 401) { showLogin(); return; }
       var j = res.body;
-      if (!j.found) { $("kvContent").textContent = "（该 key 不存在）"; return; }
+      if (!j.found) { showJson("（该 key 不存在）"); return; }
       var meta = "字节 " + fmtBytes(j.bytes) + (j.updatedAt ? " · 更新 " + fmtTime(j.updatedAt) : "") + (j.entries != null ? " · 共 " + j.entries + " 条" : "");
       $("kvMeta").textContent = meta;
-      if (j.kind === "binary") {
-        $("kvContent").textContent = "【图片字节缓存】" + (j.note || "") + "（字节 " + fmtBytes(j.bytes) + "）";
-        $("btnReveal").style.display = "none";
+      if (j.kind === "binary") { showJson("【图片字节缓存】" + (j.note || "") + "（字节 " + fmtBytes(j.bytes) + "）"); return; }
+      state.rawData = j.data;
+      state.totalEntries = j.entries;
+      // 表格优先：data 为 {items:[...]} 或裸数组且元素是对象
+      if (state.view === "table" && state.rawData && isRecordArray(state.rawData)) {
+        renderTable();
       } else {
-        $("kvContent").textContent = j.sample || "（空）";
-        if (j.redacted) {
-          $("btnReveal").style.display = "";
-          $("revealTip").style.display = "block";
-        } else {
-          $("btnReveal").style.display = "none";
-          $("revealTip").style.display = "none";
-        }
+        showJson(j.sample || "（空）");
       }
-    }).catch(function () { $("kvContent").textContent = "加载失败"; });
+    }).catch(function () { showJson("加载失败"); });
+  }
+  function isRecordArray(d) {
+    if (!d || typeof d !== "object") return false;
+    var arr = Array.isArray(d) ? d : (d.items && Array.isArray(d.items) ? d.items : null);
+    return arr && arr.length > 0 && arr[0] != null && typeof arr[0] === "object";
+  }
+  function showJson(txt) {
+    $("vwTable").classList.remove("on");
+    $("vwJson").classList.add("on");
+    $("tblView").style.display = "none";
+    $("jsonView").style.display = "block";
+    $("jsonView").textContent = txt;
+  }
+  function showTableView() {
+    $("vwTable").classList.add("on");
+    $("vwJson").classList.remove("on");
+    $("tblView").style.display = "block";
+    $("jsonView").style.display = "none";
   }
 
-  $("btnReveal").onclick = function () {
-    if (!window.confirm("将显示敏感字段原文（如登录密码 / 生日 / 年龄）。确认仅你本人查看？")) return;
-    currentReveal = true;
-    loadKvDetail();
-  };
-  $("btnCloseDetail").onclick = function () { $("kvDetail").style.display = "none"; };
+  /* ---------- 表格渲染 ---------- */
+  function flattenRow(rec) {
+    // {recordId, fields:{...}} → recordId + fields 展开为一行
+    if (rec.fields && typeof rec.fields === "object" && !Array.isArray(rec.fields)) {
+      var out = {};
+      Object.keys(rec).forEach(function (k) { if (k !== "fields") out[k] = rec[k]; });
+      Object.keys(rec.fields).forEach(function (k) { out[k] = rec.fields[k]; });
+      return out;
+    }
+    return rec;
+  }
+  function cellOf(v) {
+    if (v == null || v === "") return { cls: "cell-empty", text: "·", raw: "" };
+    if (Array.isArray(v)) {
+      var r = JSON.stringify(v);
+      return { cls: "cell-obj", text: "[" + v.length + "] " + shortStr(r, 48), raw: prettyStr(v) };
+    }
+    if (typeof v === "object") {
+      var r2 = JSON.stringify(v);
+      return { cls: "cell-obj", text: "{" + Object.keys(v).length + "} " + shortStr(r2, 48), raw: prettyStr(v) };
+    }
+    return { cls: "", text: shortStr(String(v), 56), raw: String(v) };
+  }
+  function shortStr(s, n) {
+    s = s.replace(/\s+/g, " ");
+    return s.length > n ? s.slice(0, n) + "…" : s;
+  }
+  function prettyStr(v) {
+    try { return JSON.stringify(v, null, 1); } catch (e) { return String(v); }
+  }
 
-  // ---- 刷新 ----
+  function renderTable() {
+    var arr = Array.isArray(state.rawData) ? state.rawData : state.rawData.items;
+    state.rows = arr.map(flattenRow);
+    // 动态列
+    var cols = [], seen = {};
+    state.rows.forEach(function (r) {
+      Object.keys(r).forEach(function (k) {
+        if (!seen[k]) { seen[k] = 1; cols.push(k); }
+      });
+    });
+    // 主键靠前排序
+    var prio = ["recordId", "id", "name", "memberCode", "title", "activityName", "date"];
+    cols.sort(function (a, b) {
+      var ia = prio.indexOf(a), ib = prio.indexOf(b);
+      ia = ia < 0 ? 99 : ia; ib = ib < 0 ? 99 : ib;
+      return ia - ib;
+    });
+    state.columns = cols;
+    var headHtml = "<tr><th>#</th>";
+    cols.forEach(function (c) { headHtml += "<th title=\"" + esc(c) + "\">" + esc(c) + "</th>"; });
+    headHtml += "</tr>";
+    $("tblHead").innerHTML = headHtml;
+    renderRows("");
+    var note = "";
+    if (state.totalEntries != null && state.totalEntries > state.rows.length) {
+      note = '<span class="rec-note">（样本前 ' + state.rows.length + " 条 / 共 " + state.totalEntries + " 条）</span>";
+    }
+    $("tblCount").innerHTML = "共 " + state.rows.length + " 行 " + note;
+    $("viewSwitch").style.display = "flex";
+    showTableView();
+    $("tblFilter").value = "";
+  }
+
+  function renderRows(filter) {
+    filter = (filter || "").trim().toLowerCase();
+    var html = "", shown = 0;
+    state.rows.forEach(function (r, i) {
+      if (filter) {
+        var hit = state.columns.some(function (c) {
+          var v = r[c];
+          if (v == null) return false;
+          return String(typeof v === "object" ? JSON.stringify(v) : v).toLowerCase().indexOf(filter) >= 0;
+        });
+        if (!hit) return;
+      }
+      shown++;
+      html += '<tr data-idx="' + i + '"><td><span class="row-idx">' + (i + 1) + "</span></td>";
+      state.columns.forEach(function (c) {
+        var cell = cellOf(r[c]);
+        html += '<td class="' + cell.cls + '" title="' + esc(cell.raw) + '">' + esc(cell.text) + "</td>";
+      });
+      html += "</tr>";
+    });
+    $("tblBody").innerHTML = html || '<tr><td colspan="' + (state.columns.length + 1) + '" class="muted" style="padding:16px">无匹配记录</td></tr>';
+    var count = $("tblCount");
+    if (count && filter) count.textContent = "筛选出 " + shown + " / " + state.rows.length + " 行";
+  }
+
+  /* 行点击 → 单条详情 */
+  $("tblBody").addEventListener("click", function (e) {
+    var tr = e.target.closest ? e.target.closest("tr[data-idx]") : null;
+    if (!tr) return;
+    var rec = state.rows[Number(tr.getAttribute("data-idx"))];
+    var title = rec.name || rec.title || rec.memberCode || rec.id || rec.recordId || ("记录 #" + (Number(tr.getAttribute("data-idx")) + 1));
+    $("rdTitle").textContent = String(title);
+    var html = "";
+    Object.keys(rec).forEach(function (k) {
+      var v = rec[k];
+      var isObj = v != null && typeof v === "object";
+      var pretty = v == null ? "·" : prettyStr(v);
+      html += "<tr><td>" + esc(k) + "</td><td>" + (isObj ? '<span class="v-obj">' : "") + esc(pretty) + (isObj ? "</span>" : "") + "</td></tr>";
+    });
+    $("rdTable").innerHTML = html;
+    $("rowDetail").style.display = "block";
+    $("rowDetail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+  $("btnCloseRow").onclick = function () { $("rowDetail").style.display = "none"; };
+
+  /* 筛选 */
+  var filterTimer = null;
+  $("tblFilter").addEventListener("input", function () {
+    clearTimeout(filterTimer);
+    var v = this.value;
+    filterTimer = setTimeout(function () { renderRows(v); }, 150);
+  });
+
+  $("vwTable").onclick = function () {
+    if (state.rawData && isRecordArray(state.rawData)) { renderTable(); }
+    else toast("该 key 不是记录数组，无表格视图");
+  };
+  $("vwJson").onclick = function () {
+    showJson(state.rawData ? prettyStr(state.rawData) : "（空）");
+  };
+  $("btnCloseDetail").onclick = function () { $("kvDetail").style.display = "none"; state.currentKey = null; };
+
+  /* ---------- 一键刷新 ---------- */
   var cooldownUntil = 0;
   function tickRefresh() {
     var btn = $("btnRefresh");
@@ -315,10 +478,7 @@
       btn.disabled = true;
       btn.textContent = "冷却中… " + Math.ceil(left / 1000) + "s 后可再次刷新";
       setTimeout(tickRefresh, 500);
-    } else {
-      btn.disabled = false;
-      btn.textContent = "一键全量刷新";
-    }
+    } else { btn.disabled = false; btn.textContent = "一键全量刷新"; }
   }
   $("btnRefresh").onclick = function () {
     if (Date.now() < cooldownUntil) return;
@@ -330,10 +490,7 @@
     api("/api/admin/refresh", { method: "POST" }).then(function (res) {
       var j = res.body || {};
       if (res.status === 401) { $("refreshResult").innerHTML = '<span class="err">鉴权失败（401）：口令无效</span>'; showLogin(); return; }
-      if (res.status === 429) {
-        $("refreshResult").innerHTML = '<span class="err">触发过密（429）：30 秒冷却中，请稍候</span>';
-        cooldownUntil = Date.now() + 30000; tickRefresh(); return;
-      }
+      if (res.status === 429) { $("refreshResult").innerHTML = '<span class="err">触发过密（429）：30 秒冷却中，请稍候</span>'; cooldownUntil = Date.now() + 30000; tickRefresh(); return; }
       if (!j.ok) { $("refreshResult").innerHTML = '<span class="err">刷新失败：' + esc(j.error || "未知错误") + "</span>"; tickRefresh(); return; }
       var rows = "";
       [
@@ -344,31 +501,22 @@
       cooldownUntil = Date.now() + 30000;
       tickRefresh();
       loadKvList();
-    }).catch(function () {
-      $("refreshResult").innerHTML = '<span class="err">网络错误，刷新未完成</span>';
-      tickRefresh();
-    });
+    }).catch(function () { $("refreshResult").innerHTML = '<span class="err">网络错误，刷新未完成</span>'; tickRefresh(); });
   };
 
-  // ---- 登录 ----
+  /* ---------- 登录 / Tab ---------- */
   $("btnLogin").onclick = function () {
     var v = $("tokenInput").value.trim();
     if (!v) { toast("请输入管理口令"); return; }
     token = v;
     sessionStorage.setItem(TOKEN_KEY, v);
     api("/api/admin/kv/list").then(function (res) {
-      if (res.status === 401) {
-        token = ""; sessionStorage.removeItem(TOKEN_KEY);
-        toast("口令无效");
-        return;
-      }
-      showMain();
-      toast("登录成功");
+      if (res.status === 401) { token = ""; sessionStorage.removeItem(TOKEN_KEY); toast("口令无效"); return; }
+      showMain(); toast("登录成功");
     }).catch(function () { showMain(); toast("已进入（网络请稍后自检）"); });
   };
   $("tokenInput").addEventListener("keydown", function (e) { if (e.key === "Enter") $("btnLogin").click(); });
 
-  // ---- Tab ----
   Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
     t.onclick = function () {
       Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (x) { x.classList.remove("active"); });
