@@ -1378,7 +1378,8 @@ async function handleAdminKvGet(request, env) {
   } catch (e) { /* 非 JSON（如 last_refresh_at 时间戳）：data 保持 null，前端按纯文本展示 */ }
   if (sample.length > ADMIN_SAMPLE_CHARS) {
     sample = sample.slice(0, ADMIN_SAMPLE_CHARS) + "\n…（内容过长已截断）";
-    data = null; // 文本被截断后 JSON 可能不完整，表格视图不可用，回退文本
+    // 注意：不置 data=null —— data 已被限制在 ADMIN_SAMPLE_LIMIT 条内（体积可控），
+    // 表格视图依赖结构化 data，若随文本预览一起截断，members_full（30 条 ≈ 100KB）会丢失表格。
   }
   return Response.json({
     ok: true, found: true, key, kind: "json", bytes, updatedAt, entries,
