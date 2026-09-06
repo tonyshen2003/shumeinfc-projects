@@ -197,6 +197,8 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
 .ag-theme-alpine .ag-row{cursor:pointer}
 .cell-empty{color:rgba(28,31,35,.28)}
 .cell-idx{color:var(--ink-3);font-size:11px}
+.cell-date{font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:11.5px}
+.v-date{color:var(--ink);font-family:var(--mono)}
 
 /* ---------- Toast ---------- */
 #notice{position:fixed;top:14px;right:14px;z-index:90;display:flex;flex-direction:column;gap:8px;pointer-events:none}
@@ -401,6 +403,36 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
     return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
   }
   function agoMins(ts, now) { return ts ? Math.max(0, Math.round((now - ts) / 60000)) : null; }
+
+  /* ---------- 时间戳 → 北京时间可读串（仅影响展示，不改数据） ----------
+     飞书日期字段在 KV 里存的是毫秒时间戳，倒数日一类存的是 Excel 日期序列，
+     这里按「字段语义 + 数值量级」双重判定，避免把时长/次数这类普通数字误当成日期。 */
+  var DATE_FIELD_RE = /日期|时间|生日|生辰|倒数日|截止|期限|入学|毕业|发布|创建|更新|date|time|Date|Time|At$/;
+  var DAY = 86400000;
+  function p2(x) { return String(x).padStart(2, "0"); }
+  function fmtTsMs(n) {
+    var d = new Date(n + 8 * 3600 * 1000);           // UTC+8
+    var ymd = d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate());
+    // 北京时间恰为 0 点整 → 视为「纯日期」，不显示 00:00
+    if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return ymd;
+    return ymd + " " + p2(d.getUTCHours()) + ":" + p2(d.getUTCMinutes());
+  }
+  function fmtSerial(n) {                             // Excel 日期序列：1899-12-30 起算
+    var d = new Date(Date.UTC(1899, 11, 30) + n * DAY);
+    return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate());
+  }
+  /** 命中日期语义时返回可读串，否则返回 null（交给原样展示）。k=字段名，v=值 */
+  function dateDisplay(k, v) {
+    var n = null;
+    if (typeof v === "number" && isFinite(v)) n = v;
+    else if (typeof v === "string" && /^\d{9,14}$/.test(v)) n = Number(v);
+    if (n == null) return null;
+    var hint = DATE_FIELD_RE.test(String(k || ""));
+    if (n >= 1e12 && n <= 4e12) return fmtTsMs(n);                          // 毫秒时间戳（量级足够明确，无需字段名）
+    if (hint && n >= 1e9 && n < 4e9) return fmtTsMs(n * 1000);              // 秒级时间戳
+    if (hint && n >= 20000 && n <= 80000 && n === Math.floor(n)) return fmtSerial(n); // Excel 序列（1954~2119）
+    return null;
+  }
   function agoTxt(mins) {
     if (mins == null) return "未知";
     if (mins < 1) return "刚刚";
@@ -646,13 +678,28 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
         field: c, headerName: c,
         width: Math.max(120, Math.min(240, c.length * 16 + 70)), minWidth: 96,
         pinned: (c === pinCol) ? "left" : null,
-        valueGetter: function (p) { return cellRaw(p.data[c]); },
-        valueFormatter: function (p) { return cellText(p.data[p.colDef.field]); },
+        valueGetter: function (p) {
+          var v = p.data[c];
+          var d = dateDisplay(c, v);
+          return d != null ? d : cellRaw(v);   // 日期列按可读串参与排序/过滤/导出
+        },
+        valueFormatter: function (p) {
+          var v = p.data[p.colDef.field];
+          var d = dateDisplay(p.colDef.field, v);
+          return d != null ? d : cellText(v);
+        },
         tooltipValueGetter: function (p) {
           var v = p.data[p.colDef.field];
-          return (v == null || v === "") ? null : (typeof v === "object" ? prettyStr(v) : String(v));
+          if (v == null || v === "") return null;
+          if (typeof v === "object") return prettyStr(v);
+          var d = dateDisplay(p.colDef.field, v);
+          return d != null ? d + "（原始值 " + v + "）" : String(v);
         },
-        cellClass: function (p) { var v = p.data[p.colDef.field]; return (v == null || v === "") ? "cell-empty" : ""; }
+        cellClass: function (p) {
+          var v = p.data[p.colDef.field];
+          if (v == null || v === "") return "cell-empty";
+          return dateDisplay(p.colDef.field, v) != null ? "cell-date" : "";
+        }
       });
     });
     var api = state.gridApi;
@@ -675,9 +722,12 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
     var html = "";
     Object.keys(rec).forEach(function (k) {
       if (k === "__rid") return;
-      var v = rec[k], isObj = v != null && typeof v === "object";
+      var v = rec[k], isObj = v != null && typeof v === "object", d = dateDisplay(k, v);
       html += "<tr><td>" + esc(k) + '</td><td>'
-        + (v == null ? '<span class="v-null">·</span>' : (isObj ? '<span class="v-obj">' + esc(prettyStr(v)) + "</span>" : esc(String(v))))
+        + (v == null ? '<span class="v-null">·</span>'
+          : isObj ? '<span class="v-obj">' + esc(prettyStr(v)) + "</span>"
+          : d != null ? '<span class="v-date">' + esc(d) + '</span><span class="v-null">　' + esc(String(v)) + "</span>"
+          : esc(String(v)))
         + "</td></tr>";
     });
     $("rdTable").innerHTML = html;
