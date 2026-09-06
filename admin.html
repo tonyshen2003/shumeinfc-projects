@@ -1,27 +1,20 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-page-node-id="MzNyASfzA987F9WIqOHVNn">
-<head data-page-node-id="rtqojcpk5gzWw0QKoSeFxJ">
-<meta charset="UTF-8" data-page-node-id="oHW94qr9ezWqBeAXsYKC7b">
-<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="DRi4zyhzBeN1RfEs0mjN9q">
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>树莓社 · 内部管理台</title>
-<link rel="stylesheet" href="vendor/ag-grid/ag-grid.css" data-page-node-id="gbNVW6AlWgetUQtoy5rtkD">
-<link rel="stylesheet" href="vendor/ag-grid/ag-theme-alpine.min.css" data-page-node-id="XZOudtnlvq8Dz1dJ08JSPv">
+<link rel="stylesheet" href="vendor/ag-grid/ag-grid.css">
+<link rel="stylesheet" href="vendor/ag-grid/ag-theme-alpine.min.css">
 <style>
-/* ============ Semi Design 设计变量（抖音设计系统，semi.design 官方默认主题取值） ============ */
+/* ============ Semi Design 设计变量（抖音设计系统 semi.design 官方默认主题取值） ============ */
 :root{
-  /* 主色（semi-blue-5） */
   --blue:#0064FA; --blue-hover:#0062D6; --blue-active:#004FB3; --blue-0:#EAF5FF; --blue-1:#CBE7FE;
-  /* 文本（semi-grey-9 及透明度阶梯） */
   --ink:#1C1F23; --ink-1:rgba(28,31,35,.80); --ink-2:rgba(28,31,35,.62); --ink-3:rgba(28,31,35,.35);
-  /* 边框 / 分隔（grey-9 @ 8%） */
   --border:rgba(28,31,35,.08); --divider:rgba(28,31,35,.05); --bg-hover:#F9F9F9;
-  /* 功能色 */
   --green:#3BB346; --green-bg:#ECF7EC; --red:#F93920; --red-bg:#FEF2ED; --amber:#C88A0F; --amber-bg:#FEFBED;
-  /* 画布与卡片 */
   --canvas:#F5F6F8; --card:#FFFFFF;
-  /* 圆角（semi：large 12 / medium 6 / small 3） */
   --r-lg:12px; --r-md:6px; --r-sm:3px;
-  /* 阴影（克制层级） */
   --sh-1:0 1px 2px rgba(28,31,35,.04),0 1px 6px rgba(28,31,35,.03);
   --sh-2:0 4px 12px rgba(28,31,35,.08); --sh-3:0 8px 28px rgba(28,31,35,.14);
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
@@ -33,25 +26,25 @@ body{background:var(--canvas);color:var(--ink);font:14px/1.6 var(--sans);-webkit
 .mono{font-family:var(--mono)}
 .muted{color:var(--ink-2);font-size:12.5px}
 .faint{color:var(--ink-3);font-size:11.5px}
+.spacer{flex:1}
 
-/* ---------- 按钮（Semi 风格） ---------- */
+/* ---------- 按钮 ---------- */
 button{font:inherit;cursor:pointer;border:1px solid transparent;border-radius:var(--r-md);background:#fff;
   color:var(--ink-1);font-weight:500;font-size:13px;transition:all .15s ease;display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .btn{padding:6px 14px;height:32px;border-color:rgba(28,31,35,.12)}
-.btn:hover{border-color:var(--blue);color:var(--blue);background:#fff}
-.btn:active{background:var(--bg-hover)}
-.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff;height:34px;padding:6px 18px;font-weight:500}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff;height:38px;padding:6px 18px}
 .btn-primary:hover{background:var(--blue-hover);border-color:var(--blue-hover);color:#fff}
 .btn-primary:active{background:var(--blue-active)}
 .btn-primary:disabled{background:rgba(0,100,250,.35);border-color:transparent;cursor:not-allowed;color:#fff}
 .btn-light{background:var(--blue-0);border-color:transparent;color:var(--blue);height:30px;padding:4px 13px;font-size:12.5px}
 .btn-light:hover{background:var(--blue-1);color:var(--blue-hover)}
-.btn-light:disabled{opacity:.55;cursor:not-allowed}
-.btn-mini{height:26px;padding:2px 10px;font-size:12px}
+.btn-mini{height:28px;padding:3px 11px;font-size:12.5px;border-color:rgba(28,31,35,.12)}
+.btn-mini:hover{border-color:var(--blue);color:var(--blue)}
 .icon{width:15px;height:15px;flex:none}
 button .icon{width:15px;height:15px}
 
-input[type=password],input[type=search]{font:inherit;border:1px solid rgba(28,31,35,.14);border-radius:var(--r-md);padding:7px 12px;background:#fff;color:var(--ink);outline:none;transition:all .15s}
+input[type=password],input[type=search],input[type=text]{font:inherit;border:1px solid rgba(28,31,35,.14);border-radius:var(--r-md);padding:6px 12px;background:#fff;color:var(--ink);outline:none;transition:all .15s}
 input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,100,250,.14)}
 
 /* ---------- 登录 ---------- */
@@ -69,80 +62,94 @@ input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,100,250,.14)}
 .login-card #btnLogin{width:100%;height:38px;margin-top:6px}
 .login-tip{font-size:11.5px;color:var(--ink-3);margin-top:14px;line-height:1.7}
 
-/* ---------- App 骨架：顶栏 + 侧导航 + 内容 ---------- */
+/* ---------- 骨架 ---------- */
 .app{display:none;height:100vh;flex-direction:column}
 .app.on{display:flex}
-.topbar{height:54px;flex:none;background:var(--card);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:12px;padding:0 20px;position:relative;z-index:20}
+.topbar{height:52px;flex:none;background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;padding:0 18px;z-index:20}
 .brand{display:flex;align-items:center;gap:10px;min-width:0}
 .brand-logo{width:28px;height:28px;border-radius:6px;flex:none;background:linear-gradient(135deg,#2378FF,#0057E8);
   color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
 .brand-name{font-size:15px;font-weight:600;white-space:nowrap}
 .brand-sub{color:var(--ink-3);font-size:11px;margin-left:10px;border-left:1px solid var(--divider);padding-left:10px;white-space:nowrap}
-.topbar .right{margin-left:auto;display:flex;align-items:center;gap:6px}
-.env-tag{font-size:11px;color:var(--blue);background:var(--blue-0);border-radius:var(--r-sm);padding:1px 8px;font-weight:500}
+.topbar .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.status-pill{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:13px;
+  background:var(--green-bg);color:var(--green);font-size:12px;font-weight:500}
+.status-pill.stale{background:var(--amber-bg);color:var(--amber)}
+.status-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
 #userInfo{font-size:12px;color:var(--ink-2)}
 #logoutBtn{height:28px;padding:0 10px;font-size:12px;color:var(--ink-2)}
 #logoutBtn:hover{color:var(--red);border-color:rgba(249,57,32,.4)}
 
 .layout{flex:1;display:flex;min-height:0}
-/* 侧导航 */
-.nav{width:216px;flex:none;background:var(--card);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto}
-.nav-group{font-size:11px;color:var(--ink-3);padding:12px 10px 6px;font-weight:600;letter-spacing:.02em}
-.nav-item{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border-radius:var(--r-md);
-  color:var(--ink-1);font-size:13.5px;background:none;border:none;text-align:left;margin:1px 0;justify-content:flex-start;height:auto}
+
+/* ---------- 侧边：选表 ---------- */
+.nav{width:256px;flex:none;background:var(--card);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;min-height:0}
+.nav-scroll{flex:1;min-height:0;overflow-y:auto;padding:12px 10px}
+.nav-group{font-size:11px;color:var(--ink-3);padding:10px 8px 6px;font-weight:600;letter-spacing:.02em}
+.tbl-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 9px;border-radius:var(--r-md);
+  background:none;border:none;text-align:left;margin:2px 0;transition:background .15s}
+.tbl-item:hover{background:var(--bg-hover)}
+.tbl-item.active{background:var(--blue-0)}
+.tbl-item.active .ti-name{color:var(--blue);font-weight:600}
+.ti-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ink-3)}
+.ti-dot.ok{background:var(--green)} .ti-dot.stale{background:var(--amber)} .ti-dot.miss{background:var(--red)}
+.ti-body{min-width:0;flex:1;display:flex;flex-direction:column}
+.ti-name{font-size:13px;color:var(--ink-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ti-sub{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ti-count{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);background:rgba(28,31,35,.05);
+  border-radius:9px;padding:0 7px;height:18px;line-height:18px;flex:none}
+.tbl-item.active .ti-count{background:#fff;color:var(--blue)}
+.nav-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 9px;border-radius:var(--r-md);
+  color:var(--ink-1);font-size:13.5px;background:none;border:none;text-align:left;margin:2px 0}
 .nav-item:hover{background:var(--bg-hover);color:var(--ink)}
 .nav-item.active{background:var(--blue-0);color:var(--blue);font-weight:600}
 .nav-item.disabled{color:var(--ink-3);cursor:not-allowed;opacity:.75}
 .nav-item .icon{width:16px;height:16px;color:var(--ink-2)}
 .nav-item.active .icon,.nav-item:hover .icon{color:inherit}
 .nav-tag{margin-left:auto;font-size:10px;background:rgba(28,31,35,.06);color:var(--ink-2);padding:0 7px;border-radius:8px;height:16px;line-height:16px}
-.nav-foot{margin-top:auto;padding:12px 10px 4px;font-size:11px;color:var(--ink-3);line-height:1.7}
+.nav-foot{flex:none;border-top:1px solid var(--divider);padding:11px 16px 13px;font-size:11px;color:var(--ink-3);line-height:1.85;background:#FCFCFD}
+.nav-foot .row{display:flex;gap:6px}
+.nav-foot b{color:var(--ink-2);font-weight:600;font-family:var(--mono)}
 
-/* 内容区 */
-.content{flex:1;min-width:0;overflow-y:auto;padding:22px 24px 16px}
-.view{display:none;max-width:1280px;margin:0 auto}
-.view.on{display:block}
-.page-head{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:16px}
-.page-head h2{font-size:19px;font-weight:600;line-height:1.3}
-.page-head p{color:var(--ink-2);font-size:12.5px;margin-top:3px}
-.page-head .actions{margin-left:auto;display:flex;gap:8px;padding-bottom:4px}
+/* ---------- 主区 ---------- */
+.content{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.view{display:none;flex:1;min-height:0;flex-direction:column}
+.view.on{display:flex}
 
-/* ---------- KV 卡片网格（Dashboard 总览） ---------- */
-.kv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(262px,1fr));gap:14px}
-.kv-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);
-  padding:16px 16px 13px;cursor:pointer;transition:all .18s ease;position:relative;overflow:hidden}
-.kv-card:hover{border-color:rgba(0,100,250,.45);box-shadow:0 4px 16px rgba(0,100,250,.09);transform:translateY(-1px)}
-.kv-card .card-top{display:flex;align-items:center;gap:8px;min-width:0}
-.kv-card .kname{font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--ink);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kv-card .arrow{color:var(--ink-3);opacity:0;transition:all .18s;margin-left:auto;flex:none;width:14px;height:14px}
-.kv-card:hover .arrow{opacity:1;color:var(--blue)}
-.kv-card .label{font-size:12px;color:var(--ink-2);margin-top:1px;min-height:18px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kv-card .metric{display:flex;align-items:baseline;gap:6px;margin:10px 0 2px}
-.kv-card .metric .num{font-size:26px;font-weight:600;font-family:var(--mono);letter-spacing:-.5px;line-height:1.15}
-.kv-card .metric .unit{font-size:11.5px;color:var(--ink-3)}
-.kv-card .card-meta{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-3);margin-top:8px;
-  border-top:1px solid var(--divider);padding-top:9px;flex-wrap:wrap;row-gap:4px}
-.kv-card .card-meta .sep{color:var(--ink-3);opacity:.5}
-.kv-card .big-note{font-size:12.5px;color:var(--ink-2);margin:8px 0 2px}
-.kv-card .bytes{font-family:var(--mono)}
-.badge-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;border-radius:var(--r-sm);padding:0 7px;height:19px;line-height:19px;white-space:nowrap}
-.badge-tag::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex:none}
-.badge-tag.ok{background:var(--green-bg);color:var(--green)}
-.badge-tag.stale{background:var(--amber-bg);color:var(--amber)}
-.badge-tag.miss{background:var(--red-bg);color:var(--red)}
-.badge-tag.info{background:var(--blue-0);color:var(--blue)}
-.badge-tag.info::before{display:none}
+/* 表格视图头部 */
+.tbl-head{flex:none;display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid var(--border);background:var(--card)}
+.th-title{min-width:0}
+.th-name{font-size:15.5px;font-weight:600;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th-meta{font-size:11.5px;color:var(--ink-3);display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:1px}
+.th-meta .k{font-family:var(--mono)}
+.th-meta .sep{opacity:.45}
+.q{width:210px;height:30px;font-size:12.5px}
+.view-switch{display:flex;border:1px solid rgba(28,31,35,.14);border-radius:var(--r-md);overflow:hidden;height:30px;flex:none}
+.view-switch button{border:none;border-radius:0;background:#fff;padding:0 14px;height:28px;font-size:12.5px;color:var(--ink-2);display:inline-flex;align-items:center;gap:5px}
+.view-switch button.on{background:var(--blue-0);color:var(--blue);font-weight:600}
 
-/* ---------- 刷新视图 ---------- */
-.refresh-card{max-width:680px;margin:26px auto 0;background:var(--card);border:1px solid var(--border);
+/* 表格 / JSON 主体 */
+.tbl-body{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--card)}
+.grid-wrap{flex:1;min-height:0;position:relative;display:none}
+.grid-wrap.on{display:block}
+#gridBox{position:absolute;inset:0;width:100%;height:100%}
+pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/1.7 var(--mono);
+  color:#26292D;white-space:pre;display:none;background:#FCFCFD}
+.empty-note{flex:1;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:#FCFCFD;padding:40px;text-align:center}
+.empty-note.on{display:flex}
+.empty-note .big{font-size:14px;color:var(--ink-1);font-weight:500}
+.empty-note .small{font-size:12.5px;color:var(--ink-3);max-width:460px;line-height:1.8}
+.empty-note b{font-family:var(--mono);color:var(--ink-2)}
+
+/* 空态 / 刷新视图 */
+.center-pane{flex:1;overflow:auto;padding:34px 30px}
+.refresh-card{max-width:660px;margin:0 auto;background:var(--card);border:1px solid var(--border);
   border-radius:var(--r-lg);padding:26px 28px;box-shadow:var(--sh-1)}
 .refresh-card h3{font-size:15.5px;font-weight:600;display:flex;align-items:center;gap:8px}
 .refresh-card .desc{color:var(--ink-2);font-size:12.5px;margin:6px 0 18px;line-height:1.8}
 #btnRefresh{width:100%;height:42px;font-size:15px;font-weight:600}
-#btnRefresh .icon{width:16px;height:16px}
 #refreshResult{display:none;margin-top:18px;border-top:1px solid var(--divider);padding-top:16px}
 .result-ok{display:flex;align-items:center;gap:8px;color:var(--green);font-weight:600;font-size:14px}
 .result-err{display:flex;align-items:center;gap:8px;color:var(--red);font-weight:600;font-size:14px}
@@ -152,56 +159,46 @@ input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,100,250,.14)}
 .mini-stat .t{font-size:11.5px;color:var(--ink-2)}
 .mini-stat .n{font-family:var(--mono);font-size:18px;font-weight:600;margin-top:2px}
 
-/* ---------- 详情抽屉（右侧滑出） ---------- */
+/* ---------- 行详情抽屉（右侧滑出） ---------- */
 .drawer-mask{position:fixed;inset:0;background:rgba(28,31,35,.42);z-index:60;display:none;opacity:0;transition:opacity .2s}
 .drawer-mask.on{display:block;opacity:1}
-.drawer{position:fixed;top:0;right:0;bottom:0;width:min(1080px,100vw);background:var(--card);
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(620px,100vw);background:var(--card);
   z-index:61;transform:translateX(100%);transition:transform .24s cubic-bezier(.2,.8,.3,1);
   display:flex;flex-direction:column;box-shadow:-12px 0 40px rgba(28,31,35,.14)}
 .drawer.on{transform:translateX(0)}
-.drawer-head{flex:none;display:flex;align-items:center;gap:12px;padding:0 20px;height:56px;border-bottom:1px solid var(--border)}
-.drawer-head .k{font-family:var(--mono);font-size:14.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.drawer-head .meta{font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.drawer-head .spacer{flex:1}
-.view-switch{display:flex;border:1px solid rgba(28,31,35,.14);border-radius:var(--r-md);overflow:hidden;height:28px;flex:none}
-.view-switch button{border:none;border-radius:0;background:#fff;padding:0 15px;height:26px;font-size:12.5px;color:var(--ink-2);display:inline-flex;align-items:center;gap:5px}
-.view-switch button.on{background:var(--blue-0);color:var(--blue);font-weight:600}
+.drawer-head{flex:none;display:flex;align-items:center;gap:12px;padding:0 18px;height:56px;border-bottom:1px solid var(--border)}
+.drawer-head .k{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:270px}
+.drawer-head .meta{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
 .drawer-head .btn-x{width:30px;height:30px;padding:0;border:none;color:var(--ink-2);border-radius:var(--r-md);flex:none}
 .drawer-head .btn-x:hover{background:var(--bg-hover);color:var(--ink)}
-.drawer-body{flex:1;min-height:0;display:flex;flex-direction:column}
-.drawer-toolbar{flex:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 20px;border-bottom:1px solid var(--divider)}
-.drawer-toolbar .count{font-size:12px;color:var(--ink-2)}
-.drawer-toolbar .hint{font-size:11.5px;color:var(--ink-3)}
-.drawer-toolbar .spacer{flex:1}
-/* AG Grid（alpine 主题 → Semi 主色与细边框） */
-.grid-wrap{flex:1;min-height:0;position:relative}
-#gridBox{position:absolute;inset:0;width:100%;height:100%}
+.drawer-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.rd-wrap{flex:1;min-height:0;overflow:auto;display:block}
+.rd-wrap.off,.drawer-body pre.json.off{display:none}
+.drawer-body pre.json{display:block}
+.drawer-foot{flex:none;display:flex;align-items:center;gap:8px;padding:10px 18px;border-top:1px solid var(--border);background:#FCFCFD}
+.drawer-foot .idx{font-size:12px;color:var(--ink-2);font-family:var(--mono)}
+table.rd{border-collapse:collapse;width:100%;font-size:12.5px}
+table.rd td{padding:7px 18px;border-bottom:1px solid var(--divider);vertical-align:top}
+table.rd td:first-child{width:200px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);background:#FAFAFA;white-space:nowrap}
+table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;font-family:var(--mono);font-size:11.5px}
+.v-obj{color:var(--blue)}
+.v-null{color:rgba(28,31,35,.28)}
+
+/* ---------- AG Grid（alpine → Semi 主色） ---------- */
 .ag-theme-alpine{
   --ag-alpine-active-color:#0064FA; --ag-accent-color:#0064FA;
   --ag-selected-row-background-color:#EAF5FF; --ag-row-hover-color:#F2F8FF;
   --ag-header-background-color:#FAFAFA; --ag-odd-row-background-color:#FCFCFD;
   --ag-border-color:rgba(28,31,35,.08); --ag-font-family:var(--sans); --ag-font-size:12.5px;
-  --ag-row-height:32px; --ag-header-height:40px; --ag-border-radius:0;
+  --ag-row-height:34px; --ag-header-height:40px; --ag-border-radius:0;
 }
 .ag-theme-alpine .ag-header-cell-text{font-weight:600;color:rgba(28,31,35,.62)}
-.ag-theme-alpine .ag-floating-filter-input input[type=text]{border:1px solid rgba(28,31,35,.14);border-radius:4px;height:22px;font-size:12px}
+.ag-theme-alpine .ag-floating-filter-input input[type=text]{border:1px solid rgba(28,31,35,.14);border-radius:4px;height:24px;font-size:12px}
+.ag-theme-alpine .ag-row{cursor:pointer}
 .cell-empty{color:rgba(28,31,35,.28)}
 .cell-idx{color:var(--ink-3);font-size:11px}
-/* 行详情（抽屉内底部） */
-#rowDetail{flex:none;display:none;border-top:1px solid var(--border);max-height:34%;overflow:auto;background:#FCFCFD}
-#rowDetail .rd-head{position:sticky;top:0;display:flex;align-items:center;gap:10px;padding:8px 20px;border-bottom:1px solid var(--divider);font-weight:600;font-size:13px;background:#FAFAFA;z-index:2}
-#rowDetail .rd-head .spacer{flex:1}
-table.rd{border-collapse:collapse;width:100%;font-size:12.5px}
-table.rd td{padding:6px 20px;border-bottom:1px solid var(--divider);vertical-align:top}
-table.rd td:first-child{width:230px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);background:#F9F9F9;white-space:nowrap}
-table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;font-family:var(--mono);font-size:11.5px}
-.v-obj{color:var(--blue)}
-pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/1.7 var(--mono);
-  color:#26292D;white-space:pre;display:none;background:#FCFCFD}
-.note-line{flex:none;padding:14px 20px;font-size:12.5px;color:var(--ink-2);background:#FCFCFD;display:none}
-.note-line b{font-family:var(--mono)}
 
-/* ---------- 通知（右上 Toast） ---------- */
+/* ---------- Toast ---------- */
 #notice{position:fixed;top:14px;right:14px;z-index:90;display:flex;flex-direction:column;gap:8px;pointer-events:none}
 .toast-item{pointer-events:auto;background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);
   box-shadow:var(--sh-2);padding:9px 14px;font-size:13px;display:flex;align-items:center;gap:9px;min-width:220px;max-width:380px;
@@ -210,161 +207,166 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
 .toast-item.ok .dot{background:var(--green)} .toast-item.err .dot{background:var(--red)} .toast-item.warn .dot{background:var(--amber)} .toast-item.info .dot{background:var(--blue)}
 @keyframes toastIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
 
-/* 页脚 */
-.page-foot{max-width:1280px;margin:22px auto 0;color:var(--ink-3);font-size:11px;display:flex;gap:14px;flex-wrap:wrap}
-@media (max-width:900px){
+@media (max-width:960px){
   .layout{flex-direction:column}
-  .nav{width:100%;flex-direction:row;border-right:none;border-bottom:1px solid var(--border);padding:8px;overflow-x:auto}
+  .nav{width:100%;flex-direction:row;border-right:none;border-bottom:1px solid var(--border);max-height:44vh}
+  .nav-scroll{display:flex;align-items:center;padding:8px;overflow-x:auto}
   .nav-group{display:none} .nav-foot{display:none}
-  .nav-item{width:auto;white-space:nowrap;margin:0 2px}
+  .tbl-item{width:auto;flex:none} .ti-sub{display:none}
+  .nav-item{width:auto;white-space:nowrap}
+  .tbl-head{flex-wrap:wrap} .q{width:150px}
   .drawer{width:100vw}
-  .kv-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 }
 </style>
 </head>
-<body data-page-node-id="Hs7UV0BzRHzgurTQ1oyXsk">
+<body>
 
 <!-- ============ 登录 ============ -->
-<div id="loginMask" data-page-node-id="tPyfpYTlKF5oxgWq1rCVBZ">
-  <div class="login-card" data-page-node-id="gnTrlsBri70apnJz1sBW3u">
-    <div class="login-logo" data-page-node-id="Z43COQl7XqC67FkpLt9Wnv">
-      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="0lADqOvILGFBFW1LZbiVbD"><ellipse cx="12" cy="6" rx="8" ry="3.2" data-page-node-id="sPdEh8qdEG7BXgwwjt1pSh"></ellipse><path d="M4 6v12c0 1.77 3.58 3.2 8 3.2s8-1.43 8-3.2V6" data-page-node-id="RzYAoD9ZekMFSw2kZwYE4z"></path><path d="M4 12c0 1.77 3.58 3.2 8 3.2s8-1.43 8-3.2" data-page-node-id="vrfJo1zZ49ZbU85c2ZkDd2"></path></svg>
+<div id="loginMask">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3.2"></ellipse><path d="M4 6v12c0 1.77 3.58 3.2 8 3.2s8-1.43 8-3.2V6"></path><path d="M4 12c0 1.77 3.58 3.2 8 3.2s8-1.43 8-3.2"></path></svg>
     </div>
-    <h1 data-page-node-id="K3GHJsFo9nU7dp1GG10chZ">树莓社 · 内部管理台</h1>
-    <p class="sub" data-page-node-id="Jeu5rCRJXnXt6lqkrFbpzF">KV 快照浏览与全量刷新</p>
-    <div class="field" data-page-node-id="SV59ZEESQFvU2Yy1M7nd7G">
-      <label for="tokenInput" data-page-node-id="Y86S8gI6OPps66mFBHpqtq">管理口令</label>
-      <input type="password" id="tokenInput" placeholder="请输入 ADMIN_TOKEN" autocomplete="off" spellcheck="false" data-page-node-id="2TZbLICK1DYmfMScRcy2nh">
+    <h1>树莓社 · 内部管理台</h1>
+    <p class="sub">KV 快照浏览与全量刷新</p>
+    <div class="field">
+      <label for="tokenInput">管理口令</label>
+      <input type="password" id="tokenInput" placeholder="请输入 ADMIN_TOKEN" autocomplete="off" spellcheck="false">
     </div>
-    <button class="btn-primary" id="btnLogin" data-page-node-id="Mg8ERKfd558YWwHAEgn5Hw">进入管理台</button>
-    <p class="login-tip" data-page-node-id="pVjtyn9pK8sDDiXh3ya7ji">口令 = 环境变量 <span class="mono" data-page-node-id="0HdqC0wGWEwg1GDvyXvdv2">ADMIN_TOKEN</span> 的值，仅保存在本次浏览器会话中，关闭页面即失效。</p>
+    <button class="btn-primary" id="btnLogin">进入管理台</button>
+    <p class="login-tip">口令 = 环境变量 <span class="mono">ADMIN_TOKEN</span> 的值，仅保存在本次浏览器会话中，关闭页面即失效。</p>
   </div>
 </div>
 
 <!-- ============ 主应用 ============ -->
-<div class="app" id="app" data-page-node-id="A5G6xtiM3iegAv6DVEAT4R">
-  <header class="topbar" data-page-node-id="ZHbRl9pdmYWZnON1dVNLR0">
-    <div class="brand" data-page-node-id="wyiFmiLVyBboiX0Z5L5CGk">
-      <div class="brand-logo" data-page-node-id="VsJw5oAl2nxvfm5S9GNSHg">树</div>
-      <div class="brand-name" data-page-node-id="9He0lmAhrk3FtZVFtS56a5">树莓社管理台</div>
-      <span class="brand-sub" data-page-node-id="4DEN6ZyVWaEgIm0fj3BZn5">数据运营 · 内部工具</span>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">树</div>
+      <div class="brand-name">树莓社管理台</div>
+      <span class="brand-sub">数据运营 · 内部工具</span>
     </div>
-    <div class="right" data-page-node-id="1IyWC1rn7UuWL9BM6XmNX3">
-      <span class="env-tag" data-page-node-id="pn4ZphxfeQE4ET0rGsslnM">PROD · nfc.raspjam.com</span>
-      <span id="userInfo" data-page-node-id="PM4koTSDpH5jgkEVdIRXx4"></span>
-      <button id="logoutBtn" data-page-node-id="i9eeDGasKH3GGtQJD4BU2W">退出登录</button>
+    <div class="right">
+      <span class="status-pill" id="topStatus"><span class="dot"></span><span id="topStatusTxt">加载中…</span></span>
+      <span id="userInfo"></span>
+      <button id="logoutBtn">退出登录</button>
     </div>
   </header>
 
-  <div class="layout" data-page-node-id="C9cJee6MFxNDccUbIXDR8J">
-    <!-- 侧导航 -->
-    <aside class="nav" data-page-node-id="yAwPDcoTN6T0xNN0UYqu0G">
-      <div class="nav-group" data-page-node-id="Oo1k1Cf91xaFPzZqeuw3ZH">数据</div>
-      <button class="nav-item active" data-view="kv" data-page-node-id="IAOAAqk6GrVhuOSGPP1Wc3">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="pwXWd7bydu8zCAVHm43Qk5"><ellipse cx="12" cy="5.6" rx="8.5" ry="2.9" data-page-node-id="VC2jwt83VMYbZPSwq9njMk"></ellipse><path d="M3.5 5.6V18.4c0 1.6 3.8 2.9 8.5 2.9s8.5-1.3 8.5-2.9V5.6" data-page-node-id="I2EOsNjpzW39IQDNnxXkdQ"></path><path d="M3.5 12c0 1.6 3.8 2.9 8.5 2.9s8.5-1.3 8.5-2.9" data-page-node-id="hodzW05xgypi33D9A9IoEg"></path></svg>
-        KV 快照
-      </button>
-      <div class="nav-group" data-page-node-id="0VeSD7G1xJJaHHbwnsXZe0">运维</div>
-      <button class="nav-item" data-view="refresh" data-page-node-id="B87dAVoTe2bX8iEdI2w6e9">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Ik4ACnCAjxdtwKmErNzjow"><polyline points="23 4 23 10 17 10" data-page-node-id="z0lBfwdLQ7NuYcG4AVUXzo"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" data-page-node-id="dwKe9Zgxx5DAsbrINNUCXN"></path></svg>
-        一键全量刷新
-      </button>
-      <div class="nav-group" data-page-node-id="t2JIVsKW4hFGMTxaF69q5r">规划</div>
-      <button class="nav-item disabled" title="字段级隐私开关，规划中" data-page-node-id="lwyEKYQCqoPaRXo0D964AT">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="qDC1MpFgYUtpI9f9yWYHCx"><rect x="3" y="11" width="18" height="11" rx="2" data-page-node-id="9yFEoHyMrcl9ddF98qrhaV"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4" data-page-node-id="OgGAXmoGSvgDEpICVEGAH4"></path></svg>
-        数据开关
-        <span class="nav-tag" data-page-node-id="FUF1Xad89dHWHE1CPjZJlX">规划中</span>
-      </button>
-      <div class="nav-foot" data-page-node-id="eREXWMEKGYfOMlSGVtSmff">请求带 Bearer 口令 · 响应 no-store<br data-page-node-id="2JMY5wFZanPfDM92XKeVZx">数据源：Cloudflare KV 快照</div>
+  <div class="layout">
+    <!-- 侧导航：选表 -->
+    <aside class="nav">
+      <div class="nav-scroll">
+        <div class="nav-group">数据表</div>
+        <div id="tableList"><div class="tbl-item"><span class="ti-dot"></span><span class="ti-body"><span class="ti-name muted">加载中…</span></span></div></div>
+        <div class="nav-group">运维</div>
+        <button class="nav-item" data-view="refresh">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+          一键全量刷新
+        </button>
+        <div class="nav-group">规划</div>
+        <button class="nav-item disabled" title="字段级隐私开关，规划中">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          数据开关
+          <span class="nav-tag">规划中</span>
+        </button>
+      </div>
+      <div class="nav-foot" id="navFoot">请求带 Bearer 口令 · 响应 no-store<br>数据源：Cloudflare KV 快照</div>
     </aside>
 
-    <!-- 内容区 -->
-    <main class="content" data-page-node-id="IphV8NaKEVjcuKBw1cklRj">
+    <!-- 主区 -->
+    <main class="content">
 
-      <!-- KV 视图 -->
-      <section class="view on" id="viewKv" data-page-node-id="qsGkdGHpPcZmdgIDKfAdEG">
-        <div class="page-head" data-page-node-id="MghWzP56rmk0GoTQbpMWML">
-          <div data-page-node-id="F5884jsqmEGSH7szmwHfm6">
-            <h2 data-page-node-id="4H4P6VM8cVYZvXbYkMgs2H">KV 快照</h2>
-            <p data-page-node-id="DogRMIJTkCCLNrhfdIA7wO">飞书表在边缘的缓存副本 —— 点击卡片查看内容（原文直出，内部授权工具）</p>
+      <!-- 表格视图 -->
+      <section class="view on" id="viewTable">
+        <div class="tbl-head">
+          <div class="th-title">
+            <div class="th-name" id="tblName">请选择左侧的数据表</div>
+            <div class="th-meta" id="tblMeta"><span>左栏切换数据表 · 点任意一行看完整字段</span></div>
           </div>
-          <div class="actions" data-page-node-id="L0FUBqGRDAX0kiVoslYv05">
-            <button class="btn-light" id="btnGoRefresh" data-page-node-id="tLja6bIZENHBD8X7AX3U0k">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="TXqUlvYeCOm16u5eqnHMRE"><polyline points="23 4 23 10 17 10" data-page-node-id="BoESN27f0Js3eidgftuHzf"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" data-page-node-id="7GGuLICwWf6jvrDWOTKzUO"></path></svg>
-              需要最新数据？去刷新
+          <span class="spacer"></span>
+          <input type="search" id="q" class="q" placeholder="全表搜索…" autocomplete="off">
+          <div class="view-switch" id="viewSwitch" style="display:none">
+            <button id="vwTable" class="on">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path></svg>
+              表格
+            </button>
+            <button id="vwJson">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+              JSON
             </button>
           </div>
+          <button class="btn-mini" id="btnCsv" title="导出当前筛选结果为 CSV">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            导出
+          </button>
+          <button class="btn-mini" id="btnReload" title="重新从 KV 拉取">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            重载
+          </button>
         </div>
-        <div class="kv-grid" id="kvCards" data-page-node-id="IlfI41FnxBPf0dOYm2mgz8"><div class="kv-card" style="cursor:default" data-page-node-id="G9SF6yqJJrb1UZQzADLUKb"><div class="muted" data-page-node-id="oLZkmUEap2dKZ8pvydf99V">加载中…</div></div></div>
+        <div class="tbl-body">
+          <div class="grid-wrap" id="gridWrap"><div id="gridBox" class="ag-theme-alpine"></div></div>
+          <pre class="json" id="jsonView"></pre>
+          <div class="empty-note on" id="emptyNote">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="rgba(28,31,35,.18)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.6" rx="8.5" ry="2.9"></ellipse><path d="M3.5 5.6V18.4c0 1.6 3.8 2.9 8.5 2.9s8.5-1.3 8.5-2.9V5.6"></path><path d="M3.5 12c0 1.6 3.8 2.9 8.5 2.9s8.5-1.3 8.5-2.9"></path></svg>
+            <div class="big">从左侧选择一张数据表</div>
+            <div class="small">选中后整张表会在右侧铺开；点击任意一行，这条记录的完整字段会从右边滑出。</div>
+          </div>
+        </div>
       </section>
 
       <!-- 刷新视图 -->
-      <section class="view" id="viewRefresh" data-page-node-id="08UuEz0ikegiQbEbtaUsJK">
-        <div class="refresh-card" data-page-node-id="2KDoy8SNH8bvVBDUgRwvOc">
-          <h3 data-page-node-id="1FlUnHNrnq6gTnwuAQ8aKM">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0064FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="rqEgPFCGatAETcWSa22t0u"><polyline points="23 4 23 10 17 10" data-page-node-id="7FripJtBcE8W8OFhl4U96T"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" data-page-node-id="YrAh7x4yAS0joDze1XCeuM"></path></svg>
-            一键全量刷新
-          </h3>
-          <p class="desc" data-page-node-id="7Vvz4AUe10K9qg1F2FAO4n">触发 <span class="mono" data-page-node-id="uzz6SmbzwVSATWuKNnGkM7">POST /api/refresh</span>：全量拉取飞书并重建 4 个快照（社员 / 活动记录 / 活动项目 / 文件目录）。与飞书自动化同口径、同冷却 —— 两次触发之间至少间隔 30 秒，防止打爆飞书接口。</p>
-          <button class="btn-primary" id="btnRefresh" data-page-node-id="5dL8leDUTw5aoB2urz6fL0">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="bIC8kRVqT6aHsbvfGtFWQj"><polyline points="23 4 23 10 17 10" data-page-node-id="REyEMsa463ZjLu2BqCmDji"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" data-page-node-id="aqTnuE9ndu54gBP2AyCqct"></path></svg>
-            一键全量刷新
-          </button>
-          <div id="refreshResult" data-page-node-id="EjS3151EVS9avQrVfAWizP"></div>
+      <section class="view" id="viewRefresh">
+        <div class="center-pane">
+          <div class="refresh-card">
+            <h3>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0064FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              一键全量刷新
+            </h3>
+            <p class="desc">触发 <span class="mono">POST /api/refresh</span>：全量拉取飞书并重建 4 个快照（社员 / 活动记录 / 活动项目 / 文件目录）。与飞书自动化同口径、同冷却 —— 两次触发之间至少间隔 30 秒，防止打爆飞书接口。</p>
+            <button class="btn-primary" id="btnRefresh">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              一键全量刷新
+            </button>
+            <div id="refreshResult"></div>
+          </div>
         </div>
       </section>
 
-      <div class="page-foot" data-page-node-id="m6X8j1C9vphJKm2WCVPoDk">树莓社 · 内部管理台 · 仅限核心成员使用 · 遇到问题联系管理员</div>
     </main>
   </div>
 </div>
 
-<!-- ============ 详情抽屉 ============ -->
-<div class="drawer-mask" id="drawerMask" data-page-node-id="FBqMJMGuKxEWwApfDdR6ib"></div>
-<div class="drawer" id="drawer" aria-hidden="true" data-page-node-id="8Ax4zlNE5yRaAa0n3dy6DH">
-  <div class="drawer-head" data-page-node-id="hucYbaLbMus5MPV2KP0uw0">
-    <span class="k" id="drawerKey" data-page-node-id="ZfvFSauP6zunB5bbGaKjYp"></span>
-    <span class="meta" id="kvMeta" data-page-node-id="QSCMDFBSMhK1EWxbFpKNgH"></span>
-    <span class="spacer" data-page-node-id="AE0nQbcQzSzEB22eHWY3tW"></span>
-    <div class="view-switch" id="viewSwitch" style="display:none" data-page-node-id="GOpCM9G1u0b6JmYXSE0Gws">
-      <button id="vwTable" class="on" data-page-node-id="WrTFhLkcowt25O83OpbKhM">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" data-page-node-id="sNBNYzRNGIC0KtfFjb8bMA"><rect x="3" y="3" width="18" height="18" rx="2" data-page-node-id="BG6pynNE9S7kURjqAIt2xI"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18" data-page-node-id="2ncL0g5i7UyKtM25xiNbOU"></path></svg>
-        表格
-      </button>
-      <button id="vwJson" data-page-node-id="MSxR2iLPUH79kYaZSlGsMq">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="WpXoL1FSmDUQ4d6BzcvN72"><polyline points="16 18 22 12 16 6" data-page-node-id="qtHlt24XjF7dFkDunRl6yS"></polyline><polyline points="8 6 2 12 8 18" data-page-node-id="7vtitM05xxgQDtgWpmkT1Z"></polyline></svg>
-        JSON
-      </button>
+<!-- ============ 行详情抽屉 ============ -->
+<div class="drawer-mask" id="drawerMask"></div>
+<div class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="k" id="drawerKey">记录详情</span>
+    <span class="meta" id="drawerMeta"></span>
+    <span class="spacer"></span>
+    <div class="view-switch" id="rdSwitch">
+      <button id="rdField" class="on">字段</button>
+      <button id="rdJson">JSON</button>
     </div>
-    <button class="btn-x" id="btnCloseDrawer" title="关闭 (Esc)" data-page-node-id="ukmZ4galePL1gb6vgGX6b4">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-page-node-id="XOvrlVQEA3OEWn7MHQBGBl"><line x1="18" y1="6" x2="6" y2="18" data-page-node-id="8ZVTuovsXO5ruGiAUGD7Rw"></line><line x1="6" y1="6" x2="18" y2="18" data-page-node-id="TEbTUcz0FxXOIBadacuJ0o"></line></svg>
+    <button class="btn-x" id="btnCloseDrawer" title="关闭 (Esc)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
     </button>
   </div>
-  <div class="drawer-body" data-page-node-id="snWas5yxgBqUHDRhBVNclo">
-    <!-- 表格模式 -->
-    <div id="tblView" style="display:none;flex-direction:column;flex:1;min-height:0" data-page-node-id="vhlqo99Hlp4UTk1X4v8tKc">
-      <div class="drawer-toolbar" data-page-node-id="srpYynCxz09PcvA9qOQe2r">
-        <span class="count" id="tblCount" data-page-node-id="nlZDumVH8tTrv7x2qFcFBT">…</span>
-        <span class="hint" id="tblHint" data-page-node-id="19Uv5rEZpSYOT74I0u1EkU">点列头排序 · 每列下方过滤 · 点行看单条 · 底部翻页</span>
-        <span class="spacer" data-page-node-id="ZVUALXO3dsLoxAU8jiHBtN"></span>
-        <button class="btn-mini" id="btnCsv" data-page-node-id="PvHf1ky1sasFrJePiLlRDG">
-          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="PYpad0MfkQomCHgkRe7LYL"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" data-page-node-id="9la8PfgmvG7ioCvZKvt4nX"></path><polyline points="7 10 12 15 17 10" data-page-node-id="of8QjMrZSkx4AFkZ5AXaAN"></polyline><line x1="12" y1="15" x2="12" y2="3" data-page-node-id="gdXHzX59I1XLC6afFfAwn3"></line></svg>
-          导出 CSV
-        </button>
-      </div>
-      <div class="grid-wrap" data-page-node-id="kNxEjdq8qqBLgqXUHmGIUA"><div id="gridBox" class="ag-theme-alpine" data-page-node-id="8pEgnwAYUPwl5y3rCukPsw"></div></div>
-      <div id="rowDetail" data-page-node-id="93qEBETryDFYOVYJw6xRLJ">
-        <div class="rd-head" data-page-node-id="KspQcec0dRDHndPDqilqZg"><span id="rdTitle" data-page-node-id="YDLYAfq8FHCSS9B48wlPd5"></span><span class="spacer" data-page-node-id="lYEAzCz83wrKdBDfmHzEQ4"></span><button class="btn-mini" id="btnCloseRow" data-page-node-id="tYt8m2I8pgLFnCkJsHHCFj">收起</button></div>
-        <table class="rd" data-page-node-id="47lgYanhRUb8gGAh6cYON1"><tbody id="rdTable" data-page-node-id="0GuZSr43dENcW0iHkK0XSQ"></tbody></table>
-      </div>
-    </div>
-    <!-- JSON / 文本模式 -->
-    <pre class="json" id="jsonView" data-page-node-id="FNMrKF8bVvRkiITVXhp12y"></pre>
-    <div class="note-line" id="noteLine" data-page-node-id="ZzBPeEC2M0FZVf3zdrGpxF"></div>
+  <div class="drawer-body">
+    <div class="rd-wrap" id="rdFieldView"><table class="rd"><tbody id="rdTable"></tbody></table></div>
+    <pre class="json off" id="rdJsonView"></pre>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn-mini" id="btnPrevRow">上一条</button>
+    <button class="btn-mini" id="btnNextRow">下一条</button>
+    <span class="spacer"></span>
+    <span class="idx" id="rdIdx"></span>
+    <button class="btn-mini" id="btnCopyJson">复制 JSON</button>
   </div>
 </div>
 
-<div id="notice" data-page-node-id="yVnVOp4Ge3VKy8K0XsgKux"></div>
+<div id="notice"></div>
 
 <script src="vendor/ag-grid/ag-grid-community.min.js"></script>
 <script>
@@ -373,10 +375,15 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
   var TOKEN_KEY = "shumei_admin_token";
   var $ = function (id) { return document.getElementById(id); };
   var token = sessionStorage.getItem(TOKEN_KEY) || "";
-  var state = { currentKey: null, view: "table", rawData: null, totalEntries: null, truncated: false, gridApi: null, gridCreated: false, drawerOpen: false };
+  var state = {
+    currentKey: null, currentLabel: null, kvList: [], view: "table",
+    rawData: null, totalEntries: null, truncated: false,
+    gridApi: null, gridCreated: false, drawerOpen: false,
+    curRow: null, curIndex: null
+  };
   var PRIO = ["recordId", "识别码", "memberCode", "姓名", "name", "id", "title", "activityName", "date"];
 
-  /* ---------- 基础工具 ---------- */
+  /* ---------- 工具 ---------- */
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -393,8 +400,13 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
     var d = new Date(ts), p = function (x) { return String(x).padStart(2, "0"); };
     return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
   }
-  function agoMins(ts, now) {
-    return Math.max(0, Math.round((now - ts) / 60000));
+  function agoMins(ts, now) { return ts ? Math.max(0, Math.round((now - ts) / 60000)) : null; }
+  function agoTxt(mins) {
+    if (mins == null) return "未知";
+    if (mins < 1) return "刚刚";
+    if (mins < 60) return mins + " 分钟前";
+    if (mins < 1440) return Math.floor(mins / 60) + " 小时前";
+    return Math.floor(mins / 1440) + " 天前";
   }
   function notice(msg, type) {
     type = type || "info";
@@ -413,16 +425,16 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
     });
   }
 
-  /* ---------- 视图切换 ---------- */
+  /* ---------- 登录 / 视图 ---------- */
   function showApp() {
     $("loginMask").style.display = "none";
     $("app").classList.add("on");
     var t = token;
     $("userInfo").textContent = "已登录 · " + (t.length > 8 ? t.slice(0, 5) + "…" + t.slice(-4) : "");
-    switchView("kv");
-    loadKvOverview();
+    loadKvList();
   }
   function showLogin() {
+    closeDrawer();
     $("app").classList.remove("on");
     $("loginMask").style.display = "flex";
   }
@@ -437,149 +449,140 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
   Array.prototype.forEach.call(document.querySelectorAll(".nav-item[data-view]"), function (n) {
     n.onclick = function () { if (!n.classList.contains("disabled")) switchView(n.getAttribute("data-view")); };
   });
-  $("btnGoRefresh").onclick = function () { switchView("refresh"); };
   $("logoutBtn").onclick = function () { sessionStorage.removeItem(TOKEN_KEY); token = ""; closeDrawer(); showLogin(); };
 
-  /* ---------- KV 总览（卡片网格） ---------- */
-  function loadKvOverview() {
-    $("kvCards").innerHTML = '<div class="kv-card" style="cursor:default"><div class="muted">加载中…</div></div>';
+  /* ---------- 侧栏数据表列表 ---------- */
+  function isTableKey(k) {
+    return k.indexOf("avatar_img_") !== 0 && k.indexOf("last_refresh") !== 0;
+  }
+  function loadKvList() {
     api("/api/admin/kv/list").then(function (res) {
       if (res.status === 401) { showLogin(); notice("口令无效或已过期", "err"); return; }
-      var items = res.body.items || [], now = res.body.now || Date.now(), html = "";
-      items.forEach(function (it) {
-        if (it.key.indexOf("last_refresh") === 0) {
-          var ta = it.updatedAt ? agoMins(it.updatedAt, now) : null;
-          var agoTxt = ta == null ? "尚未刷新" : (ta < 60 ? ta + " 分钟前" : (ta < 1440 ? Math.floor(ta / 60) + " 小时前" : Math.floor(ta / 1440) + " 天前"));
-          html += '<div class="kv-card" data-key="' + esc(it.key) + '">'
-            + '<div class="card-top"><span class="kname">' + esc(it.key) + '</span>'
-            + '<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg></div>'
-            + '<div class="label">最近一次全量刷新完成时间</div>'
-            + '<div class="metric"><span class="num" style="font-size:20px">' + agoTxt + '</span></div>'
-            + '<div class="card-meta"><span>' + (it.updatedAt ? fmtTime(it.updatedAt) : "（尚无记录）") + '</span><span class="sep">·</span><span class="badge-tag ok">时间戳</span></div></div>';
-          return;
-        }
-        var badge = "";
-        if (!it.exists) badge = '<span class="badge-tag miss">不存在</span>';
-        else if (it.key.indexOf("avatar_img_") >= 0) badge = '<span class="badge-tag ok">正常</span>';
-        else {
-          var mins = it.updatedAt ? agoMins(it.updatedAt, now) : null;
-          badge = (mins != null && mins < 70)
-            ? '<span class="badge-tag ok">健康 · ' + mins + " 分钟前</span>"
-            : '<span class="badge-tag stale">已陈旧</span>';
-        }
-        var isNum = it.entries != null;
-        html += '<div class="kv-card" data-key="' + esc(it.key) + '">'
-          + '<div class="card-top"><span class="kname">' + esc(it.key) + "</span>"
-          + '<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg></div>'
-          + '<div class="label">' + esc(it.label || "—") + "</div>"
-          + (isNum
-              ? '<div class="metric"><span class="num">' + it.entries + '</span><span class="unit">条记录</span></div>'
-              : '<div class="big-note">' + esc(it.note || "（非表格数据）") + "</div>")
-          + '<div class="card-meta"><span class="bytes">' + fmtBytes(it.bytes) + "</span>"
-          + (it.updatedAt ? '<span class="sep">·</span><span>更新于 ' + fmtTime(it.updatedAt) + "</span>" : "")
-          + '<span class="sep">·</span>' + badge + "</div></div>";
-      });
-      $("kvCards").innerHTML = html || '<div class="kv-card" style="cursor:default"><div class="muted">无数据</div></div>';
-      Array.prototype.forEach.call(document.querySelectorAll(".kv-card[data-key]"), function (card) {
-        card.onclick = function () { openDrawer(card.getAttribute("data-key")); };
-      });
+      var items = res.body.items || [], now = res.body.now || Date.now();
+      state.kvList = items;
+      renderSidebar(items, now);
     }).catch(function () {
-      $("kvCards").innerHTML = '<div class="kv-card" style="cursor:default"><div class="muted">加载失败，请检查网络</div></div>';
+      $("tableList").innerHTML = '<div class="tbl-item"><span class="ti-dot miss"></span><span class="ti-body"><span class="ti-name">加载失败</span><span class="ti-sub">请检查网络</span></span></div>';
     });
   }
+  function renderSidebar(items, now) {
+    var tables = items.filter(function (it) { return isTableKey(it.key); });
+    var html = "";
+    tables.forEach(function (it) {
+      var dot = !it.exists ? "miss" : ((it.updatedAt && agoMins(it.updatedAt, now) < 70) ? "ok" : "stale");
+      var cnt = it.entries == null ? "—" : it.entries;
+      html += '<button class="tbl-item" data-key="' + esc(it.key) + '" data-label="' + esc(it.label || it.key) + '">'
+        + '<span class="ti-dot ' + dot + '"></span>'
+        + '<span class="ti-body"><span class="ti-name">' + esc(it.label || it.key) + '</span>'
+        + '<span class="ti-sub">' + esc(it.key) + '</span></span>'
+        + '<span class="ti-count">' + esc(cnt) + '</span></button>';
+    });
+    $("tableList").innerHTML = html || '<div class="tbl-item"><span class="ti-body"><span class="ti-name muted">无数据表</span></span></div>';
+    Array.prototype.forEach.call(document.querySelectorAll(".tbl-item[data-key]"), function (b) {
+      b.onclick = function () { selectTable(b.getAttribute("data-key"), b.getAttribute("data-label")); };
+    });
 
-  /* ---------- 详情抽屉 ---------- */
-  function openDrawer(key) {
+    // 顶栏状态 + 侧栏脚注
+    var tsItem = null, avatarItem = null;
+    items.forEach(function (it) {
+      if (it.key.indexOf("last_refresh") === 0) tsItem = it;
+      if (it.key.indexOf("avatar_img_") === 0) avatarItem = it;
+    });
+    var mins = tsItem && tsItem.updatedAt ? agoMins(tsItem.updatedAt, now) : null;
+    var pill = $("topStatus");
+    pill.classList.toggle("stale", !(mins != null && mins < 70));
+    $("topStatusTxt").textContent = "最近刷新 · " + (mins == null ? "尚无记录" : agoTxt(mins));
+    pill.title = tsItem && tsItem.updatedAt ? fmtTime(tsItem.updatedAt) : "";
+
+    var foot = '<div class="row"><span>最近全量刷新</span><b>' + (tsItem && tsItem.updatedAt ? fmtTime(tsItem.updatedAt) : "—") + '</b></div>';
+    if (avatarItem) foot += '<div class="row"><span>头像图片缓存</span><b>' + (avatarItem.entries || 0) + ' 张</b></div>';
+    foot += '<div class="row"><span>数据源</span><b>Cloudflare KV</b></div>';
+    $("navFoot").innerHTML = foot;
+
+    // 默认选中第一张表
+    if (!state.currentKey && tables.length) selectTable(tables[0].key, tables[0].label || tables[0].key);
+    else {
+      var cur = document.querySelector('.tbl-item[data-key="' + (state.currentKey || "").replace(/"/g, '\\"') + '"]');
+      if (cur) cur.classList.add("active");
+    }
+  }
+
+  function selectTable(key, label) {
+    closeDrawer();
     state.currentKey = key;
-    state.rawData = null; state.totalEntries = null; state.truncated = false;
-    $("drawerKey").textContent = key;
-    $("rowDetail").style.display = "none";
-    $("viewSwitch").style.display = "none";
-    $("tblView").style.display = "none";
-    $("jsonView").style.display = "none";
-    $("noteLine").style.display = "none";
-    $("drawerMask").classList.add("on");
-    $("drawer").classList.add("on");
-    state.drawerOpen = true;
-    document.body.style.overflow = "hidden";
+    state.currentLabel = label || key;
+    Array.prototype.forEach.call(document.querySelectorAll(".tbl-item"), function (b) {
+      b.classList.toggle("active", b.getAttribute("data-key") === key);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".nav-item[data-view]"), function (n) { n.classList.remove("active"); });
+    switchView("table");
+    $("q").value = "";
     loadKvDetail();
   }
-  function closeDrawer() {
-    if (!state.drawerOpen) return;
-    state.drawerOpen = false;
-    $("drawerMask").classList.remove("on");
-    $("drawer").classList.remove("on");
-    document.body.style.overflow = "";
-    setTimeout(function () {
-      if (!state.drawerOpen && state.gridApi) state.gridApi.setGridOption("rowData", []);
-    }, 260);
-  }
-  $("btnCloseDrawer").onclick = closeDrawer;
-  $("drawerMask").onclick = closeDrawer;
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && state.drawerOpen) closeDrawer(); });
 
-  function loadKvDetail(limit) {
-    // 默认直接请求全量（管理页为内部低频工具；接口层不传 limit 仍为 30 条向后兼容）
-    var url = "/api/admin/kv?key=" + encodeURIComponent(state.currentKey) + "&limit=" + (limit || 20000);
-    $("tblCount").textContent = "加载中…";
+  /* ---------- 主区：加载当前 key ---------- */
+  function loadKvDetail() {
+    var url = "/api/admin/kv?key=" + encodeURIComponent(state.currentKey) + "&limit=20000";
+    $("tblName").textContent = state.currentLabel || state.currentKey;
+    $("tblMeta").innerHTML = '<span>加载中…</span>';
+    $("viewSwitch").style.display = "none";
     api(url).then(function (res) {
-      if (res.status === 401) { closeDrawer(); showLogin(); notice("口令失效", "err"); return; }
+      if (res.status === 401) { showLogin(); notice("口令失效", "err"); return; }
       var j = res.body;
-      if (!j.found) { showTextMode("（该 key 不存在或已过期）"); return; }
-      var meta = fmtBytes(j.bytes) + (j.updatedAt ? " · 更新于 " + fmtTime(j.updatedAt) : "") + (j.entries != null ? " · 共 " + j.entries + " 条" : "");
-      $("kvMeta").textContent = meta;
-      if (j.kind === "binary") { showTextMode("【图片字节缓存】" + (j.note || "") + "（字节 " + fmtBytes(j.bytes) + "），请通过 /api/avatar 正常访问"); return; }
-      if (j.kind === "ts") {
-        $("viewSwitch").style.display = "none";
-        $("tblView").style.display = "none";
-        $("jsonView").style.display = "none";
-        $("noteLine").style.display = "block";
-        $("noteLine").innerHTML = "<b>" + esc(state.currentKey) + "</b>：最近一次全量刷新完成于 <b>" + esc(j.readable || "") + "</b>"
-          + '<div class="faint" style="margin-top:4px">原始值（毫秒时间戳）：' + esc(j.raw || "") + "</div>";
-        return;
-      }
+      if (!j.found) { showNote("该 key 不存在或已过期（KV 中无此值）"); return; }
       state.rawData = j.data;
       state.totalEntries = j.entries;
       state.truncated = j.truncated === true;
-      if (state.rawData && isRecordArray(state.rawData)) {
-        state.view = "table";
-        renderTable();
-      } else {
-        showJsonView(j.sample || "（空）");
+      var meta = '<span class="k">' + esc(state.currentKey) + '</span><span class="sep">·</span>'
+        + '<span>' + fmtBytes(j.bytes) + '</span>'
+        + (j.updatedAt ? '<span class="sep">·</span><span>更新于 ' + fmtTime(j.updatedAt) + '</span>' : "")
+        + (j.entries != null ? '<span class="sep">·</span><span>共 ' + j.entries + " 条</span>" : "");
+      $("tblMeta").innerHTML = meta;
+
+      if (j.kind === "binary") { showNote("图片字节缓存：" + (j.note || "") + "（" + fmtBytes(j.bytes) + "），请通过 /api/avatar 正常访问"); return; }
+      if (j.kind === "ts") {
+        showNote("最近一次全量刷新完成于 <b>" + esc(j.readable || "") + "</b><br><span class='faint'>原始值（毫秒时间戳）：" + esc(j.raw || "") + "</span>");
+        return;
       }
-    }).catch(function () { showTextMode("加载失败，请检查网络"); });
+      if (isRecordArray(state.rawData)) { state.view = "table"; renderTable(); }
+      else showJsonView(prettyStr(j.sample != null ? j.sample : state.rawData));
+    }).catch(function () { showNote("加载失败，请检查网络"); });
   }
-  function showTextMode(txt) {
+  function showNote(html) {
     $("viewSwitch").style.display = "none";
-    $("tblView").style.display = "none";
+    $("gridWrap").classList.remove("on");
     $("jsonView").style.display = "none";
-    $("noteLine").style.display = "block";
-    $("noteLine").innerHTML = "<b>" + esc(state.currentKey) + "</b>：" + esc(txt);
+    var n = $("emptyNote");
+    n.classList.add("on");
+    n.innerHTML = '<div class="small" style="max-width:520px">' + html + "</div>";
   }
   function showJsonView(txt) {
     $("vwTable").classList.remove("on");
     $("vwJson").classList.add("on");
     $("viewSwitch").style.display = "flex";
-    $("tblView").style.display = "none";
-    $("noteLine").style.display = "none";
-    $("jsonView").style.display = "block";
-    $("jsonView").textContent = txt;
+    $("gridWrap").classList.remove("on");
+    $("emptyNote").classList.remove("on");
+    var v = $("jsonView");
+    v.style.display = "block";
+    v.textContent = txt;
+    state.view = "json";
   }
   function showTableView() {
     $("vwTable").classList.add("on");
     $("vwJson").classList.remove("on");
     $("viewSwitch").style.display = "flex";
-    $("tblView").style.display = "flex";
+    $("gridWrap").classList.add("on");
     $("jsonView").style.display = "none";
-    $("noteLine").style.display = "none";
+    $("emptyNote").classList.remove("on");
+    state.view = "table";
   }
   function isRecordArray(d) {
     if (!d || typeof d !== "object") return false;
     var arr = Array.isArray(d) ? d : (d.items && Array.isArray(d.items) ? d.items : null);
-    return arr && arr.length > 0 && arr[0] != null && typeof arr[0] === "object";
+    return !!(arr && arr.length > 0 && arr[0] != null && typeof arr[0] === "object");
   }
 
-  /* ---------- 行数据 ---------- */
+  /* ---------- 行处理 ---------- */
   function flattenRow(rec) {
     if (rec.fields && typeof rec.fields === "object" && !Array.isArray(rec.fields)) {
       var out = {};
@@ -589,13 +592,8 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
     }
     return rec;
   }
-  function prettyStr(v) {
-    try { return JSON.stringify(v, null, 1); } catch (e) { return String(v); }
-  }
-  function cellRaw(v) {
-    if (v == null) return "";
-    return typeof v === "object" ? JSON.stringify(v) : String(v);
-  }
+  function prettyStr(v) { try { return JSON.stringify(v, null, 1); } catch (e) { return String(v); } }
+  function cellRaw(v) { return v == null ? "" : (typeof v === "object" ? JSON.stringify(v) : String(v)); }
   function cellText(v) {
     if (v == null || v === "") return "·";
     if (typeof v === "object") {
@@ -618,7 +616,10 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
       defaultColDef: { sortable: true, resizable: true, filter: "agTextColumnFilter", floatingFilter: true },
       pagination: true, paginationPageSize: 100, paginationPageSizeSelector: [50, 100, 200, 500],
       enableBrowserTooltips: true, animateRows: false, rowSelection: "single",
-      onRowClicked: function (e) { if (e.node && e.node.data) showRowDetail(e.node.data); },
+      onRowClicked: function (e) {
+        if (!e.node || !e.node.data) return;
+        showRowDetail(e.node.data, e.node.rowIndex);
+      },
       getRowId: function (p) { return p.data.__rid; }
     });
   }
@@ -630,15 +631,11 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
     });
     cols.sort(function (a, b) {
       var ia = PRIO.indexOf(a), ib = PRIO.indexOf(b);
-      ia = ia < 0 ? 99 : ia; ib = ib < 0 ? 99 : ib;
-      return ia - ib;
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
     });
     ensureGrid();
-    var api = state.gridApi;
     var pinCol = null;
-    for (var i = 0; i < cols.length; i++) {
-      if (PRIO.indexOf(cols[i]) >= 0) { pinCol = cols[i]; break; }
-    }
+    for (var i = 0; i < cols.length; i++) { if (PRIO.indexOf(cols[i]) >= 0) { pinCol = cols[i]; break; } }
     var defs = [{
       headerName: "#", width: 56, pinned: "left", sortable: false, filter: false, floatingFilter: false,
       suppressMovable: true, cellClass: "cell-idx",
@@ -653,26 +650,107 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
         valueFormatter: function (p) { return cellText(p.data[p.colDef.field]); },
         tooltipValueGetter: function (p) {
           var v = p.data[p.colDef.field];
-          if (v == null || v === "") return null;
-          return typeof v === "object" ? prettyStr(v) : String(v);
+          return (v == null || v === "") ? null : (typeof v === "object" ? prettyStr(v) : String(v));
         },
-        cellClass: function (p) {
-          var v = p.data[p.colDef.field];
-          return (v == null || v === "") ? "cell-empty" : "";
-        }
+        cellClass: function (p) { var v = p.data[p.colDef.field]; return (v == null || v === "") ? "cell-empty" : ""; }
       });
     });
+    var api = state.gridApi;
     api.setGridOption("columnDefs", defs);
     api.setGridOption("rowData", rows);
+    api.setGridOption("quickFilterText", $("q").value || "");
     api.setFilterModel(null);
     api.paginationGoToFirstPage();
     showTableView();
-    updateCount();
   }
-  function updateCount() {
-    var loaded = state.rawData ? (Array.isArray(state.rawData) ? state.rawData : state.rawData.items).length : 0;
-    $("tblCount").textContent = "共 " + loaded + " 行";
+
+  /* ---------- 行详情抽屉 ---------- */
+  function showRowDetail(data, idx) {
+    var rec = flattenRow(data);   // 表格行已展平；这里兜底再处理一次，保证抽屉拿到的都是扁平字段
+    state.curRow = rec;
+    state.curIndex = (idx == null ? state.curIndex : idx);
+    var title = rec["姓名"] || rec.name || rec.title || rec["识别码"] || rec.memberCode || rec.id || rec.recordId || "记录详情";
+    $("drawerKey").textContent = String(title);
+    $("drawerMeta").textContent = state.currentLabel || state.currentKey || "";
+    var html = "";
+    Object.keys(rec).forEach(function (k) {
+      if (k === "__rid") return;
+      var v = rec[k], isObj = v != null && typeof v === "object";
+      html += "<tr><td>" + esc(k) + '</td><td>'
+        + (v == null ? '<span class="v-null">·</span>' : (isObj ? '<span class="v-obj">' + esc(prettyStr(v)) + "</span>" : esc(String(v))))
+        + "</td></tr>";
+    });
+    $("rdTable").innerHTML = html;
+    var raw = {};
+    Object.keys(rec).forEach(function (k) { if (k !== "__rid") raw[k] = rec[k]; });
+    state.curRowRaw = raw;
+    $("rdJsonView").textContent = prettyStr(raw);
+    $("rdIdx").textContent = (state.curIndex == null ? "" : "第 " + (state.curIndex + 1) + " 行");
+    setRdView("field");
+    $("drawerMask").classList.add("on");
+    $("drawer").classList.add("on");
+    state.drawerOpen = true;
   }
+  function setRdView(v) {
+    $("rdField").classList.toggle("on", v === "field");
+    $("rdJson").classList.toggle("on", v === "json");
+    $("rdFieldView").classList.toggle("off", v !== "field");
+    $("rdJsonView").classList.toggle("off", v !== "json");
+  }
+  function gotoRow(delta) {
+    if (!state.gridApi || state.curIndex == null) return;
+    var node = state.gridApi.getDisplayedRowAtIndex(state.curIndex + delta);
+    if (!node) { notice(delta < 0 ? "已经是第一条" : "已经是最后一条", "warn"); return; }
+    showRowDetail(node.data, node.rowIndex);
+  }
+  function closeDrawer() {
+    if (!state.drawerOpen) return;
+    state.drawerOpen = false;
+    state.curRow = null; state.curIndex = null;
+    $("drawerMask").classList.remove("on");
+    $("drawer").classList.remove("on");
+  }
+  $("btnCloseDrawer").onclick = closeDrawer;
+  $("drawerMask").onclick = closeDrawer;
+  $("rdField").onclick = function () { setRdView("field"); };
+  $("rdJson").onclick = function () { setRdView("json"); };
+  $("btnPrevRow").onclick = function () { gotoRow(-1); };
+  $("btnNextRow").onclick = function () { gotoRow(1); };
+  $("btnCopyJson").onclick = function () {
+    if (!state.curRowRaw) { notice("暂无内容", "warn"); return; }
+    var txt = prettyStr(state.curRowRaw);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { notice("已复制 JSON", "ok"); }, function () { notice("复制失败", "err"); });
+    } else notice("当前浏览器不支持复制", "warn");
+  };
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { if (state.drawerOpen) closeDrawer(); return; }
+    if (!state.drawerOpen) return;
+    var t = e.target || {};
+    if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") return;
+    if (e.key === "ArrowDown" || e.key === "j") { gotoRow(1); e.preventDefault(); }
+    if (e.key === "ArrowUp" || e.key === "k") { gotoRow(-1); e.preventDefault(); }
+  });
+
+  /* ---------- 工具栏 ---------- */
+  var qTimer = null;
+  $("q").addEventListener("input", function () {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(function () {
+      if (state.gridApi) state.gridApi.setGridOption("quickFilterText", $("q").value || "");
+    }, 180);
+  });
+  $("vwTable").onclick = function () {
+    if (state.rawData && isRecordArray(state.rawData)) renderTable();
+    else notice("该 key 不是记录数组，无表格视图", "warn");
+  };
+  $("vwJson").onclick = function () {
+    if (!state.rawData) { notice("暂无数据", "warn"); return; }
+    var s = prettyStr(state.rawData);
+    if (s.length > 3000000) s = s.slice(0, 3000000) + "\n…（内容过大已截断，完整数据请用表格或导出 CSV）";
+    showJsonView(s);
+  };
+  $("btnReload").onclick = function () { if (state.currentKey) loadKvDetail(); else loadKvList(); };
   $("btnCsv").onclick = function () {
     if (!state.gridApi || !state.gridApi.getDisplayedRowCount()) { notice("无数据可导出", "warn"); return; }
     state.gridApi.exportDataAsCsv({
@@ -682,27 +760,6 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
         return (typeof v === "string" && v.length > 2000) ? v.slice(0, 2000) + "…" : v;
       }
     });
-  };
-  function showRowDetail(rec) {
-    var title = rec["姓名"] || rec.name || rec.title || rec["识别码"] || rec.memberCode || rec.id || rec.recordId || "记录详情";
-    $("rdTitle").textContent = String(title);
-    var html = "";
-    Object.keys(rec).forEach(function (k) {
-      if (k === "__rid") return;
-      var v = rec[k], isObj = v != null && typeof v === "object";
-      var pretty = v == null ? "·" : prettyStr(v);
-      html += "<tr><td>" + esc(k) + "</td><td>" + (isObj ? '<span class="v-obj">' : "") + esc(pretty) + (isObj ? "</span>" : "") + "</td></tr>";
-    });
-    $("rdTable").innerHTML = html;
-    $("rowDetail").style.display = "block";
-  }
-  $("btnCloseRow").onclick = function () { $("rowDetail").style.display = "none"; };
-  $("vwTable").onclick = function () {
-    if (state.rawData && isRecordArray(state.rawData)) { renderTable(); }
-    else notice("该 key 不是记录数组，无表格视图", "warn");
-  };
-  $("vwJson").onclick = function () {
-    showJsonView(state.rawData ? prettyStr(state.rawData) : "（空）");
   };
 
   /* ---------- 一键刷新 ---------- */
@@ -727,18 +784,9 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
     $("refreshResult").innerHTML = '<div class="result-sub">执行中… 通常约 10~40 秒</div>';
     api("/api/admin/refresh", { method: "POST" }).then(function (res) {
       var j = res.body || {};
-      if (res.status === 401) {
-        $("refreshResult").innerHTML = '<div class="result-err">鉴权失败（401）：口令无效</div>';
-        showLogin(); return;
-      }
-      if (res.status === 429) {
-        $("refreshResult").innerHTML = '<div class="result-err">触发过密（429）：30 秒冷却中，请稍候再试</div>';
-        cooldownUntil = Date.now() + 30000; tickRefresh(); return;
-      }
-      if (!j.ok) {
-        $("refreshResult").innerHTML = '<div class="result-err">刷新失败：' + esc(j.error || "未知错误") + "</div>";
-        tickRefresh(); return;
-      }
+      if (res.status === 401) { $("refreshResult").innerHTML = '<div class="result-err">鉴权失败（401）：口令无效</div>'; showLogin(); return; }
+      if (res.status === 429) { $("refreshResult").innerHTML = '<div class="result-err">触发过密（429）：30 秒冷却中，请稍候再试</div>'; cooldownUntil = Date.now() + 30000; tickRefresh(); return; }
+      if (!j.ok) { $("refreshResult").innerHTML = '<div class="result-err">刷新失败：' + esc(j.error || "未知错误") + "</div>"; tickRefresh(); return; }
       var stats = [
         ["members_full · 社员", j.items], ["activity_records_v3 · 参与记录", j.activityItems],
         ["activity_projects_v1 · 活动项目", j.activityProjects], ["file_catalog_v1 · 文件目录", j.fileItems]
@@ -749,7 +797,8 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
       $("refreshResult").innerHTML = html;
       cooldownUntil = Date.now() + 30000;
       tickRefresh();
-      if (document.getElementById("viewKv").classList.contains("on")) loadKvOverview();
+      loadKvList();               // 侧栏条数与状态一起更新
+      if (state.currentKey) loadKvDetail();  // 当前表同步刷新
     }).catch(function () {
       $("refreshResult").innerHTML = '<div class="result-err">网络错误，刷新未完成</div>';
       tickRefresh();
@@ -768,7 +817,6 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
       }
       showApp(); if (!silent) notice("登录成功");
     }).catch(function () {
-      // 网络暂不可达也放行，进入后由列表加载提示
       if (!silent) notice("网络异常，已尝试进入", "warn");
       showApp();
     });

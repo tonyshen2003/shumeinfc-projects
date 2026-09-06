@@ -158,7 +158,7 @@
 
 ```
 ├── index.html          # H5 签到页（样式 + 交互 + 逻辑；NFC/扫码/新卡登记）
-├── admin.html          # 内部管理台（KV 表格浏览 AG Grid + 一键全量刷新，需 ADMIN_TOKEN）
+├── admin.html          # 内部管理台（左栏选表 / 中间 AG Grid 铺满 / 右侧行详情抽屉 + 一键全量刷新，需 ADMIN_TOKEN）
 ├── worker.js           # Cloudflare Worker（13 条公开 API + 3 条管理 API + KV 缓存，见文件头注释）
 ├── wrangler.jsonc      # Wrangler 部署配置（KV 绑定 / Cron 30 * * * * / routes）
 ├── .wranglerignore     # 部署排除规则（*.md / *.csv / api-baseline 等）
@@ -266,6 +266,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.16.0** | 2026-09-07 | 管理台改「左选表 · 中铺表 · 右看行」三栏：左栏切 4 张数据表，中间表格铺满，点行从右滑出该条完整字段 |
 | **1.13.0** | 2026-09-06 | 管理台表格升级 AG Grid（排序/列过滤/分页/CSV 导出，vendor/ 同域自托管）；`/api/admin/kv` 支持 `limit` 加载全部；修复大 key 表格不可用 |
 | **1.12.0** | 2026-09-06 | 内部管理台：`admin.html` + `/api/admin/kv/list`、`/api/admin/kv?key=`、`/api/admin/refresh`；独立 Secret `ADMIN_TOKEN`，管理端点 no-store 无 CORS |
 | **1.11.0** | 2026-09-06 | 社员证明：`/api/proof-files` + `/api/file`（白名单 PDF 代理，边缘 7d）；文件目录快照 `file_catalog_v1`（惰性 60min）纳入 cron/refresh；detail 新增 `joinDate`；目录接口新增 owner 字段 |
