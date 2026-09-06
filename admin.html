@@ -1,238 +1,383 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-page-node-id="W7abpmlWGFhIv2vWw7Dw1Q">
-<head data-page-node-id="i4wnGBCDlvVPpFXvpjHQ4D">
-<meta charset="UTF-8" data-page-node-id="ynqFmY5xoS5YQI14gRfaAD">
-<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="BJTLJN6fkLmVtb48dvNyRt">
+<html lang="zh-CN" data-page-node-id="MzNyASfzA987F9WIqOHVNn">
+<head data-page-node-id="rtqojcpk5gzWw0QKoSeFxJ">
+<meta charset="UTF-8" data-page-node-id="oHW94qr9ezWqBeAXsYKC7b">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="DRi4zyhzBeN1RfEs0mjN9q">
 <title>树莓社 · 内部管理台</title>
-<link rel="stylesheet" href="vendor/ag-grid/ag-grid.css" data-page-node-id="LHIe7CEif1ZTlZaJkb1QqI">
-<link rel="stylesheet" href="vendor/ag-grid/ag-theme-alpine.min.css" data-page-node-id="fnXOHFouaemVaUdFKgASAN">
+<link rel="stylesheet" href="vendor/ag-grid/ag-grid.css" data-page-node-id="gbNVW6AlWgetUQtoy5rtkD">
+<link rel="stylesheet" href="vendor/ag-grid/ag-theme-alpine.min.css" data-page-node-id="XZOudtnlvq8Dz1dJ08JSPv">
 <style>
-  /* 设计规范：DESIGN.md —— 飞书风格（浅色；不用暗色主题/渐变按钮；圆角 <= 12px） */
-  :root{
-    --bg:#F5F6F7; --card:#FFFFFF;
-    --blue:#3370FF; --blue-hover:#2B5FD9; --blue-bg:#EBF1FF;
-    --green:#34C724; --green-bg:#EAF9E9;
-    --red:#F54A4A; --red-bg:#FEEEEE;
-    --orange:#FF8800; --orange-bg:#FFF4E5;
-    --ink:#1F2329; --sub:#646A73; --faint:#8F959E;
-    --line:#DEE0E3; --divider:#F0F1F2; --hover:#F7F9FC;
-    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"SF Pro","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
-  .wrap{max-width:1320px;margin:0 auto;padding:20px 18px 48px}
-  .mono{font-family:var(--mono)}
-  button{font:inherit;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:7px 16px;font-weight:500;font-size:13px;transition:background .15s ease;background:#fff;color:var(--sub)}
-  button:hover{border-color:var(--blue);color:var(--blue)}
-  button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
-  button.primary:hover{background:var(--blue-hover);color:#fff}
-  button.primary:disabled{background:#A9C0F0;cursor:not-allowed;border-color:transparent}
-  button.mini{padding:3px 12px;font-size:12px}
-  input[type=password]{font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:#fff;color:var(--ink)}
-  input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(51,112,255,.12)}
-  .muted{color:var(--sub);font-size:12px}
-  .faint{color:var(--faint);font-size:11px}
+/* ============ Semi Design 设计变量（抖音设计系统，semi.design 官方默认主题取值） ============ */
+:root{
+  /* 主色（semi-blue-5） */
+  --blue:#0064FA; --blue-hover:#0062D6; --blue-active:#004FB3; --blue-0:#EAF5FF; --blue-1:#CBE7FE;
+  /* 文本（semi-grey-9 及透明度阶梯） */
+  --ink:#1C1F23; --ink-1:rgba(28,31,35,.80); --ink-2:rgba(28,31,35,.62); --ink-3:rgba(28,31,35,.35);
+  /* 边框 / 分隔（grey-9 @ 8%） */
+  --border:rgba(28,31,35,.08); --divider:rgba(28,31,35,.05); --bg-hover:#F9F9F9;
+  /* 功能色 */
+  --green:#3BB346; --green-bg:#ECF7EC; --red:#F93920; --red-bg:#FEF2ED; --amber:#C88A0F; --amber-bg:#FEFBED;
+  /* 画布与卡片 */
+  --canvas:#F5F6F8; --card:#FFFFFF;
+  /* 圆角（semi：large 12 / medium 6 / small 3） */
+  --r-lg:12px; --r-md:6px; --r-sm:3px;
+  /* 阴影（克制层级） */
+  --sh-1:0 1px 2px rgba(28,31,35,.04),0 1px 6px rgba(28,31,35,.03);
+  --sh-2:0 4px 12px rgba(28,31,35,.08); --sh-3:0 8px 28px rgba(28,31,35,.14);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--canvas);color:var(--ink);font:14px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--mono)}
+.muted{color:var(--ink-2);font-size:12.5px}
+.faint{color:var(--ink-3);font-size:11.5px}
 
-  header.top{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-  header.top h1{font-size:18px;font-weight:600}
-  header.top .sub{color:var(--sub);font-size:12px;margin-top:2px}
-  header.top .right{margin-left:auto;font-size:12px;color:var(--faint)}
-  #logoutBtn{cursor:pointer;color:var(--blue);margin-left:12px;font-size:12px;background:none;border:none}
-  #logoutBtn:hover{text-decoration:underline}
+/* ---------- 按钮（Semi 风格） ---------- */
+button{font:inherit;cursor:pointer;border:1px solid transparent;border-radius:var(--r-md);background:#fff;
+  color:var(--ink-1);font-weight:500;font-size:13px;transition:all .15s ease;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn{padding:6px 14px;height:32px;border-color:rgba(28,31,35,.12)}
+.btn:hover{border-color:var(--blue);color:var(--blue);background:#fff}
+.btn:active{background:var(--bg-hover)}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff;height:34px;padding:6px 18px;font-weight:500}
+.btn-primary:hover{background:var(--blue-hover);border-color:var(--blue-hover);color:#fff}
+.btn-primary:active{background:var(--blue-active)}
+.btn-primary:disabled{background:rgba(0,100,250,.35);border-color:transparent;cursor:not-allowed;color:#fff}
+.btn-light{background:var(--blue-0);border-color:transparent;color:var(--blue);height:30px;padding:4px 13px;font-size:12.5px}
+.btn-light:hover{background:var(--blue-1);color:var(--blue-hover)}
+.btn-light:disabled{opacity:.55;cursor:not-allowed}
+.btn-mini{height:26px;padding:2px 10px;font-size:12px}
+.icon{width:15px;height:15px;flex:none}
+button .icon{width:15px;height:15px}
 
-  /* 登录 */
-  #loginView{max-width:400px;margin:9vh auto 0;text-align:center}
-  #loginView .logo{width:52px;height:52px;border-radius:10px;background:var(--blue);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;margin-bottom:14px}
-  #loginView .tip{font-size:12px;color:var(--faint);margin-top:12px;line-height:1.8}
-  .field{margin:12px 0;text-align:left}
-  .field label{font-size:12px;color:var(--sub);display:block;margin-bottom:4px}
-  #btnLogin{width:100%;padding:10px}
+input[type=password],input[type=search]{font:inherit;border:1px solid rgba(28,31,35,.14);border-radius:var(--r-md);padding:7px 12px;background:#fff;color:var(--ink);outline:none;transition:all .15s}
+input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,100,250,.14)}
 
-  /* Tab */
-  .tabs{display:flex;gap:28px;border-bottom:1px solid var(--line);padding:0 4px}
-  .tab{padding:10px 2px;font-weight:500;color:var(--sub);cursor:pointer;font-size:14px;border-bottom:2px solid transparent;margin-bottom:-1px}
-  .tab:hover{color:var(--ink)}
-  .tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
-  .panel{display:none;padding-top:14px}
-  .panel.active{display:block}
+/* ---------- 登录 ---------- */
+#loginMask{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(1100px 500px at 15% -10%,rgba(0,100,250,.07),transparent 60%),var(--canvas)}
+.login-card{width:392px;max-width:calc(100vw - 40px);background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:34px 34px 28px}
+.login-logo{width:52px;height:52px;border-radius:10px;background:linear-gradient(135deg,#2378FF,#0057E8);
+  color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 6px 14px rgba(0,100,250,.28)}
+.login-card h1{font-size:18px;font-weight:600}
+.login-card .sub{color:var(--ink-2);font-size:12.5px;margin:2px 0 22px}
+.login-card .field{margin:14px 0}
+.login-card label{display:block;font-size:12px;color:var(--ink-1);margin-bottom:6px;font-weight:500}
+.login-card input{width:100%;height:36px}
+.login-card #btnLogin{width:100%;height:38px;margin-top:6px}
+.login-tip{font-size:11.5px;color:var(--ink-3);margin-top:14px;line-height:1.7}
 
-  /* KV 总览表 */
-  table.overview{width:100%;border-collapse:collapse;font-size:13px}
-  table.overview th{text-align:left;color:var(--faint);font-weight:500;font-size:12px;padding:8px;border-bottom:1px solid var(--line);background:#FAFBFC;white-space:nowrap}
-  table.overview td{padding:9px 8px;border-bottom:1px solid var(--divider);vertical-align:middle}
-  tr.kvrow{cursor:pointer}
-  tr.kvrow:hover td{background:var(--hover)}
-  tr.kvrow:last-child td{border-bottom:none}
-  .badge{display:inline-block;font-size:11px;border-radius:4px;padding:1px 8px;font-weight:500;white-space:nowrap}
-  .badge.ok{background:var(--green-bg);color:var(--green)}
-  .badge.stale{background:var(--orange-bg);color:#E07000}
-  .badge.miss{background:var(--red-bg);color:var(--red)}
-  .kname{font-family:var(--mono);font-size:12px;font-weight:600}
+/* ---------- App 骨架：顶栏 + 侧导航 + 内容 ---------- */
+.app{display:none;height:100vh;flex-direction:column}
+.app.on{display:flex}
+.topbar{height:54px;flex:none;background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;padding:0 20px;position:relative;z-index:20}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand-logo{width:28px;height:28px;border-radius:6px;flex:none;background:linear-gradient(135deg,#2378FF,#0057E8);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+.brand-name{font-size:15px;font-weight:600;white-space:nowrap}
+.brand-sub{color:var(--ink-3);font-size:11px;margin-left:10px;border-left:1px solid var(--divider);padding-left:10px;white-space:nowrap}
+.topbar .right{margin-left:auto;display:flex;align-items:center;gap:6px}
+.env-tag{font-size:11px;color:var(--blue);background:var(--blue-0);border-radius:var(--r-sm);padding:1px 8px;font-weight:500}
+#userInfo{font-size:12px;color:var(--ink-2)}
+#logoutBtn{height:28px;padding:0 10px;font-size:12px;color:var(--ink-2)}
+#logoutBtn:hover{color:var(--red);border-color:rgba(249,57,32,.4)}
 
-  /* KV 详情 */
-  #kvDetail{margin-top:16px;border:1px solid var(--line);border-radius:10px;display:none;overflow:hidden}
-  .detail-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;background:#FAFBFC;border-bottom:1px solid var(--divider)}
-  .detail-head .k{font-family:var(--mono);font-size:14px;font-weight:700}
-  .detail-head .meta{font-size:12px;color:var(--faint)}
-  .detail-head .spacer{flex:1}
-  .view-switch{display:none;flex-direction:row;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-  .view-switch button{border:none;border-radius:0;background:#fff;padding:4px 16px;font-size:12.5px}
-  .view-switch button.on{background:var(--blue);color:#fff}
+.layout{flex:1;display:flex;min-height:0}
+/* 侧导航 */
+.nav{width:216px;flex:none;background:var(--card);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto}
+.nav-group{font-size:11px;color:var(--ink-3);padding:12px 10px 6px;font-weight:600;letter-spacing:.02em}
+.nav-item{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border-radius:var(--r-md);
+  color:var(--ink-1);font-size:13.5px;background:none;border:none;text-align:left;margin:1px 0;justify-content:flex-start;height:auto}
+.nav-item:hover{background:var(--bg-hover);color:var(--ink)}
+.nav-item.active{background:var(--blue-0);color:var(--blue);font-weight:600}
+.nav-item.disabled{color:var(--ink-3);cursor:not-allowed;opacity:.75}
+.nav-item .icon{width:16px;height:16px;color:var(--ink-2)}
+.nav-item.active .icon,.nav-item:hover .icon{color:inherit}
+.nav-tag{margin-left:auto;font-size:10px;background:rgba(28,31,35,.06);color:var(--ink-2);padding:0 7px;border-radius:8px;height:16px;line-height:16px}
+.nav-foot{margin-top:auto;padding:12px 10px 4px;font-size:11px;color:var(--ink-3);line-height:1.7}
 
-  /* 表格工具栏（AG Grid 版） */
-  .kv-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--divider)}
-  .kv-toolbar .count{font-size:12px;color:var(--faint);white-space:nowrap}
-  .kv-toolbar .spacer{flex:1}
-  .hint{font-size:11.5px;color:var(--faint)}
-  .hint b{color:var(--blue);font-weight:600}
+/* 内容区 */
+.content{flex:1;min-width:0;overflow-y:auto;padding:22px 24px 16px}
+.view{display:none;max-width:1280px;margin:0 auto}
+.view.on{display:block}
+.page-head{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.page-head h2{font-size:19px;font-weight:600;line-height:1.3}
+.page-head p{color:var(--ink-2);font-size:12.5px;margin-top:3px}
+.page-head .actions{margin-left:auto;display:flex;gap:8px;padding-bottom:4px}
 
-  /* AG Grid 容器：alpine 浅色主题 + 飞书蓝强调 + 紧凑行高 */
-  #gridBox{height:56vh;width:100%}
-  .ag-theme-alpine{
-    --ag-alpine-active-color:#3370FF; --ag-accent-color:#3370FF;
-    --ag-selected-row-background-color:#EBF1FF;
-    --ag-header-background-color:#FAFBFC; --ag-odd-row-background-color:#FCFDFE;
-    --ag-row-hover-color:#F0F5FF;
-    --ag-font-family:-apple-system,BlinkMacSystemFont,"SF Pro","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    --ag-font-size:12.5px; --ag-row-height:32px; --ag-header-height:38px;
-    --ag-border-radius:0; --ag-border-color:var(--line);
-  }
-  .ag-theme-alpine .ag-header-cell-text{font-weight:600;color:var(--sub)}
-  .ag-theme-alpine .ag-cell{line-height:32px}
-  .cell-empty{color:#C4CAD2}
-  .cell-idx{color:var(--faint);font-size:11px}
+/* ---------- KV 卡片网格（Dashboard 总览） ---------- */
+.kv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(262px,1fr));gap:14px}
+.kv-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:16px 16px 13px;cursor:pointer;transition:all .18s ease;position:relative;overflow:hidden}
+.kv-card:hover{border-color:rgba(0,100,250,.45);box-shadow:0 4px 16px rgba(0,100,250,.09);transform:translateY(-1px)}
+.kv-card .card-top{display:flex;align-items:center;gap:8px;min-width:0}
+.kv-card .kname{font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kv-card .arrow{color:var(--ink-3);opacity:0;transition:all .18s;margin-left:auto;flex:none;width:14px;height:14px}
+.kv-card:hover .arrow{opacity:1;color:var(--blue)}
+.kv-card .label{font-size:12px;color:var(--ink-2);margin-top:1px;min-height:18px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kv-card .metric{display:flex;align-items:baseline;gap:6px;margin:10px 0 2px}
+.kv-card .metric .num{font-size:26px;font-weight:600;font-family:var(--mono);letter-spacing:-.5px;line-height:1.15}
+.kv-card .metric .unit{font-size:11.5px;color:var(--ink-3)}
+.kv-card .card-meta{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-3);margin-top:8px;
+  border-top:1px solid var(--divider);padding-top:9px;flex-wrap:wrap;row-gap:4px}
+.kv-card .card-meta .sep{color:var(--ink-3);opacity:.5}
+.kv-card .big-note{font-size:12.5px;color:var(--ink-2);margin:8px 0 2px}
+.kv-card .bytes{font-family:var(--mono)}
+.badge-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;border-radius:var(--r-sm);padding:0 7px;height:19px;line-height:19px;white-space:nowrap}
+.badge-tag::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex:none}
+.badge-tag.ok{background:var(--green-bg);color:var(--green)}
+.badge-tag.stale{background:var(--amber-bg);color:var(--amber)}
+.badge-tag.miss{background:var(--red-bg);color:var(--red)}
+.badge-tag.info{background:var(--blue-0);color:var(--blue)}
+.badge-tag.info::before{display:none}
 
-  /* 行展开详情 */
-  #rowDetail{display:none;border-top:1px solid var(--line);background:#FBFCFE}
-  #rowDetail .rd-head{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--divider);font-weight:600;font-size:13px}
-  #rowDetail .rd-head .spacer{flex:1}
-  #rowDetail .rd-body{overflow:auto;max-height:32vh}
-  table.rd{border-collapse:collapse;width:100%;font-size:12.5px}
-  table.rd td{padding:5px 12px;border-bottom:1px solid var(--divider);vertical-align:top}
-  table.rd td:first-child{width:220px;font-family:var(--mono);font-size:11.5px;color:var(--sub);background:#FAFBFC;white-space:nowrap}
-  table.rd td:last-child{color:#2B3038;word-break:break-all;white-space:pre-wrap;font-family:var(--mono);font-size:11.5px}
-  .v-obj{color:var(--blue)}
+/* ---------- 刷新视图 ---------- */
+.refresh-card{max-width:680px;margin:26px auto 0;background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r-lg);padding:26px 28px;box-shadow:var(--sh-1)}
+.refresh-card h3{font-size:15.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+.refresh-card .desc{color:var(--ink-2);font-size:12.5px;margin:6px 0 18px;line-height:1.8}
+#btnRefresh{width:100%;height:42px;font-size:15px;font-weight:600}
+#btnRefresh .icon{width:16px;height:16px}
+#refreshResult{display:none;margin-top:18px;border-top:1px solid var(--divider);padding-top:16px}
+.result-ok{display:flex;align-items:center;gap:8px;color:var(--green);font-weight:600;font-size:14px}
+.result-err{display:flex;align-items:center;gap:8px;color:var(--red);font-weight:600;font-size:14px}
+.result-sub{color:var(--ink-2);font-size:12px;margin:6px 0 12px}
+.mini-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.mini-stat{background:var(--bg-hover);border-radius:var(--r-md);padding:11px 13px}
+.mini-stat .t{font-size:11.5px;color:var(--ink-2)}
+.mini-stat .n{font-family:var(--mono);font-size:18px;font-weight:600;margin-top:2px}
 
-  /* JSON 视图 */
-  pre.json{background:#FAFBFC;color:#2B3038;padding:14px 16px;font:12px/1.65 var(--mono);overflow:auto;max-height:56vh;white-space:pre;display:none;margin:0}
+/* ---------- 详情抽屉（右侧滑出） ---------- */
+.drawer-mask{position:fixed;inset:0;background:rgba(28,31,35,.42);z-index:60;display:none;opacity:0;transition:opacity .2s}
+.drawer-mask.on{display:block;opacity:1}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(1080px,100vw);background:var(--card);
+  z-index:61;transform:translateX(100%);transition:transform .24s cubic-bezier(.2,.8,.3,1);
+  display:flex;flex-direction:column;box-shadow:-12px 0 40px rgba(28,31,35,.14)}
+.drawer.on{transform:translateX(0)}
+.drawer-head{flex:none;display:flex;align-items:center;gap:12px;padding:0 20px;height:56px;border-bottom:1px solid var(--border)}
+.drawer-head .k{font-family:var(--mono);font-size:14.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drawer-head .meta{font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.drawer-head .spacer{flex:1}
+.view-switch{display:flex;border:1px solid rgba(28,31,35,.14);border-radius:var(--r-md);overflow:hidden;height:28px;flex:none}
+.view-switch button{border:none;border-radius:0;background:#fff;padding:0 15px;height:26px;font-size:12.5px;color:var(--ink-2);display:inline-flex;align-items:center;gap:5px}
+.view-switch button.on{background:var(--blue-0);color:var(--blue);font-weight:600}
+.drawer-head .btn-x{width:30px;height:30px;padding:0;border:none;color:var(--ink-2);border-radius:var(--r-md);flex:none}
+.drawer-head .btn-x:hover{background:var(--bg-hover);color:var(--ink)}
+.drawer-body{flex:1;min-height:0;display:flex;flex-direction:column}
+.drawer-toolbar{flex:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 20px;border-bottom:1px solid var(--divider)}
+.drawer-toolbar .count{font-size:12px;color:var(--ink-2)}
+.drawer-toolbar .hint{font-size:11.5px;color:var(--ink-3)}
+.drawer-toolbar .spacer{flex:1}
+/* AG Grid（alpine 主题 → Semi 主色与细边框） */
+.grid-wrap{flex:1;min-height:0;position:relative}
+#gridBox{position:absolute;inset:0;width:100%;height:100%}
+.ag-theme-alpine{
+  --ag-alpine-active-color:#0064FA; --ag-accent-color:#0064FA;
+  --ag-selected-row-background-color:#EAF5FF; --ag-row-hover-color:#F2F8FF;
+  --ag-header-background-color:#FAFAFA; --ag-odd-row-background-color:#FCFCFD;
+  --ag-border-color:rgba(28,31,35,.08); --ag-font-family:var(--sans); --ag-font-size:12.5px;
+  --ag-row-height:32px; --ag-header-height:40px; --ag-border-radius:0;
+}
+.ag-theme-alpine .ag-header-cell-text{font-weight:600;color:rgba(28,31,35,.62)}
+.ag-theme-alpine .ag-floating-filter-input input[type=text]{border:1px solid rgba(28,31,35,.14);border-radius:4px;height:22px;font-size:12px}
+.cell-empty{color:rgba(28,31,35,.28)}
+.cell-idx{color:var(--ink-3);font-size:11px}
+/* 行详情（抽屉内底部） */
+#rowDetail{flex:none;display:none;border-top:1px solid var(--border);max-height:34%;overflow:auto;background:#FCFCFD}
+#rowDetail .rd-head{position:sticky;top:0;display:flex;align-items:center;gap:10px;padding:8px 20px;border-bottom:1px solid var(--divider);font-weight:600;font-size:13px;background:#FAFAFA;z-index:2}
+#rowDetail .rd-head .spacer{flex:1}
+table.rd{border-collapse:collapse;width:100%;font-size:12.5px}
+table.rd td{padding:6px 20px;border-bottom:1px solid var(--divider);vertical-align:top}
+table.rd td:first-child{width:230px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);background:#F9F9F9;white-space:nowrap}
+table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;font-family:var(--mono);font-size:11.5px}
+.v-obj{color:var(--blue)}
+pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/1.7 var(--mono);
+  color:#26292D;white-space:pre;display:none;background:#FCFCFD}
+.note-line{flex:none;padding:14px 20px;font-size:12.5px;color:var(--ink-2);background:#FCFCFD;display:none}
+.note-line b{font-family:var(--mono)}
 
-  /* 刷新页 */
-  .refreshBig{width:100%;padding:14px;font-size:15px;font-weight:600;border-radius:8px;background:var(--blue);color:#fff;border:none}
-  .refreshBig:hover{background:var(--blue-hover);color:#fff}
-  .refreshBig:disabled{background:#A9C0F0;cursor:not-allowed}
-  .result{margin-top:14px;display:none;font-size:13px}
-  .result .ok{color:var(--green);font-weight:600}
-  .result .err{color:var(--red);font-weight:600}
-  table.rt{width:auto;margin-top:10px;border-collapse:collapse}
-  table.rt td{font-family:var(--mono);font-size:12px;padding:5px 20px 5px 0;border:none}
+/* ---------- 通知（右上 Toast） ---------- */
+#notice{position:fixed;top:14px;right:14px;z-index:90;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast-item{pointer-events:auto;background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);
+  box-shadow:var(--sh-2);padding:9px 14px;font-size:13px;display:flex;align-items:center;gap:9px;min-width:220px;max-width:380px;
+  animation:toastIn .18s ease}
+.toast-item .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.toast-item.ok .dot{background:var(--green)} .toast-item.err .dot{background:var(--red)} .toast-item.warn .dot{background:var(--amber)} .toast-item.info .dot{background:var(--blue)}
+@keyframes toastIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
 
-  #toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#fff;color:var(--ink);padding:8px 18px;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(31,35,41,.14);border:1px solid var(--line);display:none;z-index:99;max-width:80vw}
-  .foot{margin-top:24px;color:var(--faint);font-size:11px;text-align:center}
+/* 页脚 */
+.page-foot{max-width:1280px;margin:22px auto 0;color:var(--ink-3);font-size:11px;display:flex;gap:14px;flex-wrap:wrap}
+@media (max-width:900px){
+  .layout{flex-direction:column}
+  .nav{width:100%;flex-direction:row;border-right:none;border-bottom:1px solid var(--border);padding:8px;overflow-x:auto}
+  .nav-group{display:none} .nav-foot{display:none}
+  .nav-item{width:auto;white-space:nowrap;margin:0 2px}
+  .drawer{width:100vw}
+  .kv-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+}
 </style>
 </head>
-<body data-page-node-id="PtDpsYELLd7TbhAQT8jvCH">
-<div id="toast" data-page-node-id="G9FIH7UtEs5eTPyx9OsL9k"></div>
+<body data-page-node-id="Hs7UV0BzRHzgurTQ1oyXsk">
 
-<div class="wrap" data-page-node-id="SJenhMl8HRHTEf1vbf6ygX">
-  <header class="top" data-page-node-id="eUzxh2HpCEHkdXitngSRj6">
-    <div data-page-node-id="dEmzBaCmcUdfkZHjBDLHLc">
-      <h1 data-page-node-id="tBmaOZ6BQvHSqv8ItsRkI1">树莓社 · 内部管理台</h1>
-      <div class="sub" data-page-node-id="J7alLr4JbdS5Sc0r5IrXPv">KV 快照浏览（AG Grid 表格）· 一键全量刷新</div>
+<!-- ============ 登录 ============ -->
+<div id="loginMask" data-page-node-id="tPyfpYTlKF5oxgWq1rCVBZ">
+  <div class="login-card" data-page-node-id="gnTrlsBri70apnJz1sBW3u">
+    <div class="login-logo" data-page-node-id="Z43COQl7XqC67FkpLt9Wnv">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="0lADqOvILGFBFW1LZbiVbD"><ellipse cx="12" cy="6" rx="8" ry="3.2" data-page-node-id="sPdEh8qdEG7BXgwwjt1pSh"></ellipse><path d="M4 6v12c0 1.77 3.58 3.2 8 3.2s8-1.43 8-3.2V6" data-page-node-id="RzYAoD9ZekMFSw2kZwYE4z"></path><path d="M4 12c0 1.77 3.58 3.2 8 3.2s8-1.43 8-3.2" data-page-node-id="vrfJo1zZ49ZbU85c2ZkDd2"></path></svg>
     </div>
-    <div class="right" data-page-node-id="QKQzYQ4DhRKDRa7rDbEBUh"><span id="userInfo" data-page-node-id="3Be7pWrh7AGG1XgFBqs4Kj"></span><button id="logoutBtn" style="display:none" data-page-node-id="RMf5cSmHgxHyKqq6Bxs6oH">退出</button></div>
+    <h1 data-page-node-id="K3GHJsFo9nU7dp1GG10chZ">树莓社 · 内部管理台</h1>
+    <p class="sub" data-page-node-id="Jeu5rCRJXnXt6lqkrFbpzF">KV 快照浏览与全量刷新</p>
+    <div class="field" data-page-node-id="SV59ZEESQFvU2Yy1M7nd7G">
+      <label for="tokenInput" data-page-node-id="Y86S8gI6OPps66mFBHpqtq">管理口令</label>
+      <input type="password" id="tokenInput" placeholder="请输入 ADMIN_TOKEN" autocomplete="off" spellcheck="false" data-page-node-id="2TZbLICK1DYmfMScRcy2nh">
+    </div>
+    <button class="btn-primary" id="btnLogin" data-page-node-id="Mg8ERKfd558YWwHAEgn5Hw">进入管理台</button>
+    <p class="login-tip" data-page-node-id="pVjtyn9pK8sDDiXh3ya7ji">口令 = 环境变量 <span class="mono" data-page-node-id="0HdqC0wGWEwg1GDvyXvdv2">ADMIN_TOKEN</span> 的值，仅保存在本次浏览器会话中，关闭页面即失效。</p>
+  </div>
+</div>
+
+<!-- ============ 主应用 ============ -->
+<div class="app" id="app" data-page-node-id="A5G6xtiM3iegAv6DVEAT4R">
+  <header class="topbar" data-page-node-id="ZHbRl9pdmYWZnON1dVNLR0">
+    <div class="brand" data-page-node-id="wyiFmiLVyBboiX0Z5L5CGk">
+      <div class="brand-logo" data-page-node-id="VsJw5oAl2nxvfm5S9GNSHg">树</div>
+      <div class="brand-name" data-page-node-id="9He0lmAhrk3FtZVFtS56a5">树莓社管理台</div>
+      <span class="brand-sub" data-page-node-id="4DEN6ZyVWaEgIm0fj3BZn5">数据运营 · 内部工具</span>
+    </div>
+    <div class="right" data-page-node-id="1IyWC1rn7UuWL9BM6XmNX3">
+      <span class="env-tag" data-page-node-id="pn4ZphxfeQE4ET0rGsslnM">PROD · nfc.raspjam.com</span>
+      <span id="userInfo" data-page-node-id="PM4koTSDpH5jgkEVdIRXx4"></span>
+      <button id="logoutBtn" data-page-node-id="i9eeDGasKH3GGtQJD4BU2W">退出登录</button>
+    </div>
   </header>
 
-  <!-- ===== 登录 ===== -->
-  <div id="loginView" data-page-node-id="wIe5WuCJ30jLiAVGV50Rus">
-    <div class="logo" data-page-node-id="Ia7iu31X7uPHbvCMlf4SGl">树</div>
-    <h2 style="font-size:18px;font-weight:600;margin-bottom:2px" data-page-node-id="T2pBByIRAgqBBfPq77vNFC">请输入管理口令</h2>
-    <p class="muted" data-page-node-id="uxBvgF3FiahuZIAI4GKVMA">口令 = 环境变量 <span class="mono" data-page-node-id="Huy8TZCljQMd3JzRy8qc8c">ADMIN_TOKEN</span> 的值（管理员生成并私发给你）</p>
-    <div class="field" data-page-node-id="9O4IzZ32q4sWZdLPnUQ8fI"><label for="tokenInput" data-page-node-id="S73UXbZOf3B6QReAtWp6Ou">管理口令</label><input type="password" id="tokenInput" placeholder="请输入 ADMIN_TOKEN" autocomplete="off" data-page-node-id="sk2xZqSGKA6tJ46aCrOlaZ"></div>
-    <button class="primary" id="btnLogin" data-page-node-id="iOBfs43SrOmMR60QlZ8iqR">进入管理台</button>
-    <p class="tip" data-page-node-id="QamhIcA0IeNEyyCtk3wR7A">口令仅保存在本次浏览器会话中（sessionStorage），关闭页面即失效。</p>
+  <div class="layout" data-page-node-id="C9cJee6MFxNDccUbIXDR8J">
+    <!-- 侧导航 -->
+    <aside class="nav" data-page-node-id="yAwPDcoTN6T0xNN0UYqu0G">
+      <div class="nav-group" data-page-node-id="Oo1k1Cf91xaFPzZqeuw3ZH">数据</div>
+      <button class="nav-item active" data-view="kv" data-page-node-id="IAOAAqk6GrVhuOSGPP1Wc3">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="pwXWd7bydu8zCAVHm43Qk5"><ellipse cx="12" cy="5.6" rx="8.5" ry="2.9" data-page-node-id="VC2jwt83VMYbZPSwq9njMk"></ellipse><path d="M3.5 5.6V18.4c0 1.6 3.8 2.9 8.5 2.9s8.5-1.3 8.5-2.9V5.6" data-page-node-id="I2EOsNjpzW39IQDNnxXkdQ"></path><path d="M3.5 12c0 1.6 3.8 2.9 8.5 2.9s8.5-1.3 8.5-2.9" data-page-node-id="hodzW05xgypi33D9A9IoEg"></path></svg>
+        KV 快照
+      </button>
+      <div class="nav-group" data-page-node-id="0VeSD7G1xJJaHHbwnsXZe0">运维</div>
+      <button class="nav-item" data-view="refresh" data-page-node-id="B87dAVoTe2bX8iEdI2w6e9">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="Ik4ACnCAjxdtwKmErNzjow"><polyline points="23 4 23 10 17 10" data-page-node-id="z0lBfwdLQ7NuYcG4AVUXzo"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" data-page-node-id="dwKe9Zgxx5DAsbrINNUCXN"></path></svg>
+        一键全量刷新
+      </button>
+      <div class="nav-group" data-page-node-id="t2JIVsKW4hFGMTxaF69q5r">规划</div>
+      <button class="nav-item disabled" title="字段级隐私开关，规划中" data-page-node-id="lwyEKYQCqoPaRXo0D964AT">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="qDC1MpFgYUtpI9f9yWYHCx"><rect x="3" y="11" width="18" height="11" rx="2" data-page-node-id="9yFEoHyMrcl9ddF98qrhaV"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4" data-page-node-id="OgGAXmoGSvgDEpICVEGAH4"></path></svg>
+        数据开关
+        <span class="nav-tag" data-page-node-id="FUF1Xad89dHWHE1CPjZJlX">规划中</span>
+      </button>
+      <div class="nav-foot" data-page-node-id="eREXWMEKGYfOMlSGVtSmff">请求带 Bearer 口令 · 响应 no-store<br data-page-node-id="2JMY5wFZanPfDM92XKeVZx">数据源：Cloudflare KV 快照</div>
+    </aside>
+
+    <!-- 内容区 -->
+    <main class="content" data-page-node-id="IphV8NaKEVjcuKBw1cklRj">
+
+      <!-- KV 视图 -->
+      <section class="view on" id="viewKv" data-page-node-id="qsGkdGHpPcZmdgIDKfAdEG">
+        <div class="page-head" data-page-node-id="MghWzP56rmk0GoTQbpMWML">
+          <div data-page-node-id="F5884jsqmEGSH7szmwHfm6">
+            <h2 data-page-node-id="4H4P6VM8cVYZvXbYkMgs2H">KV 快照</h2>
+            <p data-page-node-id="DogRMIJTkCCLNrhfdIA7wO">飞书表在边缘的缓存副本 —— 点击卡片查看内容（原文直出，内部授权工具）</p>
+          </div>
+          <div class="actions" data-page-node-id="L0FUBqGRDAX0kiVoslYv05">
+            <button class="btn-light" id="btnGoRefresh" data-page-node-id="tLja6bIZENHBD8X7AX3U0k">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="TXqUlvYeCOm16u5eqnHMRE"><polyline points="23 4 23 10 17 10" data-page-node-id="BoESN27f0Js3eidgftuHzf"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" data-page-node-id="7GGuLICwWf6jvrDWOTKzUO"></path></svg>
+              需要最新数据？去刷新
+            </button>
+          </div>
+        </div>
+        <div class="kv-grid" id="kvCards" data-page-node-id="IlfI41FnxBPf0dOYm2mgz8"><div class="kv-card" style="cursor:default" data-page-node-id="G9SF6yqJJrb1UZQzADLUKb"><div class="muted" data-page-node-id="oLZkmUEap2dKZ8pvydf99V">加载中…</div></div></div>
+      </section>
+
+      <!-- 刷新视图 -->
+      <section class="view" id="viewRefresh" data-page-node-id="08UuEz0ikegiQbEbtaUsJK">
+        <div class="refresh-card" data-page-node-id="2KDoy8SNH8bvVBDUgRwvOc">
+          <h3 data-page-node-id="1FlUnHNrnq6gTnwuAQ8aKM">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0064FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="rqEgPFCGatAETcWSa22t0u"><polyline points="23 4 23 10 17 10" data-page-node-id="7FripJtBcE8W8OFhl4U96T"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" data-page-node-id="YrAh7x4yAS0joDze1XCeuM"></path></svg>
+            一键全量刷新
+          </h3>
+          <p class="desc" data-page-node-id="7Vvz4AUe10K9qg1F2FAO4n">触发 <span class="mono" data-page-node-id="uzz6SmbzwVSATWuKNnGkM7">POST /api/refresh</span>：全量拉取飞书并重建 4 个快照（社员 / 活动记录 / 活动项目 / 文件目录）。与飞书自动化同口径、同冷却 —— 两次触发之间至少间隔 30 秒，防止打爆飞书接口。</p>
+          <button class="btn-primary" id="btnRefresh" data-page-node-id="5dL8leDUTw5aoB2urz6fL0">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="bIC8kRVqT6aHsbvfGtFWQj"><polyline points="23 4 23 10 17 10" data-page-node-id="REyEMsa463ZjLu2BqCmDji"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" data-page-node-id="aqTnuE9ndu54gBP2AyCqct"></path></svg>
+            一键全量刷新
+          </button>
+          <div id="refreshResult" data-page-node-id="EjS3151EVS9avQrVfAWizP"></div>
+        </div>
+      </section>
+
+      <div class="page-foot" data-page-node-id="m6X8j1C9vphJKm2WCVPoDk">树莓社 · 内部管理台 · 仅限核心成员使用 · 遇到问题联系管理员</div>
+    </main>
   </div>
+</div>
 
-  <!-- ===== 主面板 ===== -->
-  <div id="mainView" style="display:none" data-page-node-id="Z1s6YmyfINeXjQ00QarZE4">
-    <div class="tabs" data-page-node-id="b6VnCBCxttToTde0l3saTs">
-      <div class="tab active" data-tab="kv" data-page-node-id="zGuGBkoov1cIXbWxmFo1XX">KV 快照查看</div>
-      <div class="tab" data-tab="refresh" data-page-node-id="BEEFhIdKA90pEtpU6ocVMZ">一键全量刷新</div>
+<!-- ============ 详情抽屉 ============ -->
+<div class="drawer-mask" id="drawerMask" data-page-node-id="FBqMJMGuKxEWwApfDdR6ib"></div>
+<div class="drawer" id="drawer" aria-hidden="true" data-page-node-id="8Ax4zlNE5yRaAa0n3dy6DH">
+  <div class="drawer-head" data-page-node-id="hucYbaLbMus5MPV2KP0uw0">
+    <span class="k" id="drawerKey" data-page-node-id="ZfvFSauP6zunB5bbGaKjYp"></span>
+    <span class="meta" id="kvMeta" data-page-node-id="QSCMDFBSMhK1EWxbFpKNgH"></span>
+    <span class="spacer" data-page-node-id="AE0nQbcQzSzEB22eHWY3tW"></span>
+    <div class="view-switch" id="viewSwitch" style="display:none" data-page-node-id="GOpCM9G1u0b6JmYXSE0Gws">
+      <button id="vwTable" class="on" data-page-node-id="WrTFhLkcowt25O83OpbKhM">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" data-page-node-id="sNBNYzRNGIC0KtfFjb8bMA"><rect x="3" y="3" width="18" height="18" rx="2" data-page-node-id="BG6pynNE9S7kURjqAIt2xI"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18" data-page-node-id="2ncL0g5i7UyKtM25xiNbOU"></path></svg>
+        表格
+      </button>
+      <button id="vwJson" data-page-node-id="MSxR2iLPUH79kYaZSlGsMq">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="WpXoL1FSmDUQ4d6BzcvN72"><polyline points="16 18 22 12 16 6" data-page-node-id="qtHlt24XjF7dFkDunRl6yS"></polyline><polyline points="8 6 2 12 8 18" data-page-node-id="7vtitM05xxgQDtgWpmkT1Z"></polyline></svg>
+        JSON
+      </button>
     </div>
-
-    <!-- KV -->
-    <div class="panel active" id="panel-kv" data-page-node-id="7pLlijFoby4l4TzwKUgNjy">
-      <p class="muted" style="margin-bottom:12px" data-page-node-id="Hw32BldfuoH96UXxEsOJeL">点击任一 key 查看内容 —— 快照类 key 以<b data-page-node-id="AK4fcGSXIp6NbPUa0Wge1X">表格</b>展示（行=记录、列=字段；点列头排序、每列下方可过滤、底部分页、可导出 CSV）。内容为原文直出（内部授权工具）。</p>
-      <table class="overview" data-page-node-id="cstNGugPTzJgtSjxLPQwFL">
-        <thead data-page-node-id="IBFZ3VLckRUG4muaaBLeQu"><tr data-page-node-id="mru6E9m7kGvmYAXp3L5DKH"><th data-page-node-id="yoVIptUpFAEXWNSPmC0qbn">Key</th><th data-page-node-id="AMOEvN4vtoEpZyAYfBJh9i">说明</th><th data-page-node-id="yK6ExW1ZNtcDcu6nKhBP1p">条数</th><th data-page-node-id="Xi5OqwT6RzJvSS4NcFp3mr">体积</th><th data-page-node-id="BIilkNWOjY38nYyCRrDFvu">更新时间</th><th data-page-node-id="78URFYZtqGLhUZP3PXRjFG">状态</th></tr></thead>
-        <tbody id="kvBody" data-page-node-id="x9KIOtRGkBd9ZxDMCEFAvF"><tr data-page-node-id="3yACEh6CPIsPEMIBqGUCPH"><td colspan="6" class="muted" data-page-node-id="Nk7wtj9YLYWOiNICeNMA97">加载中…</td></tr></tbody>
-      </table>
-
-      <!-- 详情区 -->
-      <div id="kvDetail" data-page-node-id="7CvGbcRorXfHdOLvYrPwT9">
-        <div class="detail-head" data-page-node-id="pGLJgHPTij0CsHoJF2Eew6">
-          <span class="k" id="kvDetailTitle" data-page-node-id="LqAt6HzGM50bD28kCflsmQ"></span>
-          <span class="meta" id="kvMeta" data-page-node-id="L9Kw3tykXScf1vvMRyBbAu"></span>
-          <span class="spacer" data-page-node-id="ruAEAqrj1OmP9eu2mQBicy"></span>
-          <div class="view-switch" id="viewSwitch" data-page-node-id="8BzLtNf4s1r3OYnevhg2Ic">
-            <button id="vwTable" class="on" data-page-node-id="eqECsM04gvfja5p15xWbHY">表格</button>
-            <button id="vwJson" data-page-node-id="m25ZWBpMgaBWSL4pyhnjgz">JSON</button>
-          </div>
-          <button class="mini" id="btnCloseDetail" data-page-node-id="QRYM6eROpeAnj94dzNNOr3">关闭</button>
-        </div>
-
-        <!-- 表格视图（AG Grid） -->
-        <div id="tblView" data-page-node-id="DaynxZGIMpCIfQjhf932zN">
-          <div class="kv-toolbar" data-page-node-id="5ySxkx5DdJCbEHIpx6XKfq">
-            <span class="count" id="tblCount" data-page-node-id="6oKNKItqd0Zt8CHiSSGmvG">…</span>
-            <span class="hint" id="tblHint" data-page-node-id="05Wz6xnY96mTPSXphSIVU3">点列头排序 · 列下方输入框过滤 · 点行看单条详情</span>
-            <span class="spacer" data-page-node-id="sF3HHhRQTnSm7diWOecxbn"></span>
-            <button class="mini" id="btnLoadAll" style="display:none" data-page-node-id="Z9R8bvpmtAMg0kjF3W7kCU">加载全部</button>
-            <button class="mini" id="btnCsv" data-page-node-id="wtiiMC2Z9GsgPM0rGjBOrF">导出 CSV</button>
-          </div>
-          <div id="gridBox" class="ag-theme-alpine" data-page-node-id="iresFIUTkKah42z0o2TTz7"></div>
-        </div>
-
-        <!-- 单条详情 -->
-        <div id="rowDetail" data-page-node-id="jpq0woNfV0Mwc1ZnxeAmOP">
-          <div class="rd-head" data-page-node-id="eq20zMXV9NN5uYsziUdkvt"><span id="rdTitle" data-page-node-id="c9MDfwnVViVG3DoPMnJ8PR"></span><span class="spacer" data-page-node-id="DlQHkGDAxhBGOuUrEX8Gbk"></span><button class="mini" id="btnCloseRow" data-page-node-id="ZVjjvVOlS8yg31IuE6TMwv">收起</button></div>
-          <div class="rd-body" data-page-node-id="FlydDNh9flZt7AGKNH4jl6"><table class="rd" data-page-node-id="21uUB9RsinLEGDPG7URljF"><tbody id="rdTable" data-page-node-id="EWHDAx5sYpN5uFWZQxO2lc"></tbody></table></div>
-        </div>
-
-        <!-- JSON 视图 -->
-        <pre class="json" id="jsonView" data-page-node-id="aGFNC8IixGmgleaJfKpaGd"></pre>
+    <button class="btn-x" id="btnCloseDrawer" title="关闭 (Esc)" data-page-node-id="ukmZ4galePL1gb6vgGX6b4">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" data-page-node-id="XOvrlVQEA3OEWn7MHQBGBl"><line x1="18" y1="6" x2="6" y2="18" data-page-node-id="8ZVTuovsXO5ruGiAUGD7Rw"></line><line x1="6" y1="6" x2="18" y2="18" data-page-node-id="TEbTUcz0FxXOIBadacuJ0o"></line></svg>
+    </button>
+  </div>
+  <div class="drawer-body" data-page-node-id="snWas5yxgBqUHDRhBVNclo">
+    <!-- 表格模式 -->
+    <div id="tblView" style="display:none;flex-direction:column;flex:1;min-height:0" data-page-node-id="vhlqo99Hlp4UTk1X4v8tKc">
+      <div class="drawer-toolbar" data-page-node-id="srpYynCxz09PcvA9qOQe2r">
+        <span class="count" id="tblCount" data-page-node-id="nlZDumVH8tTrv7x2qFcFBT">…</span>
+        <span class="hint" id="tblHint" data-page-node-id="19Uv5rEZpSYOT74I0u1EkU">点列头排序 · 每列下方过滤 · 点行看单条 · 底部翻页</span>
+        <span class="spacer" data-page-node-id="ZVUALXO3dsLoxAU8jiHBtN"></span>
+        <button class="btn-mini btn-light" id="btnLoadAll" style="display:none" data-page-node-id="ZRaZE3kCmd2xGAEBd2US4R">加载全部</button>
+        <button class="btn-mini" id="btnCsv" data-page-node-id="PvHf1ky1sasFrJePiLlRDG">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="PYpad0MfkQomCHgkRe7LYL"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" data-page-node-id="9la8PfgmvG7ioCvZKvt4nX"></path><polyline points="7 10 12 15 17 10" data-page-node-id="of8QjMrZSkx4AFkZ5AXaAN"></polyline><line x1="12" y1="15" x2="12" y2="3" data-page-node-id="gdXHzX59I1XLC6afFfAwn3"></line></svg>
+          导出 CSV
+        </button>
+      </div>
+      <div class="grid-wrap" data-page-node-id="kNxEjdq8qqBLgqXUHmGIUA"><div id="gridBox" class="ag-theme-alpine" data-page-node-id="8pEgnwAYUPwl5y3rCukPsw"></div></div>
+      <div id="rowDetail" data-page-node-id="93qEBETryDFYOVYJw6xRLJ">
+        <div class="rd-head" data-page-node-id="KspQcec0dRDHndPDqilqZg"><span id="rdTitle" data-page-node-id="YDLYAfq8FHCSS9B48wlPd5"></span><span class="spacer" data-page-node-id="lYEAzCz83wrKdBDfmHzEQ4"></span><button class="btn-mini" id="btnCloseRow" data-page-node-id="tYt8m2I8pgLFnCkJsHHCFj">收起</button></div>
+        <table class="rd" data-page-node-id="47lgYanhRUb8gGAh6cYON1"><tbody id="rdTable" data-page-node-id="0GuZSr43dENcW0iHkK0XSQ"></tbody></table>
       </div>
     </div>
-
-    <!-- 刷新 -->
-    <div class="panel" id="panel-refresh" data-page-node-id="idRFO03mM4rjslhx3PKO6Y">
-      <p class="muted" style="margin-bottom:14px" data-page-node-id="Y7QjhJwvucYN7aakEseycf">触发 <span class="mono" data-page-node-id="MAHq6AB02n8kMGZQW0Jw0e">POST /api/refresh</span>：全量拉取飞书并重建 4 个快照（社员 / 活动记录 / 活动项目 / 文件目录）。与飞书自动化同口径、同冷却（两次之间至少 30 秒）。</p>
-      <button class="refreshBig" id="btnRefresh" data-page-node-id="MeA2bBkNogMu3HU1uCSN84">一键全量刷新</button>
-      <div class="result" id="refreshResult" data-page-node-id="dkv9dcJ1xfJ34sO1WbIrZ8"></div>
-    </div>
+    <!-- JSON / 文本模式 -->
+    <pre class="json" id="jsonView" data-page-node-id="FNMrKF8bVvRkiITVXhp12y"></pre>
+    <div class="note-line" id="noteLine" data-page-node-id="ZzBPeEC2M0FZVf3zdrGpxF"></div>
   </div>
-
-  <div class="foot" data-page-node-id="39UCF2oPPUbHbUVNnMCZDU">nfc.raspjam.com/admin.html · 仅限内部使用 · 请求带 Bearer 口令 · 响应 no-store</div>
 </div>
+
+<div id="notice" data-page-node-id="yVnVOp4Ge3VKy8K0XsgKux"></div>
 
 <script src="vendor/ag-grid/ag-grid-community.min.js"></script>
 <script>
 (function () {
+  "use strict";
   var TOKEN_KEY = "shumei_admin_token";
   var $ = function (id) { return document.getElementById(id); };
   var token = sessionStorage.getItem(TOKEN_KEY) || "";
-  var state = {
-    currentKey: null, view: "table", rawData: null,
-    totalEntries: null, truncated: false, gridApi: null, gridCreated: false
-  };
+  var state = { currentKey: null, view: "table", rawData: null, totalEntries: null, truncated: false, gridApi: null, gridCreated: false, drawerOpen: false };
   var PRIO = ["recordId", "识别码", "memberCode", "姓名", "name", "id", "title", "activityName", "date"];
 
-  function toast(msg) {
-    var t = $("toast");
-    t.textContent = msg;
-    t.style.display = "block";
-    clearTimeout(t._h);
-    t._h = setTimeout(function () { t.style.display = "none"; }, 2600);
-  }
+  /* ---------- 基础工具 ---------- */
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -244,14 +389,21 @@
     if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
     return (n / 1048576).toFixed(2) + " MB";
   }
-  function fmtTime(ts, now) {
+  function fmtTime(ts) {
     if (!ts) return "-";
-    var d = new Date(ts);
-    var p = function (x) { return String(x).padStart(2, "0"); };
-    var s = d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
-    if (!now) return s;
-    var mins = Math.max(0, Math.round((now - ts) / 60000));
-    return s + "（" + mins + " 分钟前）";
+    var d = new Date(ts), p = function (x) { return String(x).padStart(2, "0"); };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function agoMins(ts, now) {
+    return Math.max(0, Math.round((now - ts) / 60000));
+  }
+  function notice(msg, type) {
+    type = type || "info";
+    var box = document.createElement("div");
+    box.className = "toast-item " + type;
+    box.innerHTML = '<span class="dot"></span><span>' + esc(msg) + "</span>";
+    $("notice").appendChild(box);
+    setTimeout(function () { box.style.opacity = "0"; box.style.transition = "opacity .25s"; setTimeout(function () { box.remove(); }, 260); }, 2800);
   }
   function api(path, opts) {
     opts = opts || {};
@@ -262,100 +414,156 @@
     });
   }
 
-  /* ---------- 视图 ---------- */
-  function showMain() {
-    $("loginView").style.display = "none";
-    $("mainView").style.display = "block";
-    $("userInfo").textContent = "已登录 · " + (token.length > 8 ? token.slice(0, 6) + "…" + token.slice(-4) : "");
-    $("logoutBtn").style.display = "";
-    loadKvList();
+  /* ---------- 视图切换 ---------- */
+  function showApp() {
+    $("loginMask").style.display = "none";
+    $("app").classList.add("on");
+    var t = token;
+    $("userInfo").textContent = "已登录 · " + (t.length > 8 ? t.slice(0, 5) + "…" + t.slice(-4) : "");
+    switchView("kv");
+    loadKvOverview();
   }
-  function showLogin() { $("mainView").style.display = "none"; $("loginView").style.display = "block"; $("logoutBtn").style.display = "none"; }
-  $("logoutBtn").onclick = function () { sessionStorage.removeItem(TOKEN_KEY); token = ""; showLogin(); toast("已退出"); };
+  function showLogin() {
+    $("app").classList.remove("on");
+    $("loginMask").style.display = "flex";
+  }
+  function switchView(name) {
+    Array.prototype.forEach.call(document.querySelectorAll(".nav-item[data-view]"), function (n) {
+      n.classList.toggle("active", n.getAttribute("data-view") === name);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".view"), function (v) {
+      v.classList.toggle("on", v.id === "view" + name.charAt(0).toUpperCase() + name.slice(1));
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".nav-item[data-view]"), function (n) {
+    n.onclick = function () { if (!n.classList.contains("disabled")) switchView(n.getAttribute("data-view")); };
+  });
+  $("btnGoRefresh").onclick = function () { switchView("refresh"); };
+  $("logoutBtn").onclick = function () { sessionStorage.removeItem(TOKEN_KEY); token = ""; closeDrawer(); showLogin(); };
 
-  /* ---------- KV 总览 ---------- */
-  function loadKvList() {
-    $("kvBody").innerHTML = '<tr><td colspan="6" class="muted">加载中…</td></tr>';
+  /* ---------- KV 总览（卡片网格） ---------- */
+  function loadKvOverview() {
+    $("kvCards").innerHTML = '<div class="kv-card" style="cursor:default"><div class="muted">加载中…</div></div>';
     api("/api/admin/kv/list").then(function (res) {
-      if (res.status === 401) { showLogin(); toast("口令无效或已过期"); return; }
-      var items = res.body.items || [];
-      var now = res.body.now || Date.now();
-      var html = "";
+      if (res.status === 401) { showLogin(); notice("口令无效或已过期", "err"); return; }
+      var items = res.body.items || [], now = res.body.now || Date.now(), html = "";
       items.forEach(function (it) {
         var badge = "";
-        if (!it.exists) badge = '<span class="badge miss">不存在</span>';
-        else if (it.key.indexOf("last_refresh") >= 0 || it.key.indexOf("avatar_img_") >= 0) badge = '<span class="badge ok">正常</span>';
+        if (!it.exists) badge = '<span class="badge-tag miss">不存在</span>';
+        else if (it.key.indexOf("last_refresh") >= 0) badge = '<span class="badge-tag info">' + fmtTime(it.updatedAt) + "</span>";
+        else if (it.key.indexOf("avatar_img_") >= 0) badge = '<span class="badge-tag ok">正常</span>';
         else {
-          var mins = it.updatedAt ? (now - it.updatedAt) / 60000 : null;
-          badge = (mins != null && mins < 70) ? '<span class="badge ok">健康 ≤' + Math.round(mins) + "min</span>"
-                : '<span class="badge stale">已陈旧</span>';
+          var mins = it.updatedAt ? agoMins(it.updatedAt, now) : null;
+          badge = (mins != null && mins < 70)
+            ? '<span class="badge-tag ok">健康 · ' + mins + " 分钟前</span>"
+            : '<span class="badge-tag stale">已陈旧</span>';
         }
-        var ent = it.entries != null ? it.entries : "-";
-        html += '<tr class="kvrow" data-key="' + esc(it.key) + '">'
-              + '<td class="kname">' + esc(it.key) + '</td>'
-              + '<td>' + esc(it.label || "") + (it.note ? ' <span class="muted">' + esc(it.note) + "</span>" : "") + '</td>'
-              + '<td>' + ent + '</td>'
-              + '<td>' + fmtBytes(it.bytes) + '</td>'
-              + '<td>' + fmtTime(it.updatedAt, now) + '</td>'
-              + '<td>' + badge + '</td></tr>';
+        var isNum = it.entries != null;
+        html += '<div class="kv-card" data-key="' + esc(it.key) + '">'
+          + '<div class="card-top"><span class="kname">' + esc(it.key) + "</span>"
+          + '<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg></div>'
+          + '<div class="label">' + esc(it.label || "—") + "</div>"
+          + (isNum
+              ? '<div class="metric"><span class="num">' + it.entries + '</span><span class="unit">条记录</span></div>'
+              : '<div class="big-note">' + esc(it.note || "（非表格数据）") + "</div>")
+          + '<div class="card-meta"><span class="bytes">' + fmtBytes(it.bytes) + "</span>"
+          + (it.updatedAt ? '<span class="sep">·</span><span>更新于 ' + fmtTime(it.updatedAt) + "</span>" : "")
+          + '<span class="sep">·</span>' + badge + "</div></div>";
       });
-      $("kvBody").innerHTML = html;
-      Array.prototype.forEach.call(document.querySelectorAll("tr.kvrow"), function (tr) {
-        tr.onclick = function () { state.currentKey = tr.getAttribute("data-key"); loadKvDetail(); };
+      $("kvCards").innerHTML = html || '<div class="kv-card" style="cursor:default"><div class="muted">无数据</div></div>';
+      Array.prototype.forEach.call(document.querySelectorAll(".kv-card[data-key]"), function (card) {
+        card.onclick = function () { openDrawer(card.getAttribute("data-key")); };
       });
-    }).catch(function () { $("kvBody").innerHTML = '<tr><td colspan="6" class="muted">加载失败，请检查网络</td></tr>'; });
+    }).catch(function () {
+      $("kvCards").innerHTML = '<div class="kv-card" style="cursor:default"><div class="muted">加载失败，请检查网络</div></div>';
+    });
   }
 
-  /* ---------- KV 详情 ---------- */
-  function loadKvDetail(limit) {
-    if (!state.currentKey) return;
-    $("kvDetail").style.display = "block";
-    $("kvDetailTitle").textContent = state.currentKey;
+  /* ---------- 详情抽屉 ---------- */
+  function openDrawer(key) {
+    state.currentKey = key;
+    state.rawData = null; state.totalEntries = null; state.truncated = false;
+    $("drawerKey").textContent = key;
     $("rowDetail").style.display = "none";
     $("viewSwitch").style.display = "none";
-    $("tblCount").textContent = "加载中…";
-    $("btnLoadAll").style.display = "none";
+    $("tblView").style.display = "none";
+    $("jsonView").style.display = "none";
+    $("noteLine").style.display = "none";
+    $("drawerMask").classList.add("on");
+    $("drawer").classList.add("on");
+    state.drawerOpen = true;
+    document.body.style.overflow = "hidden";
+    loadKvDetail();
+  }
+  function closeDrawer() {
+    if (!state.drawerOpen) return;
+    state.drawerOpen = false;
+    $("drawerMask").classList.remove("on");
+    $("drawer").classList.remove("on");
+    document.body.style.overflow = "";
+    setTimeout(function () {
+      if (!state.drawerOpen && state.gridApi) state.gridApi.setGridOption("rowData", []);
+    }, 260);
+  }
+  $("btnCloseDrawer").onclick = closeDrawer;
+  $("drawerMask").onclick = closeDrawer;
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && state.drawerOpen) closeDrawer(); });
+
+  function loadKvDetail(limit) {
     var url = "/api/admin/kv?key=" + encodeURIComponent(state.currentKey);
     if (limit) url += "&limit=" + limit;
+    $("tblCount").textContent = "加载中…";
+    $("btnLoadAll").style.display = "none";
     api(url).then(function (res) {
-      if (res.status === 401) { showLogin(); return; }
+      if (res.status === 401) { closeDrawer(); showLogin(); notice("口令失效", "err"); return; }
       var j = res.body;
-      if (!j.found) { showJson("（该 key 不存在）"); return; }
-      var meta = "字节 " + fmtBytes(j.bytes) + (j.updatedAt ? " · 更新 " + fmtTime(j.updatedAt) : "") + (j.entries != null ? " · 共 " + j.entries + " 条" : "");
+      if (!j.found) { showTextMode("（该 key 不存在或已过期）"); return; }
+      var meta = fmtBytes(j.bytes) + (j.updatedAt ? " · 更新于 " + fmtTime(j.updatedAt) : "") + (j.entries != null ? " · 共 " + j.entries + " 条" : "");
       $("kvMeta").textContent = meta;
-      if (j.kind === "binary") { showJson("【图片字节缓存】" + (j.note || "") + "（字节 " + fmtBytes(j.bytes) + "）"); return; }
+      if (j.kind === "binary") { showTextMode("【图片字节缓存】" + (j.note || "") + "（字节 " + fmtBytes(j.bytes) + "），请通过 /api/avatar 正常访问"); return; }
       state.rawData = j.data;
       state.totalEntries = j.entries;
       state.truncated = j.truncated === true;
-      if (state.view === "table" && state.rawData && isRecordArray(state.rawData)) {
+      if (state.rawData && isRecordArray(state.rawData)) {
+        state.view = "table";
         renderTable();
       } else {
-        showJson(j.sample || "（空）");
+        showJsonView(j.sample || "（空）");
       }
-    }).catch(function () { showJson("加载失败"); });
+    }).catch(function () { showTextMode("加载失败，请检查网络"); });
   }
-  function isRecordArray(d) {
-    if (!d || typeof d !== "object") return false;
-    var arr = Array.isArray(d) ? d : (d.items && Array.isArray(d.items) ? d.items : null);
-    return arr && arr.length > 0 && arr[0] != null && typeof arr[0] === "object";
+  function showTextMode(txt) {
+    $("viewSwitch").style.display = "none";
+    $("tblView").style.display = "none";
+    $("jsonView").style.display = "none";
+    $("noteLine").style.display = "block";
+    $("noteLine").innerHTML = "<b>" + esc(state.currentKey) + "</b>：" + esc(txt);
   }
-  function showJson(txt) {
+  function showJsonView(txt) {
     $("vwTable").classList.remove("on");
     $("vwJson").classList.add("on");
+    $("viewSwitch").style.display = "flex";
     $("tblView").style.display = "none";
+    $("noteLine").style.display = "none";
     $("jsonView").style.display = "block";
     $("jsonView").textContent = txt;
   }
   function showTableView() {
     $("vwTable").classList.add("on");
     $("vwJson").classList.remove("on");
-    $("tblView").style.display = "block";
+    $("viewSwitch").style.display = "flex";
+    $("tblView").style.display = "flex";
     $("jsonView").style.display = "none";
+    $("noteLine").style.display = "none";
+  }
+  function isRecordArray(d) {
+    if (!d || typeof d !== "object") return false;
+    var arr = Array.isArray(d) ? d : (d.items && Array.isArray(d.items) ? d.items : null);
+    return arr && arr.length > 0 && arr[0] != null && typeof arr[0] === "object";
   }
 
-  /* ---------- 行数据处理 ---------- */
+  /* ---------- 行数据 ---------- */
   function flattenRow(rec) {
-    // {recordId, fields:{...}} → recordId + fields 展开为一行
     if (rec.fields && typeof rec.fields === "object" && !Array.isArray(rec.fields)) {
       var out = {};
       Object.keys(rec).forEach(function (k) { if (k !== "fields") out[k] = rec[k]; });
@@ -367,42 +575,22 @@
   function prettyStr(v) {
     try { return JSON.stringify(v, null, 1); } catch (e) { return String(v); }
   }
-  function shortStr(s, n) {
-    s = s.replace(/\s+/g, " ");
-    return s.length > n ? s.slice(0, n) + "…" : s;
-  }
-  // 单元格显示值：对象/数组 → 摘要；空 → "·"
-  function cellText(v) {
-    if (v == null || v === "") return "·";
-    if (typeof v === "object") {
-      var s = JSON.stringify(v);
-      return (Array.isArray(v) ? "[" + v.length + "] " : "{" + Object.keys(v).length + "} ") + shortStr(s, 46);
-    }
-    var t = String(v);
-    return t.length > 60 ? shortStr(t, 60) : t;
-  }
-  // 单元格原始内容（排序/过滤/tooltip 用）：对象 → 完整 JSON
   function cellRaw(v) {
     if (v == null) return "";
     return typeof v === "object" ? JSON.stringify(v) : String(v);
   }
+  function cellText(v) {
+    if (v == null || v === "") return "·";
+    if (typeof v === "object") {
+      var s = JSON.stringify(v);
+      return (Array.isArray(v) ? "[" + v.length + "] " : "{" + Object.keys(v).length + "} ") + (s.length > 46 ? s.slice(0, 46) + "…" : s);
+    }
+    var t = String(v).replace(/\s+/g, " ");
+    return t.length > 64 ? t.slice(0, 64) + "…" : t;
+  }
   function rowsOf() {
     var arr = Array.isArray(state.rawData) ? state.rawData : state.rawData.items;
     return arr.map(flattenRow);
-  }
-  function collectColumns(rows) {
-    var cols = [], seen = {};
-    rows.forEach(function (r) {
-      Object.keys(r).forEach(function (k) {
-        if (!seen[k]) { seen[k] = 1; cols.push(k); }
-      });
-    });
-    cols.sort(function (a, b) {
-      var ia = PRIO.indexOf(a), ib = PRIO.indexOf(b);
-      ia = ia < 0 ? 99 : ia; ib = ib < 0 ? 99 : ib;
-      return ia - ib;
-    });
-    return cols;
   }
 
   /* ---------- AG Grid ---------- */
@@ -410,29 +598,26 @@
     if (state.gridCreated) return;
     state.gridCreated = true;
     state.gridApi = agGrid.createGrid($("gridBox"), {
-      defaultColDef: {
-        sortable: true, resizable: true,
-        filter: "agTextColumnFilter", floatingFilter: true,
-        suppressHeaderMenuButton: false
-      },
-      pagination: true,
-      paginationPageSize: 100,
-      paginationPageSizeSelector: [50, 100, 200, 500],
-      enableBrowserTooltips: true,
-      animateRows: false,
-      rowSelection: "single",
+      defaultColDef: { sortable: true, resizable: true, filter: "agTextColumnFilter", floatingFilter: true },
+      pagination: true, paginationPageSize: 100, paginationPageSizeSelector: [50, 100, 200, 500],
+      enableBrowserTooltips: true, animateRows: false, rowSelection: "single",
       onRowClicked: function (e) { if (e.node && e.node.data) showRowDetail(e.node.data); },
       getRowId: function (p) { return p.data.__rid; }
     });
   }
   function renderTable() {
-    var rows = rowsOf();
-    // 为行数据补唯一 id（供 getRowId）与原始序
-    rows.forEach(function (r, i) { r.__rid = "r" + i; });
-    var cols = collectColumns(rows);
-    var api = ensureGrid() || state.gridApi;
-
-    // 主键列（PRIO 顺序第一个存在的）与 # 列冻结在左
+    var rows = rowsOf(), cols = [], seen = {};
+    rows.forEach(function (r, i) {
+      r.__rid = "r" + i;
+      Object.keys(r).forEach(function (k) { if (!seen[k] && k !== "__rid") { seen[k] = 1; cols.push(k); } });
+    });
+    cols.sort(function (a, b) {
+      var ia = PRIO.indexOf(a), ib = PRIO.indexOf(b);
+      ia = ia < 0 ? 99 : ia; ib = ib < 0 ? 99 : ib;
+      return ia - ib;
+    });
+    ensureGrid();
+    var api = state.gridApi;
     var pinCol = null;
     for (var i = 0; i < cols.length; i++) {
       if (PRIO.indexOf(cols[i]) >= 0) { pinCol = cols[i]; break; }
@@ -440,13 +625,12 @@
     var defs = [{
       headerName: "#", width: 56, pinned: "left", sortable: false, filter: false, floatingFilter: false,
       suppressMovable: true, cellClass: "cell-idx",
-      valueGetter: function (p) { return (p.node.rowIndex + 1); },
-      tooltipValueGetter: function () { return ""; }
+      valueGetter: function (p) { return p.node.rowIndex + 1; }
     }];
     cols.forEach(function (c) {
       defs.push({
         field: c, headerName: c,
-        width: Math.max(120, Math.min(260, c.length * 16 + 70)), minWidth: 96,
+        width: Math.max(120, Math.min(240, c.length * 16 + 70)), minWidth: 96,
         pinned: (c === pinCol) ? "left" : null,
         valueGetter: function (p) { return cellRaw(p.data[c]); },
         valueFormatter: function (p) { return cellText(p.data[p.colDef.field]); },
@@ -461,12 +645,10 @@
         }
       });
     });
-
     api.setGridOption("columnDefs", defs);
     api.setGridOption("rowData", rows);
     api.setFilterModel(null);
     api.paginationGoToFirstPage();
-    $("viewSwitch").style.display = "flex";
     showTableView();
     updateCount();
   }
@@ -484,114 +666,122 @@
   $("btnLoadAll").onclick = function () {
     var n = state.totalEntries != null ? state.totalEntries : 20000;
     loadKvDetail(n <= 20000 ? n : 20000);
-    toast("正在加载全量数据…");
+    notice("正在加载全量数据…");
   };
   $("btnCsv").onclick = function () {
-    if (!state.gridApi || !state.gridApi.getDisplayedRowCount()) { toast("无数据可导出"); return; }
+    if (!state.gridApi || !state.gridApi.getDisplayedRowCount()) { notice("无数据可导出", "warn"); return; }
     state.gridApi.exportDataAsCsv({
       fileName: (state.currentKey || "kv") + ".csv",
       processCellCallback: function (p) {
         var v = p.value;
-        if (typeof v === "string" && v.length > 2000) return v.slice(0, 2000) + "…";
-        return v;
+        return (typeof v === "string" && v.length > 2000) ? v.slice(0, 2000) + "…" : v;
       }
     });
   };
-
-  /* 行点击 → 单条详情 */
   function showRowDetail(rec) {
     var title = rec["姓名"] || rec.name || rec.title || rec["识别码"] || rec.memberCode || rec.id || rec.recordId || "记录详情";
     $("rdTitle").textContent = String(title);
     var html = "";
     Object.keys(rec).forEach(function (k) {
       if (k === "__rid") return;
-      var v = rec[k];
-      var isObj = v != null && typeof v === "object";
+      var v = rec[k], isObj = v != null && typeof v === "object";
       var pretty = v == null ? "·" : prettyStr(v);
       html += "<tr><td>" + esc(k) + "</td><td>" + (isObj ? '<span class="v-obj">' : "") + esc(pretty) + (isObj ? "</span>" : "") + "</td></tr>";
     });
     $("rdTable").innerHTML = html;
     $("rowDetail").style.display = "block";
-    $("rowDetail").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
   $("btnCloseRow").onclick = function () { $("rowDetail").style.display = "none"; };
-
   $("vwTable").onclick = function () {
     if (state.rawData && isRecordArray(state.rawData)) { renderTable(); }
-    else toast("该 key 不是记录数组，无表格视图");
+    else notice("该 key 不是记录数组，无表格视图", "warn");
   };
   $("vwJson").onclick = function () {
     var prefix = "";
     if (state.truncated && state.totalEntries != null) {
-      prefix = "// 样本（前 " + (state.rawData && (Array.isArray(state.rawData) ? state.rawData : state.rawData.items).length) + " 条 / 共 " + state.totalEntries + " 条），点「表格 → 加载全部」查看全量\n\n";
+      var loaded = state.rawData ? (Array.isArray(state.rawData) ? state.rawData : state.rawData.items).length : 0;
+      prefix = "// 样本（前 " + loaded + " 条 / 共 " + state.totalEntries + " 条），切回「表格」点「加载全部」查看全量\n\n";
     }
-    showJson(prefix + (state.rawData ? prettyStr(state.rawData) : "（空）"));
-  };
-  $("btnCloseDetail").onclick = function () {
-    $("kvDetail").style.display = "none";
-    state.currentKey = null;
-    if (state.gridApi) state.gridApi.setGridOption("rowData", []);
+    showJsonView(prefix + (state.rawData ? prettyStr(state.rawData) : "（空）"));
   };
 
   /* ---------- 一键刷新 ---------- */
   var cooldownUntil = 0;
   function tickRefresh() {
-    var btn = $("btnRefresh");
-    var left = cooldownUntil - Date.now();
+    var btn = $("btnRefresh"), left = cooldownUntil - Date.now();
     if (left > 0) {
       btn.disabled = true;
-      btn.textContent = "冷却中… " + Math.ceil(left / 1000) + "s 后可再次刷新";
+      btn.textContent = "冷却中… " + Math.ceil(left / 1000) + "s";
       setTimeout(tickRefresh, 500);
-    } else { btn.disabled = false; btn.textContent = "一键全量刷新"; }
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>一键全量刷新';
+    }
   }
   $("btnRefresh").onclick = function () {
     if (Date.now() < cooldownUntil) return;
     var btn = $("btnRefresh");
     btn.disabled = true;
-    btn.textContent = "正在全量拉取飞书并重建 4 快照…（约 10~40 秒）";
+    btn.textContent = "正在全量拉取飞书并重建快照…";
     $("refreshResult").style.display = "block";
-    $("refreshResult").innerHTML = '<span class="muted">执行中…</span>';
+    $("refreshResult").innerHTML = '<div class="result-sub">执行中… 通常约 10~40 秒</div>';
     api("/api/admin/refresh", { method: "POST" }).then(function (res) {
       var j = res.body || {};
-      if (res.status === 401) { $("refreshResult").innerHTML = '<span class="err">鉴权失败（401）：口令无效</span>'; showLogin(); return; }
-      if (res.status === 429) { $("refreshResult").innerHTML = '<span class="err">触发过密（429）：30 秒冷却中，请稍候</span>'; cooldownUntil = Date.now() + 30000; tickRefresh(); return; }
-      if (!j.ok) { $("refreshResult").innerHTML = '<span class="err">刷新失败：' + esc(j.error || "未知错误") + "</span>"; tickRefresh(); return; }
-      var rows = "";
-      [
-        ["members_full（社员）", j.items], ["activity_records_v3（参与记录）", j.activityItems],
-        ["activity_projects_v1（活动项目）", j.activityProjects], ["file_catalog_v1（文件目录）", j.fileItems]
-      ].forEach(function (r) { rows += "<tr><td>" + r[0] + "</td><td>" + r[1] + " 条</td></tr>"; });
-      $("refreshResult").innerHTML = '<span class="ok">✓ 刷新成功</span><span class="muted"> · 4 个快照已重建：</span><table class="rt"><tbody>' + rows + "</tbody></table>";
+      if (res.status === 401) {
+        $("refreshResult").innerHTML = '<div class="result-err">鉴权失败（401）：口令无效</div>';
+        showLogin(); return;
+      }
+      if (res.status === 429) {
+        $("refreshResult").innerHTML = '<div class="result-err">触发过密（429）：30 秒冷却中，请稍候再试</div>';
+        cooldownUntil = Date.now() + 30000; tickRefresh(); return;
+      }
+      if (!j.ok) {
+        $("refreshResult").innerHTML = '<div class="result-err">刷新失败：' + esc(j.error || "未知错误") + "</div>";
+        tickRefresh(); return;
+      }
+      var stats = [
+        ["members_full · 社员", j.items], ["activity_records_v3 · 参与记录", j.activityItems],
+        ["activity_projects_v1 · 活动项目", j.activityProjects], ["file_catalog_v1 · 文件目录", j.fileItems]
+      ];
+      var html = '<div class="result-ok">刷新成功，4 个快照已重建</div><div class="result-sub" style="margin-top:4px">全量拉取飞书后写入 KV 边缘缓存，网页与 App 已可读到最新数据</div><div class="mini-stats">';
+      stats.forEach(function (r) { html += '<div class="mini-stat"><div class="t">' + r[0] + '</div><div class="n">' + r[1] + " 条</div></div>"; });
+      html += "</div>";
+      $("refreshResult").innerHTML = html;
       cooldownUntil = Date.now() + 30000;
       tickRefresh();
-      loadKvList();
-    }).catch(function () { $("refreshResult").innerHTML = '<span class="err">网络错误，刷新未完成</span>'; tickRefresh(); });
+      if (document.getElementById("viewKv").classList.contains("on")) loadKvOverview();
+    }).catch(function () {
+      $("refreshResult").innerHTML = '<div class="result-err">网络错误，刷新未完成</div>';
+      tickRefresh();
+    });
   };
 
-  /* ---------- 登录 / Tab ---------- */
-  $("btnLogin").onclick = function () {
-    var v = $("tokenInput").value.trim();
-    if (!v) { toast("请输入管理口令"); return; }
+  /* ---------- 登录 ---------- */
+  function tryLogin(v, silent) {
     token = v;
     sessionStorage.setItem(TOKEN_KEY, v);
     api("/api/admin/kv/list").then(function (res) {
-      if (res.status === 401) { token = ""; sessionStorage.removeItem(TOKEN_KEY); toast("口令无效"); return; }
-      showMain(); toast("登录成功");
-    }).catch(function () { showMain(); toast("已进入（网络请稍后自检）"); });
+      if (res.status === 401) {
+        token = ""; sessionStorage.removeItem(TOKEN_KEY);
+        if (!silent) notice("口令无效", "err");
+        showLogin(); return;
+      }
+      showApp(); if (!silent) notice("登录成功");
+    }).catch(function () {
+      // 网络暂不可达也放行，进入后由列表加载提示
+      if (!silent) notice("网络异常，已尝试进入", "warn");
+      showApp();
+    });
+  }
+  $("btnLogin").onclick = function () {
+    var v = $("tokenInput").value.trim();
+    if (!v) { notice("请输入管理口令", "warn"); return; }
+    tryLogin(v);
   };
   $("tokenInput").addEventListener("keydown", function (e) { if (e.key === "Enter") $("btnLogin").click(); });
 
-  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
-    t.onclick = function () {
-      Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (x) { x.classList.remove("active"); });
-      Array.prototype.forEach.call(document.querySelectorAll(".panel"), function (x) { x.classList.remove("active"); });
-      t.classList.add("active");
-      $("panel-" + t.getAttribute("data-tab")).classList.add("active");
-      if (t.getAttribute("data-tab") === "kv") loadKvList();
-    };
-  });
-
-  if (token) showMain();
+  /* ---------- 启动 ---------- */
+  if (token) tryLogin(token, true);
   else showLogin();
 })();
 </script>
