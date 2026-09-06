@@ -1357,7 +1357,7 @@ async function handleAdminKvGet(request, env) {
   }
   let updatedAt = null, entries = null, data = null, sample = raw, truncated = false;
   try {
-    const j = JSON.parse(raw);
+    let j = JSON.parse(raw);
     updatedAt = typeof j.updatedAt === "number" ? j.updatedAt : null;
     if (Array.isArray(j.items)) {
       entries = j.items.length;
