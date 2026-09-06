@@ -92,7 +92,7 @@
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/admin/kv/list` | KV 快照状态一览：条数 / 字节 / updatedAt / 健康（avatar 前缀仅计数） |
-| GET | `/api/admin/kv?key=<key>&limit=<N>` | 单个 KV key 内容（原文直出，内部工具）；大数组默认前 30 条，`limit` 可调至 20000（管理页「加载全部」）；图片类只回字节数 |
+| GET | `/api/admin/kv?key=<key>&limit=<N>` | 单个 KV key 内容（原文直出，内部工具）；`limit` 1–20000（管理页默认带 20000=全量；接口不传仍为前 30 条样本）；`last_refresh_at` 返回可读时间（kind=ts）；图片类只回字节数 |
 | POST | `/api/admin/refresh` | 与 `/api/refresh` 等价，鉴权同时接受 `ADMIN_TOKEN`（30s 冷却共用） |
 
 > 安全备注：`members_full` 含「登录密码」等原始列——管理页可看原文（管理台为内部授权工具，访问受 `ADMIN_TOKEN` 保护）；如部署 CF Zero Trust Access，可把 `/admin.html` 与 `/api/admin/*` 再包一层登录墙（可选加固，见部署节）。

@@ -1296,6 +1296,14 @@ async function handlePhoto(request, env, ctx) {
 const ADMIN_SAMPLE_LIMIT = 30; // 大数组只回前 N 条作样本
 const ADMIN_SAMPLE_CHARS = 60000;
 
+/** 毫秒时间戳 → 北京时区可读串（UTC+8 手动偏移，不依赖运行时区） */
+function fmtBeijing(ms) {
+  const d = new Date(ms + 8 * 3600 * 1000);
+  const p = (x) => String(x).padStart(2, "0");
+  return d.getUTCFullYear() + "-" + p(d.getUTCMonth() + 1) + "-" + p(d.getUTCDate())
+    + " " + p(d.getUTCHours()) + ":" + p(d.getUTCMinutes()) + ":" + p(d.getUTCSeconds());
+}
+
 function adminAuthed(request, env) {
   const auth = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   return Boolean(env.ADMIN_TOKEN) && auth === env.ADMIN_TOKEN;
@@ -1326,7 +1334,13 @@ async function handleAdminKvList(request, env) {
       const j = JSON.parse(raw);
       updatedAt = typeof j.updatedAt === "number" ? j.updatedAt : null;
       entries = Array.isArray(j.items) ? j.items.length : (Array.isArray(j) ? j.length : null);
-    } catch (e) { /* 非 JSON 值（如时间戳字符串）*/ }
+    } catch (e) {
+      // 非 JSON 值：last_refresh_at 为毫秒时间戳（数字字符串），解析为 updatedAt
+      if (t.key === LAST_REFRESH_KEY) {
+        const n = Number(raw);
+        if (Number.isFinite(n) && n > 0) updatedAt = n > 1e12 ? n : n * 1000;
+      }
+    }
     items.push({ key: t.key, label: t.label, exists: true, bytes, updatedAt, entries });
   }
   let avatarCount = 0;
@@ -1349,6 +1363,12 @@ async function handleAdminKvGet(request, env) {
   const raw = await env.SHUMEI_KV.get(key);
   if (raw === null) return Response.json({ ok: true, found: false, key }, { headers: adminHeaders() });
   const bytes = new TextEncoder().encode(raw).length;
+  if (key === LAST_REFRESH_KEY) {
+    const n = Number(raw);
+    const ms = Number.isFinite(n) && n > 0 ? (n > 1e12 ? n : n * 1000) : NaN;
+    const readable = Number.isFinite(ms) ? fmtBeijing(ms) + "（UTC+8）" : "（无法解析的时间戳）";
+    return Response.json({ ok: true, found: true, key, kind: "ts", bytes, readable, raw }, { headers: adminHeaders() });
+  }
   if (key.indexOf("avatar_img_") === 0) {
     return Response.json({
       ok: true, found: true, key, kind: "binary", bytes,
@@ -1378,9 +1398,12 @@ async function handleAdminKvGet(request, env) {
       }
     }
     data = j;
-    sample = JSON.stringify(data, null, 1) + (truncated ? "\n…（共 " + entries + " 条，已截断前 " + limit + " 条）" : "");
-  } catch (e) { /* 非 JSON（如 last_refresh_at 时间戳）：data 保持 null，前端按纯文本展示 */ }
-  if (sample.length > ADMIN_SAMPLE_CHARS) {
+    // 数组形态：内容由 data 承载（前端表格/JSON 视图均用 data），不再重复生成文本 sample；
+    // 非数组（数字 / 对象 Map 等）：sample 保留为 JSON 文本预览
+    const arrLike = Array.isArray(j) || Array.isArray(j.items);
+    sample = arrLike ? null : JSON.stringify(data, null, 1);
+  } catch (e) { /* 非 JSON（如纯文本值）：data 保持 null，sample 保持 raw 原文 */ }
+  if (sample && sample.length > ADMIN_SAMPLE_CHARS) {
     sample = sample.slice(0, ADMIN_SAMPLE_CHARS) + "\n…（内容过长已截断）";
     // 注意：不置 data=null —— data 已被限制在 ADMIN_SAMPLE_LIMIT 条内（体积可控），
     // 表格视图依赖结构化 data，若随文本预览一起截断，members_full（30 条 ≈ 100KB）会丢失表格。

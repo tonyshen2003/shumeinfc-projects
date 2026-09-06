@@ -347,7 +347,6 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
         <span class="count" id="tblCount" data-page-node-id="nlZDumVH8tTrv7x2qFcFBT">…</span>
         <span class="hint" id="tblHint" data-page-node-id="19Uv5rEZpSYOT74I0u1EkU">点列头排序 · 每列下方过滤 · 点行看单条 · 底部翻页</span>
         <span class="spacer" data-page-node-id="ZVUALXO3dsLoxAU8jiHBtN"></span>
-        <button class="btn-mini btn-light" id="btnLoadAll" style="display:none" data-page-node-id="ZRaZE3kCmd2xGAEBd2US4R">加载全部</button>
         <button class="btn-mini" id="btnCsv" data-page-node-id="PvHf1ky1sasFrJePiLlRDG">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="PYpad0MfkQomCHgkRe7LYL"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" data-page-node-id="9la8PfgmvG7ioCvZKvt4nX"></path><polyline points="7 10 12 15 17 10" data-page-node-id="of8QjMrZSkx4AFkZ5AXaAN"></polyline><line x1="12" y1="15" x2="12" y2="3" data-page-node-id="gdXHzX59I1XLC6afFfAwn3"></line></svg>
           导出 CSV
@@ -448,9 +447,19 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
       if (res.status === 401) { showLogin(); notice("口令无效或已过期", "err"); return; }
       var items = res.body.items || [], now = res.body.now || Date.now(), html = "";
       items.forEach(function (it) {
+        if (it.key.indexOf("last_refresh") === 0) {
+          var ta = it.updatedAt ? agoMins(it.updatedAt, now) : null;
+          var agoTxt = ta == null ? "尚未刷新" : (ta < 60 ? ta + " 分钟前" : (ta < 1440 ? Math.floor(ta / 60) + " 小时前" : Math.floor(ta / 1440) + " 天前"));
+          html += '<div class="kv-card" data-key="' + esc(it.key) + '">'
+            + '<div class="card-top"><span class="kname">' + esc(it.key) + '</span>'
+            + '<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"></path></svg></div>'
+            + '<div class="label">最近一次全量刷新完成时间</div>'
+            + '<div class="metric"><span class="num" style="font-size:20px">' + agoTxt + '</span></div>'
+            + '<div class="card-meta"><span>' + (it.updatedAt ? fmtTime(it.updatedAt) : "（尚无记录）") + '</span><span class="sep">·</span><span class="badge-tag ok">时间戳</span></div></div>';
+          return;
+        }
         var badge = "";
         if (!it.exists) badge = '<span class="badge-tag miss">不存在</span>';
-        else if (it.key.indexOf("last_refresh") >= 0) badge = '<span class="badge-tag info">' + fmtTime(it.updatedAt) + "</span>";
         else if (it.key.indexOf("avatar_img_") >= 0) badge = '<span class="badge-tag ok">正常</span>';
         else {
           var mins = it.updatedAt ? agoMins(it.updatedAt, now) : null;
@@ -510,10 +519,9 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && state.drawerOpen) closeDrawer(); });
 
   function loadKvDetail(limit) {
-    var url = "/api/admin/kv?key=" + encodeURIComponent(state.currentKey);
-    if (limit) url += "&limit=" + limit;
+    // 默认直接请求全量（管理页为内部低频工具；接口层不传 limit 仍为 30 条向后兼容）
+    var url = "/api/admin/kv?key=" + encodeURIComponent(state.currentKey) + "&limit=" + (limit || 20000);
     $("tblCount").textContent = "加载中…";
-    $("btnLoadAll").style.display = "none";
     api(url).then(function (res) {
       if (res.status === 401) { closeDrawer(); showLogin(); notice("口令失效", "err"); return; }
       var j = res.body;
@@ -521,6 +529,15 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
       var meta = fmtBytes(j.bytes) + (j.updatedAt ? " · 更新于 " + fmtTime(j.updatedAt) : "") + (j.entries != null ? " · 共 " + j.entries + " 条" : "");
       $("kvMeta").textContent = meta;
       if (j.kind === "binary") { showTextMode("【图片字节缓存】" + (j.note || "") + "（字节 " + fmtBytes(j.bytes) + "），请通过 /api/avatar 正常访问"); return; }
+      if (j.kind === "ts") {
+        $("viewSwitch").style.display = "none";
+        $("tblView").style.display = "none";
+        $("jsonView").style.display = "none";
+        $("noteLine").style.display = "block";
+        $("noteLine").innerHTML = "<b>" + esc(state.currentKey) + "</b>：最近一次全量刷新完成于 <b>" + esc(j.readable || "") + "</b>"
+          + '<div class="faint" style="margin-top:4px">原始值（毫秒时间戳）：' + esc(j.raw || "") + "</div>";
+        return;
+      }
       state.rawData = j.data;
       state.totalEntries = j.entries;
       state.truncated = j.truncated === true;
@@ -654,20 +671,8 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
   }
   function updateCount() {
     var loaded = state.rawData ? (Array.isArray(state.rawData) ? state.rawData : state.rawData.items).length : 0;
-    if (state.truncated && state.totalEntries != null) {
-      $("tblCount").textContent = "已加载 " + loaded + " 行 · 共 " + state.totalEntries + " 条";
-      $("btnLoadAll").style.display = "";
-      $("btnLoadAll").textContent = "加载全部 " + state.totalEntries + " 条";
-    } else {
-      $("tblCount").textContent = "共 " + loaded + " 行";
-      $("btnLoadAll").style.display = "none";
-    }
+    $("tblCount").textContent = "共 " + loaded + " 行";
   }
-  $("btnLoadAll").onclick = function () {
-    var n = state.totalEntries != null ? state.totalEntries : 20000;
-    loadKvDetail(n <= 20000 ? n : 20000);
-    notice("正在加载全量数据…");
-  };
   $("btnCsv").onclick = function () {
     if (!state.gridApi || !state.gridApi.getDisplayedRowCount()) { notice("无数据可导出", "warn"); return; }
     state.gridApi.exportDataAsCsv({
@@ -697,12 +702,7 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
     else notice("该 key 不是记录数组，无表格视图", "warn");
   };
   $("vwJson").onclick = function () {
-    var prefix = "";
-    if (state.truncated && state.totalEntries != null) {
-      var loaded = state.rawData ? (Array.isArray(state.rawData) ? state.rawData : state.rawData.items).length : 0;
-      prefix = "// 样本（前 " + loaded + " 条 / 共 " + state.totalEntries + " 条），切回「表格」点「加载全部」查看全量\n\n";
-    }
-    showJsonView(prefix + (state.rawData ? prettyStr(state.rawData) : "（空）"));
+    showJsonView(state.rawData ? prettyStr(state.rawData) : "（空）");
   };
 
   /* ---------- 一键刷新 ---------- */
