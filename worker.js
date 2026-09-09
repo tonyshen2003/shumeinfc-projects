@@ -3,6 +3,7 @@
  * GET /api/members              → 返回全部成员（供前端离线缓存）
  * GET /api/members/full         → 返回全部成员原始记录（含 record_id，供 App 本地快照）
  * GET /api/members/detail?code= → 单人脱敏档案（禁查过滤 + avatarProxy + joinDate + activities）[2026-09-06]
+ * GET /api/members/find-code    → 识别码找回：姓名 + 至少两项强匹配，唯一命中才回社员识别码 [2026-09-09]
  * GET /api/member?uid=<卡号>     → 查询飞书多维表
  * GET /api/member?q=<姓名>       → 搜索飞书多维表
  * GET /api/avatar?token=<token>  → 头像代理直链（边缘缓存 1 天 + KV 永久，飞书删图仍可访问）
@@ -235,6 +236,122 @@ async function handleMember(request, env) {
     return Response.json({ found: true, member: buildMember(data.data.items[0].fields) });
   } catch (e) {
     return Response.json({ found: false }, { status: 500 });
+  }
+}
+
+// ============================================================
+// [API] 识别码找回：多字段强匹配，唯一命中才回「社员识别码」
+// GET /api/members/find-code?name=<姓名>&grade=&clazz=&dept=&seq=&readable=
+// 产品规则（2026-09-09 定稿）：
+//   - 姓名必填；年级/班级（分班后）/社团部门/社员编号/认读码中至少提供两项；
+//   - 一律精确匹配；勾选「禁止查询」的社员一律视为未找到；
+//   - 唯一命中 → { found:true, member:{ code,name,grade,clazz,dept } }；
+//     多命中   → { found:false, ambiguous:true, candidates:[脱敏候选] }（不含识别码）；
+//   - 响应 no-store，不落任何缓存，避免识别码被边缘缓存扩散。
+// ============================================================
+
+/** 编号/认读码类字段规范化：去空白、冒号并统一大写（与签到查人口径一致）。 */
+function normLookupCode(s) {
+  return String(s || "").trim().toUpperCase().replace(/[\s:]/g, "");
+}
+
+/** 单项精确匹配；multi=false 用于年级/班级等单值字段。 */
+function lookupValueEqual(actual, target, multi, codeLike) {
+  const raw = String(actual || "").trim();
+  const want = String(target || "").trim();
+  if (codeLike) return normLookupCode(raw) === normLookupCode(want);
+  if (raw === want) return true;
+  if (!multi) return false;
+  // 多选字段（text() 会 join）：按常见分隔符拆开后逐项精确匹配
+  return raw.split(/\s*(?:,|;|\/)\s*/).indexOf(want) !== -1;
+}
+
+/** 找回入参 → { fieldsKey, target, multi, codeLike } 列表。 */
+function memberCodeLookupConds(url) {
+  const conds = [];
+  const specs = [
+    ["grade", "年级", false, false],
+    ["clazz", "班级（分班后）", false, false],
+    ["dept", "社团部门", true, false],
+    ["seq", "社员编号", false, true],
+    ["readable", "社员身份编码（认读码）", false, true],
+  ];
+  for (const [param, key, multi, codeLike] of specs) {
+    const v = (url.searchParams.get(param) || "").trim();
+    if (v) conds.push({ key, target: v, multi, codeLike });
+  }
+  return conds;
+}
+
+async function handleMemberFindCode(request, env) {
+  const url = new URL(request.url);
+  const noStore = { "Cache-Control": "no-store" };
+  const name = (url.searchParams.get("name") || "").trim();
+  const conds = memberCodeLookupConds(url);
+
+  if (!name) {
+    return Response.json({ found: false, reason: "missing_name" }, { status: 400, headers: noStore });
+  }
+  if (conds.length < 2) {
+    return Response.json({ found: false, reason: "insufficient" }, { status: 400, headers: noStore });
+  }
+
+  try {
+    const snap = await getSnapshot(env);
+    const hits = [];
+    for (const item of snap.items || []) {
+      const f = item.fields || {};
+      if (text(f, "姓名").trim() !== name) continue;
+      if (isBlocked(f)) continue; // 禁查一律视为未找到
+      let matched = true;
+      for (const c of conds) {
+        if (!lookupValueEqual(text(f, c.key), c.target, c.multi, c.codeLike)) {
+          matched = false;
+          break;
+        }
+      }
+      if (matched) hits.push(item);
+    }
+
+    if (hits.length === 0) {
+      return Response.json({ found: false }, { headers: noStore });
+    }
+    if (hits.length > 1) {
+      return Response.json(
+        {
+          found: false,
+          ambiguous: true,
+          candidates: hits.map((item) => ({
+            name: text(item.fields, "姓名"),
+            grade: text(item.fields, "年级"),
+            clazz: text(item.fields, "班级（分班后）"),
+            dept: text(item.fields, "社团部门"),
+          })),
+        },
+        { headers: noStore }
+      );
+    }
+
+    const mf = hits[0].fields || {};
+    const code = text(mf, "社员识别码").trim();
+    if (!code) {
+      return Response.json({ found: false }, { headers: noStore });
+    }
+    return Response.json(
+      {
+        found: true,
+        member: {
+          code,
+          name: text(mf, "姓名"),
+          grade: text(mf, "年级"),
+          clazz: text(mf, "班级（分班后）"),
+          dept: text(mf, "社团部门"),
+        },
+      },
+      { headers: noStore }
+    );
+  } catch (e) {
+    return Response.json({ found: false, error: e.message }, { status: 500, headers: noStore });
   }
 }
 
@@ -1474,6 +1591,9 @@ export default {
     if (url.pathname === "/api/members") return handleMembers(env);
     if (url.pathname === "/api/members/full") return handleMembersFull(env);
     if (url.pathname === "/api/members/detail") return handleMemberDetail(request, env, ctx);
+    if (url.pathname === "/api/members/find-code" && request.method === "GET") {
+      return handleMemberFindCode(request, env);
+    }
     if (url.pathname === "/api/proof-files") return handleProofFiles(request, env);
     if (url.pathname === "/api/file") return handleFile(request, env, ctx);
     if (url.pathname === "/api/avatar") return handleAvatar(request, env, ctx);

@@ -1,6 +1,6 @@
 # AGENTS.md — 项目说明（给 AI 协作者 / 开发者）
 
-> 最后更新：2026-09-06。本文档描述当前真实架构，与 README.md / worker.js @ ba1377f 一致。
+> 最后更新：2026-09-09。本文档描述当前真实架构，与 README.md / worker.js 一致。
 > 若文档与代码不一致，**以代码为准**，并顺手修正文档。
 
 ## 项目是什么
@@ -36,12 +36,13 @@ public/          # 旧静态数据（members.js 等，已废弃，仅历史参�
 start.sh         # 本地 HTTPS 静态服务器（Web NFC 需要安全上下文）
 ```
 
-## 接口速览（13 条，详见 README.md）
+## 接口速览（14 条，详见 README.md）
 
 | 类别 | 端点 | 数据源/缓存 |
 |---|---|---|
 | 读 | GET /api/members · /api/members/full | KV members_full（CDN 60s） |
 | 读 | GET /api/members/detail?code= | KV + 边缘缓存 300s；禁查→found:false；avatarProxy；joinDate |
+| 读 | GET /api/members/find-code | KV（no-store）；姓名 + ≥2 项强匹配；禁查→found:false；唯一命中才回识别码 |
 | 读 | GET /api/member?uid=｜q= | KV 优先 → 实时兜底飞书 |
 | 读 | GET /api/activities · /api/activities/detail?id= | activity_projects_v1 + activity_records_v3 聚合；300s |
 | 读 | GET /api/avatar | L1 1d + L2 KV 永久 |

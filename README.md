@@ -4,7 +4,7 @@
 覆盖：**NFC 刷卡/二维码扫码签到 H5**、**社员档案（DeepMei App / 网页 / 微信小程序）**、**社团活动展示**、**社员证明文件**。
 核心是**对飞书多维表（Bitable）的安全代理**：凭据只在 Worker 端，读接口对社员数据做 **KV 快照缓存**，避免频繁实时访问飞书；附件（头像/照片/证明 PDF）经 Worker 代理 + 边缘缓存 + token 白名单后对外可稳定访问。
 
-> 文档基线：本文档与 `worker.js` @ `ba1377f`（2026-09-06）逐行核对一致。
+> 文档基线：本文档与 `worker.js` 当前代码一致。
 > 配套：更新日志见 `CHANGELOG.md`；活动功能的完整实现说明见 `docs/activity-api-plan.md`；线上接口真实返回快照见 `docs/api-baseline/`（**含社员全量原始数据，禁止推送与部署**）。
 
 ## 架构
@@ -23,6 +23,7 @@
 │    GET /api/members/full       全量原始记录（App 快照用）      │
 │    GET /api/members            卡号/识别码/姓名映射（H5 离线缓存）│
 │    GET /api/members/detail     单人脱敏档案（网页/小程序档案）  │
+│    GET /api/members/find-code  识别码找回（多字段强匹配）       │
 │    GET /api/member             uid/q 查人（KV 优先+实时兜底）  │
 │    GET /api/activities         活动列表（筛选/分页/facets）    │
 │    GET /api/activities/detail  活动详情（只出统计与照片）       │
@@ -66,13 +67,14 @@
 - **社员证明文件** — 小程序证明页：文件目录 + PDF 下载；资格判定（发布时间 ≥ 入社日期）在微信云函数本地完成
 - **社员数据 KV 缓存** — 读接口秒回，飞书只被 Cron / 自动化 / 冷启动自愈访问
 
-## 接口清单（13 条）
+## 接口清单（14 条）
 
 | 方法 | 路径 | 数据源 | 说明 |
 |---|---|---|---|
 | GET | `/api/members/full` | KV 快照 | 全量原始记录（含 `record_id`、附件 tmp_url），供 App 24h 本地快照 |
 | GET | `/api/members` | KV 快照 | 卡号/识别码/姓名映射（cardMap/barcodeMap/infoMap），供 H5 离线缓存；CDN 60s |
 | GET | `/api/members/detail?code=<识别码>` | KV 快照 + Cache API 300s | 单人**脱敏**档案（含 activities 参与记录、avatarProxy、joinDate）；勾选「禁止查询」→ `found:false`（不缓存，即时生效）；CORS * |
+| GET | `/api/members/find-code?name=&grade=&clazz=&dept=&seq=&readable=` | KV 快照（no-store） | 识别码找回：姓名 + 至少两项补充信息强匹配；勾选「禁止查询」→ `found:false`；唯一命中才回「社员识别码」，多命中只出脱敏候选，响应不缓存 |
 | GET | `/api/member?uid=<卡号>` | KV 优先+实时兜底 | 按卡号/识别码/认读码查人（签到用）；查无返回 HTTP 500 + `found:false`（既有行为） |
 | GET | `/api/member?q=<姓名>` | KV 优先+实时兜底 | 姓名/别名/编号/识别码/认读码/序号搜索（精确匹配） |
 | GET | `/api/avatar?token=<file_token>` | 边缘缓存 1d + KV 永久 | 头像图片代理直链；白名单=成员快照「头像/个人照片」token；飞书删图仍可访问 |
@@ -159,7 +161,7 @@
 ```
 ├── index.html          # H5 签到页（样式 + 交互 + 逻辑；NFC/扫码/新卡登记）
 ├── admin.html          # 内部管理台（左栏选表 / 中间 AG Grid 铺满 / 右侧行详情抽屉 + 一键全量刷新，需 ADMIN_TOKEN）
-├── worker.js           # Cloudflare Worker（13 条公开 API + 3 条管理 API + KV 缓存，见文件头注释）
+├── worker.js           # Cloudflare Worker（14 条公开 API + 3 条管理 API + KV 缓存，见文件头注释）
 ├── wrangler.jsonc      # Wrangler 部署配置（KV 绑定 / Cron 30 * * * * / routes）
 ├── .wranglerignore     # 部署排除规则（*.md / *.csv / api-baseline 等）
 ├── start.sh            # 本地开发启动脚本（HTTPS 静态服务器）
@@ -262,10 +264,15 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 勾选后仅 `/api/members/detail` 返回 `found:false`（且该响应不缓存，取消勾选立即恢复）；签到查人 / App 快照 / 头像代理均不受影响。活动接口不输出参与人名单，天然无泄露面。
 
+### 识别码找回（`/api/members/find-code`）
+
+微信小程序未绑定时用于找回本人的「社员识别码」。查询必须同时满足：姓名精确匹配 + 年级/班级（分班后）/社团部门/社员编号/认读码中至少两项精确匹配；姓名单独查询不会返回候选。命中「禁止查询」的社员一律视为未找到。唯一命中才回 `member.code`；多命中只回脱敏候选人列表（不含识别码），由用户补充编号/认读码等唯一信息后重新查询。响应 `Cache-Control: no-store`，避免个人识别码被边缘缓存扩散。
+
 ## 版本历史
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.17.0** | 2026-09-09 | 新增 `/api/members/find-code` 识别码找回：姓名 + 至少两项信息强匹配，禁查过滤，唯一命中才回社员识别码（no-store） |
 | **1.16.0** | 2026-09-07 | 管理台改「左选表 · 中铺表 · 右看行」三栏：左栏切 4 张数据表，中间表格铺满，点行从右滑出该条完整字段 |
 | **1.13.0** | 2026-09-06 | 管理台表格升级 AG Grid（排序/列过滤/分页/CSV 导出，vendor/ 同域自托管）；`/api/admin/kv` 支持 `limit` 加载全部；修复大 key 表格不可用 |
 | **1.12.0** | 2026-09-06 | 内部管理台：`admin.html` + `/api/admin/kv/list`、`/api/admin/kv?key=`、`/api/admin/refresh`；独立 Secret `ADMIN_TOKEN`，管理端点 no-store 无 CORS |
