@@ -16,10 +16,9 @@
   "kv_namespaces": [
     { "binding": "SHUMEI_KV", "id": "f923c5988e4a4cbdbbceb0c4b35028e8" }
   ],
-  // 位置雷达在线状态存储。首次部署前请在 Cloudflare 控制台创建 D1 数据库，
-  // 并把下方 database_id 替换为真实值；建库后由管理台「位置地图」页面自动初始化表。
+  // 位置雷达在线状态存储（D1 数据库 shumeiappdata）；管理台「位置地图」首次打开会自动建表。
   "d1_databases": [
-    { "binding": "PRESENCE_DB", "database_name": "shumei-presence", "database_id": "aac236f2-d1fb-44b4-8ae5-bc848ab1a9b3" }
+    { "binding": "PRESENCE_DB", "database_name": "shumeiappdata", "database_id": "aac236f2-d1fb-44b4-8ae5-bc848ab1a9b3" }
   ],
   "triggers": {
     "crons": ["30 * * * *"]
