@@ -1,5 +1,19 @@
 # 更新日志
 
+## 1.18.0 - 2026-09-10
+- 新增「位置雷达」后端（Cloudflare D1）：
+  - `POST /api/presence/heartbeat`：在线位置心跳，App 每 60s 上报一次，同时携带 GCJ-02 与 WGS-84 双坐标
+  - `GET /api/presence/nearby?self=`：当前在线社员（不含本人），距离/方位由客户端本地计算
+  - `POST /api/presence/offline`：退出雷达 / App 进后台立即下线
+  - 鉴权使用独立 Secret `PRESENCE_APP_TOKEN`；只存“当前在线”一条，不保存历史轨迹，超过 3 分钟视为离线
+- 新增管理台「位置地图」：完整在线地图（所有在线社员），复用现有 `ADMIN_TOKEN` 登录与 no-store 机制
+  - `GET /api/admin/presence/map`：全量在线名单（含双坐标）
+  - `POST /api/admin/presence/init`：幂等初始化 D1 presence 表
+  - 地图组件 Leaflet 1.9.4 同域自托管（`vendor/leaflet/`）；默认 OSM/WGS-84 底图，可替换国内底图
+- 新增 D1 绑定 `PRESENCE_DB`（`wrangler.jsonc` 中 database_id 为占位值，首次部署前需替换）
+- iOS 端配套：新增 `PresenceService` / `MemberRadarView`，入口在「我的树莓 → 寻找身边社员」
+  - 进入页面才上报并互相可见；退出 / 进后台即下线；显示精确距离、方位、届别、部门，不显示姓名
+
 ## 1.17.0 - 2026-09-09
 - 新增 `GET /api/members/find-code`：社员识别码找回（微信小程序未绑定时用）
   - 强匹配规则：姓名必填，且 年级/有效班级/部门/社员编号 中至少提供两项，任一字段精确匹配

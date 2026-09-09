@@ -36,7 +36,7 @@ public/          # 旧静态数据（members.js 等，已废弃，仅历史参�
 start.sh         # 本地 HTTPS 静态服务器（Web NFC 需要安全上下文）
 ```
 
-## 接口速览（14 条，详见 README.md）
+## 接口速览（18 条，详见 README.md）
 
 | 类别 | 端点 | 数据源/缓存 |
 |---|---|---|
@@ -51,6 +51,10 @@ start.sh         # 本地 HTTPS 静态服务器（Web NFC 需要安全上下文�
 | 读 | GET /api/file | L1 7d（PDF 原样，不写 KV） |
 | 写 | POST /api/checkin | 服务端重查人 + waitUntil 异步双写（WPS + 飞书群卡片） |
 | 触发 | POST /api/refresh | Bearer 鉴权 + 30s 冷却，重建 4 快照 |
+| 写 | POST /api/presence/heartbeat | D1 presence 表；在线位置心跳（GCJ-02/WGS-84 双坐标）；PRESENCE_APP_TOKEN |
+| 读 | GET /api/presence/nearby?self= | D1 presence 表；当前在线名单（不含本人）；PRESENCE_APP_TOKEN |
+| 写 | POST /api/presence/offline | D1 presence 表；退出雷达 / 进后台下线；PRESENCE_APP_TOKEN |
+| 管理 | GET /api/admin/presence/map · POST /api/admin/presence/init | 管理台全量在线地图 / 幂等建表；复用 ADMIN_TOKEN |
 
 ## 数据模型（飞书多维表，本 Worker 只用 4 张）
 
@@ -67,6 +71,8 @@ start.sh         # 本地 HTTPS 静态服务器（Web NFC 需要安全上下文�
 2. Worker 改动无本地预览：`npx wrangler dev` 需要 KV/secret，简单改动直接看代码 + git
 3. 部署：**Git 推送 GitHub → Cloudflare Workers Builds 自动部署**，无需本地 wrangler
 4. **不要动 `wrangler.jsonc` 里的 routes（自定义域名）/ kv_namespaces / triggers(crons)**，否则覆盖远程配置
+5. 位置雷达新增 D1 绑定 `PRESENCE_DB`（`wrangler.jsonc` 中的 `database_id` 为占位值，首次部署前需替换为真实 D1 数据库 ID）；建表由管理台「位置地图」自动完成
+6. 位置雷达 App 端 Secret 为 `PRESENCE_APP_TOKEN`（独立于 ADMIN_TOKEN / REFRESH_TOKEN）；管理员地图沿用 `ADMIN_TOKEN`
 
 ## 约定与坑
 

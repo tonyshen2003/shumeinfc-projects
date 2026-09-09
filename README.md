@@ -67,7 +67,7 @@
 - **社员证明文件** — 小程序证明页：文件目录 + PDF 下载；资格判定（发布时间 ≥ 入社日期）在微信云函数本地完成
 - **社员数据 KV 缓存** — 读接口秒回，飞书只被 Cron / 自动化 / 冷启动自愈访问
 
-## 接口清单（14 条）
+## 接口清单（18 条）
 
 | 方法 | 路径 | 数据源 | 说明 |
 |---|---|---|---|
@@ -85,6 +85,9 @@
 | GET | `/api/file?token=` | 边缘缓存 7d（不写 KV） | 社员证明附件**原样**代理（PDF 等任意类型，不经 cf.image） |
 | POST | `/api/checkin` | 实时（写） | 签到提交：服务端按 uid 实时重查人（不信任前端）+ 异步双写（WPS 多维表 + 飞书机器人卡片），秒回 |
 | POST | `/api/refresh` | 触发写 KV | 重建 4 快照（members/activity_records/activity_projects/file_catalog）；Bearer 鉴权 + 30s 冷却 |
+| POST | `/api/presence/heartbeat` | D1 presence 表 | 位置雷达心跳：上报当前在线位置（GCJ-02 / WGS-84 双坐标），60s 一次；`PRESENCE_APP_TOKEN` 鉴权 |
+| GET | `/api/presence/nearby?self=<识别码>` | D1 presence 表 | 当前在线社员（不含本人），客户端本地计算精确距离 / 方位；`PRESENCE_APP_TOKEN` 鉴权 |
+| POST | `/api/presence/offline` | D1 presence 表 | 退出雷达 / App 进后台立即下线；`PRESENCE_APP_TOKEN` 鉴权 |
 
 ### 管理 API（内部 `admin.html` 用，2026-09-06）
 
@@ -96,6 +99,8 @@
 | GET | `/api/admin/kv/list` | KV 快照状态一览：条数 / 字节 / updatedAt / 健康（avatar 前缀仅计数） |
 | GET | `/api/admin/kv?key=<key>&limit=<N>` | 单个 KV key 内容（原文直出，内部工具）；`limit` 1–20000（管理页默认带 20000=全量；接口不传仍为前 30 条样本）；`last_refresh_at` 返回可读时间（kind=ts）；图片类只回字节数 |
 | POST | `/api/admin/refresh` | 与 `/api/refresh` 等价，鉴权同时接受 `ADMIN_TOKEN`（30s 冷却共用） |
+| GET | `/api/admin/presence/map` | 位置雷达全量在线名单（含双坐标），供管理台完整地图页；`ADMIN_TOKEN` 鉴权 + no-store |
+| POST | `/api/admin/presence/init` | 幂等初始化 D1 presence 表；管理台首次打开地图时自动调用 |
 
 > 安全备注：`members_full` 含「登录密码」等原始列——管理页可看原文（管理台为内部授权工具，访问受 `ADMIN_TOKEN` 保护）；如部署 CF Zero Trust Access，可把 `/admin.html` 与 `/api/admin/*` 再包一层登录墙（可选加固，见部署节）。
 
@@ -117,6 +122,14 @@
 | `file_catalog_v1` | 文件资料表整表元数据（title/types/owner/publishedAt/files…；~120 条） | 惰性 60min + cron/refresh force |
 | `avatar_img_<file_token>` | 头像图片字节（**永久**，0 过期；飞书删图后仍可访问） | /api/avatar 双层 miss 首访回写 |
 | `last_refresh_at` | 最近一次 refresh 时间戳（毫秒），用于 30s 冷却（跨实例一致） | /api/refresh |
+
+### D1 存储（绑定 `PRESENCE_DB`，位置雷达在线状态）
+
+| 表 | 内容 | 清理策略 |
+|---|---|---|
+| `presence` | 当前在线社员的最新一条位置（识别码主键 + 届别 + 部门 + GCJ-02/WGS-84 双坐标 + updated_at） | 心跳 UPSERT；超过 3 分钟视为离线，由 API 访问时惰性清理 + Cron 兜底 |
+
+> 位置雷达只存“当前在线”状态，不保存历史轨迹。管理台位置地图用 WGS-84 坐标贴 OSM/Leaflet 底图；iOS App 用 GCJ-02 坐标贴系统 MapKit，避免国内地图偏移。
 
 ### 数据如何刷新
 
@@ -161,7 +174,7 @@
 ```
 ├── index.html          # H5 签到页（样式 + 交互 + 逻辑；NFC/扫码/新卡登记）
 ├── admin.html          # 内部管理台（左栏选表 / 中间 AG Grid 铺满 / 右侧行详情抽屉 + 一键全量刷新，需 ADMIN_TOKEN）
-├── worker.js           # Cloudflare Worker（14 条公开 API + 3 条管理 API + KV 缓存，见文件头注释）
+├── worker.js           # Cloudflare Worker（18 条公开 API + 5 条管理 API + KV/D1，见文件头注释）
 ├── wrangler.jsonc      # Wrangler 部署配置（KV 绑定 / Cron 30 * * * * / routes）
 ├── .wranglerignore     # 部署排除规则（*.md / *.csv / api-baseline 等）
 ├── start.sh            # 本地开发启动脚本（HTTPS 静态服务器）
@@ -272,6 +285,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.18.0** | 2026-09-10 | 位置雷达：`/api/presence/*`（心跳/在线名单/下线，D1 存储，`PRESENCE_APP_TOKEN` 鉴权）+ 管理台「位置地图」全量在线地图（复用 `ADMIN_TOKEN`）；iOS App 双坐标上报（GCJ-02 / WGS-84） |
 | **1.17.0** | 2026-09-09 | 新增 `/api/members/find-code` 识别码找回：姓名 + 至少两项信息强匹配，禁查过滤，唯一命中才回社员识别码（no-store） |
 | **1.16.0** | 2026-09-07 | 管理台改「左选表 · 中铺表 · 右看行」三栏：左栏切 4 张数据表，中间表格铺满，点行从右滑出该条完整字段 |
 | **1.13.0** | 2026-09-06 | 管理台表格升级 AG Grid（排序/列过滤/分页/CSV 导出，vendor/ 同域自托管）；`/api/admin/kv` 支持 `limit` 加载全部；修复大 key 表格不可用 |

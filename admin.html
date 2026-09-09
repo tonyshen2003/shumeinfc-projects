@@ -6,6 +6,7 @@
 <title>树莓社 · 内部管理台</title>
 <link rel="stylesheet" href="vendor/ag-grid/ag-grid.css">
 <link rel="stylesheet" href="vendor/ag-grid/ag-theme-alpine.min.css">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <style>
 /* ============ Semi Design 设计变量（抖音设计系统 semi.design 官方默认主题取值） ============ */
 :root{
@@ -159,6 +160,19 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
 .mini-stat .t{font-size:11.5px;color:var(--ink-2)}
 .mini-stat .n{font-family:var(--mono);font-size:18px;font-weight:600;margin-top:2px}
 
+/* ---------- 位置地图 ---------- */
+.map-head{flex:none;display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid var(--border);background:var(--card)}
+.map-body{flex:1;min-height:0;position:relative;background:#EAF0F6}
+#presenceMap{position:absolute;inset:0;width:100%;height:100%}
+.map-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:#FCFCFD;text-align:center;padding:30px;z-index:400}
+.map-empty .big{font-size:14px;color:var(--ink-1);font-weight:500}
+.map-empty .small{font-size:12.5px;color:var(--ink-3);max-width:460px;line-height:1.8}
+.presence-popup{font:12px/1.65 var(--sans);min-width:180px}
+.presence-popup .name{font-weight:600;font-size:13px}
+.presence-popup .meta{color:var(--ink-2);margin-top:2px}
+.presence-popup .time{color:var(--ink-3);font-size:11px;margin-top:4px}
+.presence-dot{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(28,31,35,.35)}
+
 /* ---------- 行详情抽屉（右侧滑出） ---------- */
 .drawer-mask{position:fixed;inset:0;background:rgba(28,31,35,.42);z-index:60;display:none;opacity:0;transition:opacity .2s}
 .drawer-mask.on{display:block;opacity:1}
@@ -266,6 +280,10 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
           一键全量刷新
         </button>
+        <button class="nav-item" data-view="map">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.1-7-11a7 7 0 0 1 14 0c0 5.9-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
+          位置地图
+        </button>
         <div class="nav-group">规划</div>
         <button class="nav-item disabled" title="字段级隐私开关，规划中">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
@@ -336,6 +354,28 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
         </div>
       </section>
 
+      <!-- 位置地图视图（需 ADMIN_TOKEN；数据来自 D1 presence 表） -->
+      <section class="view" id="viewMap">
+        <div class="map-head">
+          <div class="th-title">
+            <div class="th-name">社员在线位置地图</div>
+            <div class="th-meta" id="mapMeta">正在加载…</div>
+          </div>
+          <span class="spacer"></span>
+          <button class="btn-mini" id="btnMapRefresh">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            刷新
+          </button>
+        </div>
+        <div class="map-body">
+          <div id="presenceMap"></div>
+          <div class="map-empty" id="mapEmpty">
+            <div class="big" id="mapEmptyTitle">位置地图加载中</div>
+            <div class="small" id="mapEmptyDesc">正在初始化地图并拉取当前在线社员…</div>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 </div>
@@ -371,6 +411,7 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
 <div id="notice"></div>
 
 <script src="vendor/ag-grid/ag-grid-community.min.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
 <script>
 (function () {
   "use strict";
@@ -457,6 +498,123 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
     });
   }
 
+  /* ---------- 位置地图（需 ADMIN_TOKEN；数据来自 D1 presence 表） ---------- */
+  var presenceMap = null, presenceLayer = null, presenceTimer = null, presenceInitDone = false;
+  var PRESENCE_POLL_MS = 30000;
+
+  function initPresenceMap() {
+    if (presenceMap) return;
+    if (!window.L) {
+      setMapEmpty("地图组件加载失败", "请确认 vendor/leaflet 目录完整或刷新页面重试。");
+      return;
+    }
+    presenceMap = L.map("presenceMap", { zoomControl: true, attributionControl: true });
+    // WGS-84 底图：App 上报的 wgsLat/wgsLng 与此底图一致；国内访问如需更流畅可替换为
+    // 高德/腾讯 GCJ-02 底图，同时改读 lat/lng 字段。
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(presenceMap);
+    presenceLayer = L.layerGroup().addTo(presenceMap);
+    presenceMap.setView([31.3, 120.6], 5);
+  }
+
+  function setMapEmpty(title, desc) {
+    $("mapEmpty").style.display = "flex";
+    $("mapEmptyTitle").textContent = title;
+    $("mapEmptyDesc").textContent = desc;
+  }
+
+  function hideMapEmpty() {
+    $("mapEmpty").style.display = "none";
+  }
+
+  function loadPresenceMap() {
+    initPresenceMap();
+    if (!presenceMap) return;
+    var initPromise = presenceInitDone
+      ? Promise.resolve()
+      : api("/api/admin/presence/init", { method: "POST" }).then(function (res) {
+          presenceInitDone = true;
+        }).catch(function () {
+          // 建表失败时仍尝试读取；后端会返回 PRESENCE_DB binding missing / storage error
+        });
+    initPromise.then(function () {
+      return api("/api/admin/presence/map");
+    }).then(function (res) {
+      if (res.status === 401) { showLogin(); notice("口令失效，请重新登录", "err"); return; }
+      var j = res.body || {};
+      if (!j.ok) {
+        if (j.error === "PRESENCE_DB binding missing") {
+          setMapEmpty("尚未配置位置数据库（D1）", "请在 Cloudflare 控制台创建 D1 数据库，并在 wrangler.jsonc 的 d1_databases 中填入 database_id 后重新部署。");
+        } else {
+          setMapEmpty("位置数据加载失败", j.error || "未知错误");
+        }
+        $("mapMeta").textContent = "加载失败";
+        return;
+      }
+      var items = j.items || [];
+      presenceLayer.clearLayers();
+      var bounds = null;
+      items.forEach(function (it) {
+        var lat = Number(it.wgsLat), lng = Number(it.wgsLng);
+        if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) return;
+        var color = "#0064FA";
+        var marker = L.circleMarker([lat, lng], {
+          radius: 7, color: "#FFFFFF", weight: 2, fillColor: color, fillOpacity: 0.9,
+        });
+        marker.bindPopup(
+          '<div class="presence-popup">' +
+          '<div class="name">' + esc(it.memberCode || "未命名") + '</div>' +
+          '<div class="meta">' + esc((it.cohort || "—") + " · " + (it.department || "—")) + '</div>' +
+          '<div class="time">更新于 ' + esc(fmtBeijingTime(it.updatedAt)) + '</div>' +
+          "</div>"
+        );
+        presenceLayer.addLayer(marker);
+        if (!bounds) bounds = L.latLngBounds([[lat, lng]]);
+        else bounds.extend([lat, lng]);
+      });
+      if (bounds) {
+        presenceMap.fitBounds(bounds, { padding: [36, 36], maxZoom: 17 });
+        hideMapEmpty();
+      } else {
+        presenceMap.setView([31.3, 120.6], 5);
+        setMapEmpty("当前没有社员在线", "只有点进「寻找身边社员」页面的社员会出现在这里；退出页面或 App 进入后台后会自动下线。");
+      }
+      var now = j.now || Date.now();
+      $("mapMeta").textContent = "在线 " + items.length + " 人 · 每 30 秒自动刷新 · 更新于 " + fmtBeijingTime(now);
+    }).catch(function () {
+      setMapEmpty("网络错误", "无法连接位置地图服务，请检查网络后点击刷新。");
+      $("mapMeta").textContent = "加载失败";
+    });
+  }
+
+  function fmtBeijingTime(ms) {
+    if (!ms) return "-";
+    var d = new Date(ms + 8 * 3600 * 1000);
+    var p = function (x) { return String(x).padStart(2, "0"); };
+    return d.getUTCFullYear() + "-" + p(d.getUTCMonth() + 1) + "-" + p(d.getUTCDate()) +
+      " " + p(d.getUTCHours()) + ":" + p(d.getUTCMinutes()) + ":" + p(d.getUTCSeconds());
+  }
+
+  function startMapPolling() {
+    stopMapPolling();
+    presenceTimer = setInterval(loadPresenceMap, PRESENCE_POLL_MS);
+  }
+
+  function stopMapPolling() {
+    if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
+  }
+
+  function onMapShown() {
+    initPresenceMap();
+    if (presenceMap) {
+      setTimeout(function () { presenceMap.invalidateSize(); loadPresenceMap(); }, 30);
+    }
+    startMapPolling();
+  }
+  $("btnMapRefresh").onclick = loadPresenceMap;
+
   /* ---------- 登录 / 视图 ---------- */
   function showApp() {
     $("loginMask").style.display = "none";
@@ -477,6 +635,11 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
     Array.prototype.forEach.call(document.querySelectorAll(".view"), function (v) {
       v.classList.toggle("on", v.id === "view" + name.charAt(0).toUpperCase() + name.slice(1));
     });
+    if (name === "map") {
+      onMapShown();
+    } else {
+      stopMapPolling();
+    }
   }
   Array.prototype.forEach.call(document.querySelectorAll(".nav-item[data-view]"), function (n) {
     n.onclick = function () { if (!n.classList.contains("disabled")) switchView(n.getAttribute("data-view")); };

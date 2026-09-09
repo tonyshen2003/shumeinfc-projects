@@ -15,10 +15,16 @@
  *   资格（发布时间 >= 入社日期）由微信云函数 proofs 本地比较，joinDate 随 /api/members/detail 下发
  * POST /api/checkin             → 签到提交（写 WPS + 发飞书通知）
  * POST /api/refresh             → 触发刷新（飞书自动化 HTTP 调用，拉全量写 KV）
+ * 位置雷达（App 在线状态，D1 存储；PRESENCE_APP_TOKEN 鉴权）[2026-09-10]
+ * POST /api/presence/heartbeat  → 上报当前在线位置（GCJ-02 / WGS-84 双坐标，60s 心跳）
+ * GET  /api/presence/nearby     → 当前在线社员（不含本人；App 端本地算精确距离/方位）
+ * POST /api/presence/offline    → 退出雷达/进后台时立即下线
  * 管理端点（内部 admin.html 用，Bearer ADMIN_TOKEN，响应 no-store）：
  * GET /api/admin/kv/list         → KV 快照状态一览（条数/体积/updatedAt）
  * GET /api/admin/kv?key=&limit= → 单个 KV key 内容（原文直出；大数组默认前 30 条，limit 1-20000）
  * POST /api/admin/refresh        → 同 /api/refresh（ADMIN_TOKEN 亦可用）
+ * GET /api/admin/presence/map    → 位置雷达全量在线名单（管理台完整地图用）
+ * POST /api/admin/presence/init  → 初始化 D1 presence 表（首次部署后管理台自动建表）
  */
 
 let cachedToken = null;
@@ -1548,6 +1554,233 @@ async function handleAdminRefresh(request, env) {
 }
 
 // ============================================================
+// [API] 位置雷达（在线状态，2026-09-10）
+// 产品规则：只有「点进雷达页」的社员才会上报并互相可见；退出页面 / App 进后台立即下线；
+//           不进入绝不共享、不显示；不存历史轨迹，只保留「当前在线」一条最新位置。
+// 存储：Cloudflare D1（绑定 PRESENCE_DB）。表结构：
+//   CREATE TABLE IF NOT EXISTS presence (
+//     member_code TEXT PRIMARY KEY,
+//     cohort TEXT, department TEXT,
+//     lat REAL, lng REAL, wgs_lat REAL, wgs_lng REAL,
+//     updated_at INTEGER
+//   );
+// 鉴权：App 写/读用 PRESENCE_APP_TOKEN（独立 Secret，与 ADMIN_TOKEN / REFRESH_TOKEN 分离）；
+//       管理台全量地图仍走 ADMIN_TOKEN（复用 adminAuthed）。
+// 坐标：iOS 端原生 CoreLocation 拿 WGS-84，经 GCJ-02 转换后用于系统地图；同时上报双坐标，
+//       管理台 Leaflet/OSM 用 WGS-84，iOS MapKit 用 GCJ-02，避免国内地图偏移。
+// ============================================================
+const PRESENCE_STALE_MS = 3 * 60 * 1000; // 超过 3 分钟视为离线（App 心跳间隔为 60 秒）
+const PRESENCE_CLEANUP_LAST = "presence_cleanup_last";
+const PRESENCE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
+/** D1 presence 表初始化（幂等）。管理台首次打开地图时自动调用。 */
+async function ensurePresenceTable(env) {
+  const db = env.PRESENCE_DB;
+  if (!db) throw new Error("PRESENCE_DB binding missing");
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS presence (
+      member_code TEXT PRIMARY KEY,
+      cohort TEXT,
+      department TEXT,
+      lat REAL,
+      lng REAL,
+      wgs_lat REAL,
+      wgs_lng REAL,
+      updated_at INTEGER
+    )`
+  ).run();
+}
+
+/** App 端 Bearer 鉴权：PRESENCE_APP_TOKEN。 */
+function presenceAuthed(request, env) {
+  const auth = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  return Boolean(env.PRESENCE_APP_TOKEN) && auth === env.PRESENCE_APP_TOKEN;
+}
+
+function presenceCors() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Authorization,Content-Type",
+    "Cache-Control": "no-store",
+  };
+}
+
+function normCoord(v, min, max) {
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  if (v < min || v > max) return null;
+  return v;
+}
+
+/** 读取 JSON body；解析失败返回 null。 */
+async function readPresenceBody(request) {
+  try { return await request.json(); } catch (e) { return null; }
+}
+
+function presenceError(message, status) {
+  const headers = presenceCors();
+  headers["Content-Type"] = "application/json; charset=utf-8";
+  return Response.json({ ok: false, error: message }, { status, headers });
+}
+
+function presenceOk(body) {
+  const headers = presenceCors();
+  headers["Content-Type"] = "application/json; charset=utf-8";
+  return Response.json(body, { headers });
+}
+
+/** 清理超时在线记录（尽力而为，失败不影响业务）。 */
+async function cleanupPresence(env) {
+  const db = env.PRESENCE_DB;
+  if (!db) return;
+  const now = Date.now();
+  try {
+    const last = Number((await env.SHUMEI_KV.get(PRESENCE_CLEANUP_LAST)) || 0);
+    if (now - last < PRESENCE_CLEANUP_INTERVAL_MS) return;
+    await db.prepare("DELETE FROM presence WHERE updated_at < ?").bind(now - PRESENCE_STALE_MS).run();
+    await env.SHUMEI_KV.put(PRESENCE_CLEANUP_LAST, String(now));
+  } catch (e) {
+    console.log("[presence] cleanup failed:", e.message);
+  }
+}
+
+/** 心跳：上报在线位置（App 每 60 秒一次，进入页面立即一次）。 */
+async function handlePresenceHeartbeat(request, env) {
+  if (!presenceAuthed(request, env)) return presenceError("unauthorized", 401);
+  if (!env.PRESENCE_DB) return presenceError("PRESENCE_DB binding missing", 503);
+  const body = await readPresenceBody(request);
+  const memberCode = String(body?.memberCode || "").trim();
+  const cohort = String(body?.cohort || "").trim();
+  const department = String(body?.department || "").trim();
+  const lat = normCoord(body?.lat, -90, 90);
+  const lng = normCoord(body?.lng, -180, 180);
+  const wgsLat = normCoord(body?.wgsLat, -90, 90);
+  const wgsLng = normCoord(body?.wgsLng, -180, 180);
+  if (!memberCode || !lat || !lng) return presenceError("invalid payload", 400);
+
+  try {
+    await ensurePresenceTable(env);
+    await env.PRESENCE_DB.prepare(
+      `INSERT INTO presence (member_code, cohort, department, lat, lng, wgs_lat, wgs_lng, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(member_code) DO UPDATE SET
+         cohort=excluded.cohort, department=excluded.department,
+         lat=excluded.lat, lng=excluded.lng,
+         wgs_lat=excluded.wgs_lat, wgs_lng=excluded.wgs_lng,
+         updated_at=excluded.updated_at`
+    ).bind(
+      memberCode, cohort, department,
+      lat, lng, wgsLat, wgsLng, Date.now()
+    ).run();
+    return presenceOk({ ok: true, now: Date.now() });
+  } catch (e) {
+    console.log("[presence] heartbeat failed:", e.message);
+    return presenceError("storage error", 500);
+  }
+}
+
+/** 在线名单：不含本人；服务端只回坐标与属性，距离/方位由客户端本地计算。 */
+async function handlePresenceNearby(request, env) {
+  if (!presenceAuthed(request, env)) return presenceError("unauthorized", 401);
+  if (!env.PRESENCE_DB) return presenceError("PRESENCE_DB binding missing", 503);
+  const url = new URL(request.url);
+  const self = (url.searchParams.get("self") || "").trim();
+  try {
+    await ensurePresenceTable(env);
+    await cleanupPresence(env);
+    const cutoff = Date.now() - PRESENCE_STALE_MS;
+    const rows = (await env.PRESENCE_DB.prepare(
+      "SELECT member_code, cohort, department, lat, lng, wgs_lat, wgs_lng, updated_at FROM presence WHERE updated_at >= ? ORDER BY updated_at DESC"
+    ).bind(cutoff).all()).results || [];
+    const items = rows
+      .filter((r) => String(r.member_code) !== self)
+      .map((r) => ({
+        memberCode: String(r.member_code),
+        cohort: String(r.cohort || ""),
+        department: String(r.department || ""),
+        lat: Number(r.lat),
+        lng: Number(r.lng),
+        wgsLat: Number(r.wgs_lat),
+        wgsLng: Number(r.wgs_lng),
+        updatedAt: Number(r.updated_at),
+      }));
+    return presenceOk({ ok: true, now: Date.now(), items });
+  } catch (e) {
+    console.log("[presence] nearby failed:", e.message);
+    return presenceError("storage error", 500);
+  }
+}
+
+/** 下线：退出页面 / App 进后台。 */
+async function handlePresenceOffline(request, env) {
+  if (!presenceAuthed(request, env)) return presenceError("unauthorized", 401);
+  if (!env.PRESENCE_DB) return presenceError("PRESENCE_DB binding missing", 503);
+  const body = await readPresenceBody(request);
+  const memberCode = String(body?.memberCode || "").trim();
+  if (!memberCode) return presenceError("invalid payload", 400);
+  try {
+    await ensurePresenceTable(env);
+    await env.PRESENCE_DB.prepare("DELETE FROM presence WHERE member_code = ?").bind(memberCode).run();
+    return presenceOk({ ok: true });
+  } catch (e) {
+    console.log("[presence] offline failed:", e.message);
+    return presenceError("storage error", 500);
+  }
+}
+
+/** 管理台全量地图：复用 ADMIN_TOKEN，返回当前全部在线位置（含双坐标）。 */
+async function handleAdminPresenceMap(request, env) {
+  if (!adminAuthed(request, env)) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401, headers: adminHeaders() });
+  }
+  if (!env.PRESENCE_DB) {
+    return Response.json({ ok: false, error: "PRESENCE_DB binding missing" }, { status: 503, headers: adminHeaders() });
+  }
+  try {
+    await ensurePresenceTable(env);
+    await cleanupPresence(env);
+    const cutoff = Date.now() - PRESENCE_STALE_MS;
+    const rows = (await env.PRESENCE_DB.prepare(
+      "SELECT member_code, cohort, department, lat, lng, wgs_lat, wgs_lng, updated_at FROM presence WHERE updated_at >= ? ORDER BY updated_at DESC"
+    ).bind(cutoff).all()).results || [];
+    return Response.json({
+      ok: true,
+      now: Date.now(),
+      staleMs: PRESENCE_STALE_MS,
+      items: rows.map((r) => ({
+        memberCode: String(r.member_code),
+        cohort: String(r.cohort || ""),
+        department: String(r.department || ""),
+        lat: Number(r.lat),
+        lng: Number(r.lng),
+        wgsLat: Number(r.wgs_lat),
+        wgsLng: Number(r.wgs_lng),
+        updatedAt: Number(r.updated_at),
+      })),
+    }, { headers: adminHeaders() });
+  } catch (e) {
+    console.log("[presence] admin map failed:", e.message);
+    return Response.json({ ok: false, error: "storage error" }, { status: 500, headers: adminHeaders() });
+  }
+}
+
+/** 管理台首次打开地图时自动建表。 */
+async function handleAdminPresenceInit(request, env) {
+  if (!adminAuthed(request, env)) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401, headers: adminHeaders() });
+  }
+  if (!env.PRESENCE_DB) {
+    return Response.json({ ok: false, error: "PRESENCE_DB binding missing" }, { status: 503, headers: adminHeaders() });
+  }
+  try {
+    await ensurePresenceTable(env);
+    return Response.json({ ok: true }, { headers: adminHeaders() });
+  } catch (e) {
+    return Response.json({ ok: false, error: "storage error" }, { status: 500, headers: adminHeaders() });
+  }
+}
+
+// ============================================================
 // [API] 触发刷新：拉飞书全量 → 写 KV（供飞书自动化「发送 HTTP 请求」调用）
 // POST /api/refresh  鉴权：Authorization: Bearer <REFRESH_TOKEN> 或 ?token=
 // 覆盖：社员全表 members_full + 活动 activity_records_v3 / activity_projects_v1
@@ -1615,10 +1848,19 @@ export default {
     if (url.pathname === "/api/photo") return handlePhoto(request, env, ctx);
     if (url.pathname === "/api/refresh" && request.method === "POST") return handleRefresh(request, env);
     if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env, ctx);
+    // 位置雷达（App 端跨域调用，PRESENCE_APP_TOKEN 鉴权）
+    if (url.pathname === "/api/presence/heartbeat" && request.method === "POST") return handlePresenceHeartbeat(request, env);
+    if (url.pathname === "/api/presence/nearby" && request.method === "GET") return handlePresenceNearby(request, env);
+    if (url.pathname === "/api/presence/offline" && request.method === "POST") return handlePresenceOffline(request, env);
+    if (url.pathname.startsWith("/api/presence/") && request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: presenceCors() });
+    }
     // 管理端点（admin.html 内部页，2026-09-06）：一律 ADMIN_TOKEN 鉴权 + no-store
     if (url.pathname === "/api/admin/kv/list" && request.method === "GET") return handleAdminKvList(request, env);
     if (url.pathname === "/api/admin/kv" && request.method === "GET") return handleAdminKvGet(request, env);
     if (url.pathname === "/api/admin/refresh" && request.method === "POST") return handleAdminRefresh(request, env);
+    if (url.pathname === "/api/admin/presence/map" && request.method === "GET") return handleAdminPresenceMap(request, env);
+    if (url.pathname === "/api/admin/presence/init" && request.method === "POST") return handleAdminPresenceInit(request, env);
     return env.ASSETS.fetch(request);
   },
 
@@ -1653,6 +1895,13 @@ export default {
         console.log("[cron] file catalog refreshed:", fileSnap.items.length);
       } catch (e) {
         console.log("[cron] file catalog refresh failed:", e.message);
+      }
+      // 位置雷达：清理超时在线记录（正常由 API 访问时惰性清理，cron 兜底）
+      try {
+        await cleanupPresence(env);
+        console.log("[cron] presence cleanup done");
+      } catch (e) {
+        console.log("[cron] presence cleanup failed:", e.message);
       }
     })());
   },
