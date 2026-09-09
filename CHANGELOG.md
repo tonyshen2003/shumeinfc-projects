@@ -2,7 +2,7 @@
 
 ## 1.18.0 - 2026-09-10
 - 新增「位置雷达」后端（Cloudflare D1）：
-  - `POST /api/presence/heartbeat`：在线位置心跳，App 每 60s 上报一次，同时携带 GCJ-02 与 WGS-84 双坐标
+  - `POST /api/presence/heartbeat`：在线位置心跳，App 每 60s 上报一次，同时携带社员编号与 GCJ-02 / WGS-84 双坐标
   - `GET /api/presence/nearby?self=`：当前在线社员（不含本人），距离/方位由客户端本地计算
   - `POST /api/presence/offline`：退出雷达 / App 进后台立即下线
   - 鉴权使用独立 Secret `PRESENCE_APP_TOKEN`；只存“当前在线”一条，不保存历史轨迹，超过 3 分钟视为离线

@@ -23,7 +23,7 @@
  * GET /api/admin/kv/list         → KV 快照状态一览（条数/体积/updatedAt）
  * GET /api/admin/kv?key=&limit= → 单个 KV key 内容（原文直出；大数组默认前 30 条，limit 1-20000）
  * POST /api/admin/refresh        → 同 /api/refresh（ADMIN_TOKEN 亦可用）
- * GET /api/admin/presence/map    → 位置雷达全量在线名单（管理台完整地图用）
+ * GET /api/admin/presence/map    → 位置雷达全量在线名单（含社员编号，管理台完整地图用）
  * POST /api/admin/presence/init  → 初始化 D1 presence 表（首次部署后管理台自动建表）
  */
 
@@ -1560,6 +1560,7 @@ async function handleAdminRefresh(request, env) {
 // 存储：Cloudflare D1（绑定 PRESENCE_DB）。表结构：
 //   CREATE TABLE IF NOT EXISTS presence (
 //     member_code TEXT PRIMARY KEY,
+//     id_code TEXT,
 //     cohort TEXT, department TEXT,
 //     lat REAL, lng REAL, wgs_lat REAL, wgs_lng REAL,
 //     updated_at INTEGER
@@ -1577,9 +1578,18 @@ const PRESENCE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 async function ensurePresenceTable(env) {
   const db = env.PRESENCE_DB;
   if (!db) throw new Error("PRESENCE_DB binding missing");
+  try {
+    // 列存在性探测：旧版本表（无 id_code）首次访问时补列，幂等安全
+    await db.prepare("SELECT id_code FROM presence LIMIT 1").all();
+  } catch (e) {
+    try {
+      await db.prepare("ALTER TABLE presence ADD COLUMN id_code TEXT").run();
+    } catch (e2) { /* 表不存在或列已存在，交给下方建表逻辑 */ }
+  }
   await db.prepare(
     `CREATE TABLE IF NOT EXISTS presence (
       member_code TEXT PRIMARY KEY,
+      id_code TEXT,
       cohort TEXT,
       department TEXT,
       lat REAL,
@@ -1650,6 +1660,7 @@ async function handlePresenceHeartbeat(request, env) {
   if (!env.PRESENCE_DB) return presenceError("PRESENCE_DB binding missing", 503);
   const body = await readPresenceBody(request);
   const memberCode = String(body?.memberCode || "").trim();
+  const idCode = String(body?.idCode || "").trim();
   const cohort = String(body?.cohort || "").trim();
   const department = String(body?.department || "").trim();
   const lat = normCoord(body?.lat, -90, 90);
@@ -1661,15 +1672,16 @@ async function handlePresenceHeartbeat(request, env) {
   try {
     await ensurePresenceTable(env);
     await env.PRESENCE_DB.prepare(
-      `INSERT INTO presence (member_code, cohort, department, lat, lng, wgs_lat, wgs_lng, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO presence (member_code, id_code, cohort, department, lat, lng, wgs_lat, wgs_lng, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(member_code) DO UPDATE SET
+         id_code=excluded.id_code,
          cohort=excluded.cohort, department=excluded.department,
          lat=excluded.lat, lng=excluded.lng,
          wgs_lat=excluded.wgs_lat, wgs_lng=excluded.wgs_lng,
          updated_at=excluded.updated_at`
     ).bind(
-      memberCode, cohort, department,
+      memberCode, idCode, cohort, department,
       lat, lng, wgsLat, wgsLng, Date.now()
     ).run();
     return presenceOk({ ok: true, now: Date.now() });
@@ -1690,12 +1702,13 @@ async function handlePresenceNearby(request, env) {
     await cleanupPresence(env);
     const cutoff = Date.now() - PRESENCE_STALE_MS;
     const rows = (await env.PRESENCE_DB.prepare(
-      "SELECT member_code, cohort, department, lat, lng, wgs_lat, wgs_lng, updated_at FROM presence WHERE updated_at >= ? ORDER BY updated_at DESC"
+      "SELECT member_code, id_code, cohort, department, lat, lng, wgs_lat, wgs_lng, updated_at FROM presence WHERE updated_at >= ? ORDER BY updated_at DESC"
     ).bind(cutoff).all()).results || [];
     const items = rows
       .filter((r) => String(r.member_code) !== self)
       .map((r) => ({
         memberCode: String(r.member_code),
+        idCode: String(r.id_code || ""),
         cohort: String(r.cohort || ""),
         department: String(r.department || ""),
         lat: Number(r.lat),
@@ -1741,7 +1754,7 @@ async function handleAdminPresenceMap(request, env) {
     await cleanupPresence(env);
     const cutoff = Date.now() - PRESENCE_STALE_MS;
     const rows = (await env.PRESENCE_DB.prepare(
-      "SELECT member_code, cohort, department, lat, lng, wgs_lat, wgs_lng, updated_at FROM presence WHERE updated_at >= ? ORDER BY updated_at DESC"
+      "SELECT member_code, id_code, cohort, department, lat, lng, wgs_lat, wgs_lng, updated_at FROM presence WHERE updated_at >= ? ORDER BY updated_at DESC"
     ).bind(cutoff).all()).results || [];
     return Response.json({
       ok: true,
@@ -1749,6 +1762,7 @@ async function handleAdminPresenceMap(request, env) {
       staleMs: PRESENCE_STALE_MS,
       items: rows.map((r) => ({
         memberCode: String(r.member_code),
+        idCode: String(r.id_code || ""),
         cohort: String(r.cohort || ""),
         department: String(r.department || ""),
         lat: Number(r.lat),

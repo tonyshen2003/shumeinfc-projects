@@ -99,7 +99,7 @@
 | GET | `/api/admin/kv/list` | KV 快照状态一览：条数 / 字节 / updatedAt / 健康（avatar 前缀仅计数） |
 | GET | `/api/admin/kv?key=<key>&limit=<N>` | 单个 KV key 内容（原文直出，内部工具）；`limit` 1–20000（管理页默认带 20000=全量；接口不传仍为前 30 条样本）；`last_refresh_at` 返回可读时间（kind=ts）；图片类只回字节数 |
 | POST | `/api/admin/refresh` | 与 `/api/refresh` 等价，鉴权同时接受 `ADMIN_TOKEN`（30s 冷却共用） |
-| GET | `/api/admin/presence/map` | 位置雷达全量在线名单（含双坐标），供管理台完整地图页；`ADMIN_TOKEN` 鉴权 + no-store |
+| GET | `/api/admin/presence/map` | 位置雷达全量在线名单（含社员编号 + 双坐标），供管理台完整地图页；`ADMIN_TOKEN` 鉴权 + no-store |
 | POST | `/api/admin/presence/init` | 幂等初始化 D1 presence 表；管理台首次打开地图时自动调用 |
 
 > 安全备注：`members_full` 含「登录密码」等原始列——管理页可看原文（管理台为内部授权工具，访问受 `ADMIN_TOKEN` 保护）；如部署 CF Zero Trust Access，可把 `/admin.html` 与 `/api/admin/*` 再包一层登录墙（可选加固，见部署节）。
@@ -127,7 +127,7 @@
 
 | 表 | 内容 | 清理策略 |
 |---|---|---|
-| `presence` | 当前在线社员的最新一条位置（识别码主键 + 届别 + 部门 + GCJ-02/WGS-84 双坐标 + updated_at） | 心跳 UPSERT；超过 3 分钟视为离线，由 API 访问时惰性清理 + Cron 兜底 |
+| `presence` | 当前在线社员的最新一条位置（识别码主键 + 社员编号 + 届别 + 部门 + GCJ-02/WGS-84 双坐标 + updated_at） | 心跳 UPSERT；超过 3 分钟视为离线，由 API 访问时惰性清理 + Cron 兜底 |
 
 > 位置雷达只存“当前在线”状态，不保存历史轨迹。管理台位置地图用 WGS-84 坐标贴 OSM/Leaflet 底图；iOS App 用 GCJ-02 坐标贴系统 MapKit，避免国内地图偏移。
 

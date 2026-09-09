@@ -563,9 +563,10 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
         var marker = L.circleMarker([lat, lng], {
           radius: 7, color: "#FFFFFF", weight: 2, fillColor: color, fillOpacity: 0.9,
         });
+        var displayName = it.idCode || it.memberCode || "未命名";
         marker.bindPopup(
           '<div class="presence-popup">' +
-          '<div class="name">' + esc(it.memberCode || "未命名") + '</div>' +
+          '<div class="name">社员 ' + esc(displayName) + '</div>' +
           '<div class="meta">' + esc((it.cohort || "—") + " · " + (it.department || "—")) + '</div>' +
           '<div class="time">更新于 ' + esc(fmtBeijingTime(it.updatedAt)) + '</div>' +
           "</div>"
