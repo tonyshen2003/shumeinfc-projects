@@ -172,6 +172,26 @@ pre.json{flex:1;min-height:0;margin:0;overflow:auto;padding:16px 20px;font:12px/
 .presence-popup .meta{color:var(--ink-2);margin-top:2px}
 .presence-popup .time{color:var(--ink-3);font-size:11px;margin-top:4px}
 .presence-dot{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(28,31,35,.35)}
+.map-panel{position:absolute;top:12px;right:12px;bottom:12px;width:min(320px,calc(100vw - 24px));
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh-2);
+  display:none;flex-direction:column;overflow:hidden;z-index:450}
+.map-panel.on{display:flex}
+.map-panel-head{flex:none;padding:12px 12px 9px;border-bottom:1px solid var(--divider);display:flex;flex-direction:column;gap:9px}
+.map-panel-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.map-panel-title .spacer{flex:1}
+.map-panel-close{width:24px;height:24px;padding:0;color:var(--ink-2);border-radius:var(--r-sm)}
+.map-panel-close:hover{background:var(--bg-hover);color:var(--ink)}
+#presenceSearch{width:100%;height:30px;font-size:12.5px}
+.map-list{flex:1;min-height:0;overflow:auto}
+.map-list .none{padding:22px 14px;color:var(--ink-3);font-size:12.5px;text-align:center}
+.map-list-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:10px 12px;
+  border:none;background:none;border-bottom:1px solid var(--divider);transition:background .14s}
+.map-list-item:hover{background:var(--bg-hover)}
+.map-list-item .num{font-size:13px;font-weight:600;color:var(--ink)}
+.map-list-item .sub{font-size:11.5px;color:var(--ink-2);margin-top:2px}
+.map-list-item .stale{font-size:10.5px;color:var(--ink-3);font-family:var(--mono);margin-top:3px}
+.map-list-item .go{margin-left:auto;flex:none;color:var(--blue);font-size:12px;display:inline-flex;align-items:center;gap:4px}
+.map-list-item .go:hover{color:var(--blue-hover)}
 
 /* ---------- 行详情抽屉（右侧滑出） ---------- */
 .drawer-mask{position:fixed;inset:0;background:rgba(28,31,35,.42);z-index:60;display:none;opacity:0;transition:opacity .2s}
@@ -232,6 +252,8 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
   .nav-item{width:auto;white-space:nowrap}
   .tbl-head{flex-wrap:wrap} .q{width:150px}
   .drawer{width:100vw}
+  .map-head{flex-wrap:wrap}
+  .map-panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;max-height:52%}
 }
 </style>
 </head>
@@ -362,6 +384,10 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
             <div class="th-meta" id="mapMeta">正在加载…</div>
           </div>
           <span class="spacer"></span>
+          <button class="btn-mini" id="btnToggleMapList">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            列表
+          </button>
           <button class="btn-mini" id="btnMapRefresh">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
             刷新
@@ -369,6 +395,20 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
         </div>
         <div class="map-body">
           <div id="presenceMap"></div>
+          <aside class="map-panel" id="mapPanel">
+            <div class="map-panel-head">
+              <div class="map-panel-title">
+                <span>在线社员</span>
+                <span class="faint" id="mapListCount">0 人</span>
+                <span class="spacer"></span>
+                <button class="map-panel-close" id="btnCloseMapList" title="收起列表">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+              <input type="search" id="presenceSearch" placeholder="搜索社员编号 / 届别 / 部门" autocomplete="off">
+            </div>
+            <div class="map-list" id="mapList"></div>
+          </aside>
           <div class="map-empty" id="mapEmpty">
             <div class="big" id="mapEmptyTitle">位置地图加载中</div>
             <div class="small" id="mapEmptyDesc">正在初始化地图并拉取当前在线社员…</div>
@@ -500,6 +540,7 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
 
   /* ---------- 位置地图（需 ADMIN_TOKEN；数据来自 D1 presence 表） ---------- */
   var presenceMap = null, presenceLayer = null, presenceTimer = null, presenceInitDone = false;
+  var mapPresenceItems = [], mapMarkers = {};
   var PRESENCE_POLL_MS = 30000;
 
   function initPresenceMap() {
@@ -554,6 +595,8 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
         return;
       }
       var items = j.items || [];
+      mapPresenceItems = items;
+      mapMarkers = {};
       presenceLayer.clearLayers();
       var bounds = null;
       items.forEach(function (it) {
@@ -572,6 +615,7 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
           "</div>"
         );
         presenceLayer.addLayer(marker);
+        mapMarkers[it.memberCode || ""] = marker;
         if (!bounds) bounds = L.latLngBounds([[lat, lng]]);
         else bounds.extend([lat, lng]);
       });
@@ -584,9 +628,70 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
       }
       var now = j.now || Date.now();
       $("mapMeta").textContent = "在线 " + items.length + " 人 · 每 30 秒自动刷新 · 更新于 " + fmtBeijingTime(now);
+      renderPresenceList();
     }).catch(function () {
       setMapEmpty("网络错误", "无法连接位置地图服务，请检查网络后点击刷新。");
       $("mapMeta").textContent = "加载失败";
+    });
+  }
+
+  function fmtRelative(ts, now) {
+    if (!ts) return "—";
+    var secs = Math.max(0, Math.round((now - ts) / 1000));
+    if (secs < 60) return secs + " 秒前";
+    if (secs < 3600) return Math.floor(secs / 60) + " 分钟前";
+    if (secs < 86400) return Math.floor(secs / 3600) + " 小时前";
+    return fmtBeijingTime(ts);
+  }
+
+  function toggleMapList(force) {
+    var panel = $("mapPanel");
+    var show = typeof force === "boolean" ? force : !panel.classList.contains("on");
+    panel.classList.toggle("on", show);
+    $("btnToggleMapList").classList.toggle("on", show);
+    if (show && presenceMap) {
+      setTimeout(function () { presenceMap.invalidateSize(); }, 30);
+      renderPresenceList();
+    }
+  }
+
+  function renderPresenceList() {
+    var now = Date.now();
+    var q = ($("presenceSearch").value || "").trim().toLowerCase();
+    var list = mapPresenceItems.slice().sort(function (a, b) {
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+    if (q) {
+      list = list.filter(function (it) {
+        return [it.idCode, it.memberCode, it.cohort, it.department].join(" ").toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    $("mapListCount").textContent = list.length + " / " + mapPresenceItems.length + " 人";
+    var box = $("mapList");
+    if (!list.length) {
+      box.innerHTML = '<div class="none">' + (mapPresenceItems.length ? "没有匹配的在线社员" : "当前没有社员在线") + "</div>";
+      return;
+    }
+    var html = "";
+    list.forEach(function (it) {
+      var num = it.idCode || it.memberCode || "—";
+      var sub = (it.cohort || "—") + " · " + (it.department || "—");
+      html += '<button class="map-list-item" data-code="' + esc(it.memberCode || "") + '">'
+        + '<span><span class="num">' + esc(num) + '</span>'
+        + '<div class="sub">' + esc(sub) + '</div>'
+        + '<div class="stale">更新于 ' + esc(fmtRelative(it.updatedAt, now)) + '</div></span>'
+        + '<span class="go">定位</span></button>';
+    });
+    box.innerHTML = html;
+    Array.prototype.forEach.call(box.querySelectorAll(".map-list-item"), function (btn) {
+      btn.onclick = function () {
+        var code = btn.getAttribute("data-code");
+        var marker = mapMarkers[code];
+        if (marker && presenceMap) {
+          presenceMap.flyTo(marker.getLatLng(), Math.max(presenceMap.getZoom(), 15), { duration: 0.5 });
+          marker.openPopup();
+        }
+      };
     });
   }
 
@@ -615,6 +720,9 @@ table.rd td:last-child{color:#26292D;word-break:break-all;white-space:pre-wrap;f
     startMapPolling();
   }
   $("btnMapRefresh").onclick = loadPresenceMap;
+  $("btnToggleMapList").onclick = function () { toggleMapList(); };
+  $("btnCloseMapList").onclick = function () { toggleMapList(false); };
+  $("presenceSearch").addEventListener("input", renderPresenceList);
 
   /* ---------- 登录 / 视图 ---------- */
   function showApp() {
