@@ -241,11 +241,11 @@ async function handleMember(request, env) {
 
 // ============================================================
 // [API] 识别码找回：多字段强匹配，唯一命中才回「社员识别码」
-// GET /api/members/find-code?name=<姓名>&grade=&clazz=&dept=&seq=&readable=
+// GET /api/members/find-code?name=<姓名>&grade=&clazz=&dept=&seq=
 // 产品规则（2026-09-09 定稿）：
-//   - 姓名必填；年级/班级（分班后）/社团部门/社员编号/认读码中至少提供两项；
+//   - 姓名必填；年级/班级（分班后）/社团部门/社员编号中至少提供两项；
 //   - 一律精确匹配；勾选「禁止查询」的社员一律视为未找到；
-//   - 唯一命中 → { found:true, member:{ code,name,grade,clazz,dept } }；
+//   - 唯一命中 → { found:true, member:{ code,seq,name,grade,clazz,dept } }；
 //     多命中   → { found:false, ambiguous:true, candidates:[脱敏候选] }（不含识别码）；
 //   - 响应 no-store，不落任何缓存，避免识别码被边缘缓存扩散。
 // ============================================================
@@ -255,7 +255,7 @@ function normLookupCode(s) {
   return String(s || "").trim().toUpperCase().replace(/[\s:]/g, "");
 }
 
-/** 单项精确匹配；multi=false 用于年级/班级等单值字段。 */
+/** 单项精确匹配；multi=false 用于年级等单值字段。 */
 function lookupValueEqual(actual, target, multi, codeLike) {
   const raw = String(actual || "").trim();
   const want = String(target || "").trim();
@@ -266,20 +266,30 @@ function lookupValueEqual(actual, target, multi, codeLike) {
   return raw.split(/\s*(?:,|;|\/)\s*/).indexOf(want) !== -1;
 }
 
+/**
+ * 有效班级：直接读飞书公式列「班级」（= 分班后为空时取分班前）；
+ * 「未知」视为没有班级，避免匹配到无意义值。
+ */
+function lookupClassValue(fields) {
+  const formula = text(fields, "班级").trim();
+  if (formula && formula !== "未知") return formula;
+  return "";
+}
+
 /** 找回入参 → { fieldsKey, target, multi, codeLike } 列表。 */
 function memberCodeLookupConds(url) {
   const conds = [];
   const specs = [
     ["grade", "年级", false, false],
-    ["clazz", "班级（分班后）", false, false],
     ["dept", "社团部门", true, false],
     ["seq", "社员编号", false, true],
-    ["readable", "社员身份编码（认读码）", false, true],
   ];
   for (const [param, key, multi, codeLike] of specs) {
     const v = (url.searchParams.get(param) || "").trim();
     if (v) conds.push({ key, target: v, multi, codeLike });
   }
+  const clazz = (url.searchParams.get("clazz") || "").trim();
+  if (clazz) conds.push({ key: "__class__", target: clazz, multi: false, codeLike: false });
   return conds;
 }
 
@@ -305,7 +315,8 @@ async function handleMemberFindCode(request, env) {
       if (isBlocked(f)) continue; // 禁查一律视为未找到
       let matched = true;
       for (const c of conds) {
-        if (!lookupValueEqual(text(f, c.key), c.target, c.multi, c.codeLike)) {
+        const actual = c.key === "__class__" ? lookupClassValue(f) : text(f, c.key);
+        if (!lookupValueEqual(actual, c.target, c.multi, c.codeLike)) {
           matched = false;
           break;
         }
@@ -324,7 +335,7 @@ async function handleMemberFindCode(request, env) {
           candidates: hits.map((item) => ({
             name: text(item.fields, "姓名"),
             grade: text(item.fields, "年级"),
-            clazz: text(item.fields, "班级（分班后）"),
+            clazz: lookupClassValue(item.fields),
             dept: text(item.fields, "社团部门"),
           })),
         },
@@ -342,9 +353,10 @@ async function handleMemberFindCode(request, env) {
         found: true,
         member: {
           code,
+          seq: text(mf, "社员编号"),
           name: text(mf, "姓名"),
           grade: text(mf, "年级"),
-          clazz: text(mf, "班级（分班后）"),
+          clazz: lookupClassValue(mf),
           dept: text(mf, "社团部门"),
         },
       },

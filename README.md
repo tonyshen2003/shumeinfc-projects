@@ -74,7 +74,7 @@
 | GET | `/api/members/full` | KV 快照 | 全量原始记录（含 `record_id`、附件 tmp_url），供 App 24h 本地快照 |
 | GET | `/api/members` | KV 快照 | 卡号/识别码/姓名映射（cardMap/barcodeMap/infoMap），供 H5 离线缓存；CDN 60s |
 | GET | `/api/members/detail?code=<识别码>` | KV 快照 + Cache API 300s | 单人**脱敏**档案（含 activities 参与记录、avatarProxy、joinDate）；勾选「禁止查询」→ `found:false`（不缓存，即时生效）；CORS * |
-| GET | `/api/members/find-code?name=&grade=&clazz=&dept=&seq=&readable=` | KV 快照（no-store） | 识别码找回：姓名 + 至少两项补充信息强匹配；勾选「禁止查询」→ `found:false`；唯一命中才回「社员识别码」，多命中只出脱敏候选，响应不缓存 |
+| GET | `/api/members/find-code?name=&grade=&clazz=&dept=&seq=` | KV 快照（no-store） | 识别码找回：姓名 + 至少两项补充信息强匹配；勾选「禁止查询」→ `found:false`；唯一命中才回「社员识别码」+ 社员编号，多命中只出脱敏候选，响应不缓存 |
 | GET | `/api/member?uid=<卡号>` | KV 优先+实时兜底 | 按卡号/识别码/认读码查人（签到用）；查无返回 HTTP 500 + `found:false`（既有行为） |
 | GET | `/api/member?q=<姓名>` | KV 优先+实时兜底 | 姓名/别名/编号/识别码/认读码/序号搜索（精确匹配） |
 | GET | `/api/avatar?token=<file_token>` | 边缘缓存 1d + KV 永久 | 头像图片代理直链；白名单=成员快照「头像/个人照片」token；飞书删图仍可访问 |
@@ -266,7 +266,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 ### 识别码找回（`/api/members/find-code`）
 
-微信小程序未绑定时用于找回本人的「社员识别码」。查询必须同时满足：姓名精确匹配 + 年级/班级（分班后）/社团部门/社员编号/认读码中至少两项精确匹配；姓名单独查询不会返回候选。命中「禁止查询」的社员一律视为未找到。唯一命中才回 `member.code`；多命中只回脱敏候选人列表（不含识别码），由用户补充编号/认读码等唯一信息后重新查询。响应 `Cache-Control: no-store`，避免个人识别码被边缘缓存扩散。
+微信小程序未绑定时用于找回本人的「社员识别码」。查询必须同时满足：姓名精确匹配 + 年级/有效班级/社团部门/社员编号中至少两项精确匹配；有效班级直接使用飞书公式列「班级」（分班后为空时取分班前，皆空为「未知」并视为无班级），姓名单独查询不会返回候选。命中「禁止查询」的社员一律视为未找到。唯一命中才回 `member.code` 与 `member.seq`（社员编号）；多命中只回脱敏候选人列表（不含识别码），由用户补充社员编号或班级等更多信息后重新查询。响应 `Cache-Control: no-store`，避免个人识别码被边缘缓存扩散。
 
 ## 版本历史
 
