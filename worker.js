@@ -10,6 +10,8 @@
  * GET /api/activities            → 活动列表（年份/类型/关键词筛选 + 分页 + 筛选项）[2026-09-03]
  * GET /api/activities/detail?id= → 活动详情（只出统计数字与照片，不出参与人名单）[2026-09-03]
  * GET /api/photo?token=&w=       → 活动照片代理 + 缩放（边缘缓存 7 天，不写 KV）[2026-09-03]
+ * GET /calendar/activities.ics   → 活动日历订阅源（iCalendar，全天事件，公开链接，边缘缓存 5 分钟）[2026-09-28]
+ *   from=<年份>|all=1|type=<类型>；飞书「活动结束日期」「隐藏日程」两列缺失时按单日全天 + 可见兜底
  * GET /api/proof-files           → 社员证明文件目录（全量，无资格过滤）[2026-09-06]
  * GET /api/file?token=           → 社员证明附件原样代理 PDF（白名单，边缘缓存 7 天）[2026-09-06]
  *   资格（发布时间 >= 入社日期）由微信云函数 proofs 本地比较，joinDate 随 /api/members/detail 下发
@@ -843,7 +845,9 @@ function attachmentsOf(fields, key) {
   return out;
 }
 
-/** 项目表行 → 活动项目列表（完整展示字段）。封面优先，无封面用相册首图兜底。 */
+/** 项目表行 → 活动项目列表（完整展示字段）。封面优先，无封面用相册首图兜底。
+ *  2026-09-28：新增 endDate（活动结束日期，可空）与 hidden（隐藏日程复选框），供日历订阅源使用；
+ *  两列在飞书表里可能尚未创建，缺失时 endDate 为空、hidden 为 false，日历按「单日全天且可见」兜底。 */
 async function buildActivityProjectSnapshot(env) {
   const rows = await fetchTableRecords(env, ACTIVITY_TABLE_ID);
   const items = [];
@@ -859,6 +863,9 @@ async function buildActivityProjectSnapshot(env) {
       name,
       type: text(f, "项目类型"),
       date: dateText(f["主要活动日期"]),
+      // 日历订阅用：结束日期留空 → 按单日处理；「隐藏日程」勾选 → 不进日历
+      endDate: dateText(f["活动结束日期"]),
+      hidden: f["隐藏日程"] === true,
       place: text(f, "活动地点/形式"),
       intro: text(f, "项目介绍"),
       result: text(f, "活动成果"),
@@ -1336,6 +1343,168 @@ async function handleActivityDetail(request, env, ctx) {
     return resp;
   } catch (e) {
     return Response.json({ found: false, error: e.message }, { status: 500, headers: CORS });
+  }
+}
+
+// ============================================================
+// [API] 活动日历订阅源（2026-09-28 新增）
+// GET /calendar/activities.ics           → iCalendar（RFC 5545）订阅源，全部为全天事件
+//   from=<4位年份>  起始年份（默认：近 365 天 + 全部未来活动）
+//   all=1           输出全部记录（含早年归档）
+//   type=<项目类型> 只输出某一类型（精确匹配）
+// 数据源：活动项目快照 activity_projects_v1（与 /api/activities 同源）
+// 输出规则：
+//   · 「隐藏日程」勾选的活动不输出；两列缺失时按「单日全天 + 可见」兜底
+//   · 无结束日期（或早于开始日）→ DTEND = 开始日 + 1，即单日全天
+//   · 无地点 → 不输出 LOCATION 行，不写"待定"
+//   · UID = act-<record_id>@host，record_id 稳定 → 客户端原地更新而非重复堆积
+//   · 全为 VALUE=DATE 全天事件，不引用 TZID，故不内嵌 VTIMEZONE
+// 边缘缓存 5 分钟；缓存 key 只含白名单参数（all / type / from），避免 query 碎片。
+// ============================================================
+
+/** RFC 5545 TEXT 转义：反斜杠、分号、逗号与换行。 */
+function icsText(s) {
+  return String(s == null ? "" : s)
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r?\n/g, "\\n");
+}
+
+/** 75 octets 折叠，按 UTF-8 码点边界切分，续行以单个空格开头。 */
+function icsFold(line) {
+  const buf = new TextEncoder().encode(line);
+  if (buf.length <= 75) return line;
+  const out = [];
+  let start = 0;
+  let limit = 75;
+  while (start < buf.length) {
+    let end = Math.min(start + limit, buf.length);
+    if (end < buf.length) {
+      while (end > start && (buf[end] & 0xc0) === 0x80) end--; // 不切断多字节序列
+      if (end === start) end = Math.min(start + limit, buf.length);
+    }
+    out.push(new TextDecoder().decode(buf.subarray(start, end)));
+    start = end;
+    limit = 74; // 续行首字符是空格，占 1 字节
+  }
+  return out.join("\r\n ");
+}
+
+/** YYYY-MM-DD → YYYYMMDD */
+const icsDateVal = (d) => String(d || "").replace(/-/g, "");
+
+/** YYYY-MM-DD + 1 天 → YYYYMMDD（iCal 的 DTEND 是排他的） */
+function icsNextDay(d) {
+  const t = Date.parse(String(d || "") + "T00:00:00Z");
+  if (!Number.isFinite(t)) return "";
+  return new Date(t + 86400000).toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+/** 时间戳 → 20260928T041500Z */
+function icsStamp(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return "19700101T000000Z";
+  return new Date(n).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+}
+
+/** 活动列表 → iCalendar 文本（纯函数，便于单独验证）。 */
+function buildIcsBody(items, host, stamp) {
+  const L = [];
+  L.push("BEGIN:VCALENDAR");
+  L.push("VERSION:2.0");
+  L.push("PRODID:-//ShumeiNFC//Activity Calendar//CN");
+  L.push("CALSCALE:GREGORIAN");
+  L.push("METHOD:PUBLISH");
+  L.push("X-WR-CALNAME:树莓社活动");
+  L.push("X-WR-CALDESC:苏州中学树莓社活动日程");
+  L.push("X-WR-TIMEZONE:Asia/Shanghai");
+  L.push("REFRESH-INTERVAL;VALUE=DURATION:PT4H");
+  L.push("X-PUBLISHED-TTL:PT4H");
+
+  for (const i of items) {
+    const start = icsDateVal(i.date);
+    const endRaw = i.endDate && i.endDate >= i.date ? i.endDate : i.date;
+    const end = icsNextDay(endRaw);
+    if (!start || !end) continue;
+
+    const desc = [];
+    if (i.type) desc.push("类型：" + i.type);
+    if (i.place) desc.push("地点/形式：" + i.place);
+    if (i.hoursPer > 0) desc.push("人均时长：" + i.hoursPer + " 小时");
+    if (i.isVolunteer) desc.push("计入志愿时长");
+    if (i.intro) { if (desc.length) desc.push(""); desc.push(i.intro); }
+    // H5 暂无独立活动详情页，先回首页；后续若加详情页改这里即可
+    if (desc.length) desc.push("");
+    desc.push("活动详情：https://" + host + "/");
+
+    L.push("BEGIN:VEVENT");
+    L.push("UID:act-" + i.id + "@" + host);
+    L.push("DTSTAMP:" + stamp);
+    L.push("LAST-MODIFIED:" + stamp);
+    L.push("SEQUENCE:0");
+    L.push("DTSTART;VALUE=DATE:" + start);
+    L.push("DTEND;VALUE=DATE:" + end);
+    L.push("SUMMARY:" + icsText(i.name));
+    if (i.place) L.push("LOCATION:" + icsText(i.place));
+    L.push("DESCRIPTION:" + icsText(desc.join("\n")));
+    if (i.type) L.push("CATEGORIES:" + icsText(i.type));
+    L.push("URL;VALUE=URI:https://" + host + "/");
+    L.push("TRANSP:TRANSPARENT");
+    L.push("END:VEVENT");
+  }
+  L.push("END:VCALENDAR");
+  return L.map(icsFold).join("\r\n") + "\r\n";
+}
+
+async function handleCalendarIcs(request, env, ctx) {
+  const url = new URL(request.url);
+  const all = url.searchParams.get("all") === "1";
+  const type = (url.searchParams.get("type") || "").trim();
+  const fromYear = (url.searchParams.get("from") || "").trim();
+  // 缓存 key 只保留白名单参数：避免任意 query（?x=1、utm 等）产生缓存碎片
+  const keyQuery = new URLSearchParams();
+  if (all) keyQuery.set("all", "1");
+  if (type) keyQuery.set("type", type);
+  if (/^\d{4}$/.test(fromYear)) keyQuery.set("from", fromYear);
+  const cacheKey = new Request(`https://${url.host}/_cache/calendar/activities?${keyQuery}`);
+  try {
+    const cache = caches.default;
+    const hit = await cache.match(cacheKey);
+    if (hit) return hit;
+
+    const projSnap = await getActivityProjectSnapshot(env);
+
+    // 默认窗口：近 365 天（按北京时间折算）+ 全部未来活动
+    let fromDate = "";
+    if (all) fromDate = "";
+    else if (/^\d{4}$/.test(fromYear)) fromDate = fromYear + "-01-01";
+    else fromDate = new Date(Date.now() - 365 * 86400000 + 8 * 3600 * 1000).toISOString().slice(0, 10);
+
+    const items = (projSnap.items || [])
+      .filter((i) => i.hidden !== true && i.date && (!type || i.type === type) && (!fromDate || i.date >= fromDate))
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+    const host = url.host;
+    // DTSTAMP 用快照时间而非请求时间：内容未变时客户端不必重刷
+    const stamp = icsStamp(projSnap.updatedAt || Date.now());
+    const body = buildIcsBody(items, host, stamp);
+    const resp = new Response(body, {
+      headers: {
+        "Content-Type": "text/calendar; charset=utf-8",
+        "Content-Disposition": 'inline; filename="activities.ics"',
+        "Cache-Control": "public, max-age=300",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    return resp;
+  } catch (e) {
+    // 订阅端对非 200 会静默失败，出错也返回一份合法空日历，避免污染客户端订阅状态
+    return new Response(
+      "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//ShumeiNFC//Activity Calendar//CN\r\nEND:VCALENDAR\r\n",
+      { status: 500, headers: { "Content-Type": "text/calendar; charset=utf-8" } }
+    );
   }
 }
 
@@ -1860,6 +2029,9 @@ export default {
     if (url.pathname === "/api/activities") return handleActivities(request, env, ctx);
     if (url.pathname === "/api/activities/detail") return handleActivityDetail(request, env, ctx);
     if (url.pathname === "/api/photo") return handlePhoto(request, env, ctx);
+    if (url.pathname === "/calendar/activities.ics" && request.method === "GET") {
+      return handleCalendarIcs(request, env, ctx);
+    }
     if (url.pathname === "/api/refresh" && request.method === "POST") return handleRefresh(request, env);
     if (url.pathname === "/api/checkin" && request.method === "POST") return handleCheckin(request, env, ctx);
     // 位置雷达（App 端跨域调用，PRESENCE_APP_TOKEN 鉴权）

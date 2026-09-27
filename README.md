@@ -65,9 +65,10 @@
 - **社员档案** — `/api/members/detail` 单人脱敏档案（无登录密码/QQ/电话/身份证/卡号），供网页与小程序档案页；含活动参与记录
 - **活动列表/详情/照片墙** — 小程序「活动」tab：184 个活动项目、年份/类型筛选、封面色块占位、图片墙缩略图转存云存储（只出统计数字，不出参与人名单）
 - **社员证明文件** — 小程序证明页：文件目录 + PDF 下载；资格判定（发布时间 ≥ 入社日期）在微信云函数本地完成
+- **活动日历订阅** — `GET /calendar/activities.ics` 输出 iCalendar 订阅源，社员用系统/Google 日历订阅后自动看到社团活动；全天事件，公开链接不含任何社员个人信息
 - **社员数据 KV 缓存** — 读接口秒回，飞书只被 Cron / 自动化 / 冷启动自愈访问
 
-## 接口清单（18 条）
+## 接口清单（19 条）
 
 | 方法 | 路径 | 数据源 | 说明 |
 |---|---|---|---|
@@ -81,6 +82,7 @@
 | GET | `/api/activities` | 双 KV 聚合 + Cache 300s | 活动列表：year（4 位/`early`≤2023）/type/q/limit/offset 筛选 + facets 全量筛选项；cover 为 photo w=400 直链 |
 | GET | `/api/activities/detail?id=<recordId>` | 双 KV 聚合 + Cache 300s | 活动详情：**无 participants 字段**（隐私定案）；stats 参与人次/总时长/志愿时长；photos thumb w400/full w1200 |
 | GET | `/api/photo?token=&w=` | 边缘缓存 7d（不写 KV） | 活动照片代理 + cf.image 缩放，w∈[200,400,800,1200] 非法回退 800，fmt=jpeg/webp |
+| GET | `/calendar/activities.ics` | KV 快照 + Cache 300s | 活动日历订阅源（iCalendar / RFC 5545）：`from=<年份>`（默认近 365 天+未来）、`all=1`、`type=<类型>`；公开链接，只出活动名/日期/地点/简介 |
 | GET | `/api/proof-files` | file_catalog_v1（惰性 60min） | 社员证明文件目录（title/owner/publishedAt/file）；出口仅放行「内容类型=社员证明」；资格判定在云函数侧 |
 | GET | `/api/file?token=` | 边缘缓存 7d（不写 KV） | 社员证明附件**原样**代理（PDF 等任意类型，不经 cf.image） |
 | POST | `/api/checkin` | 实时（写） | 签到提交：服务端按 uid 实时重查人（不信任前端）+ 异步双写（WPS 多维表 + 飞书机器人卡片），秒回 |
@@ -285,6 +287,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.19.0** | 2026-09-28 | 活动日历订阅：`GET /calendar/activities.ics` 输出 iCalendar（全天事件、公开链接、边缘缓存 5 分钟）；`UID` 用 `act-<record_id>@host` 保证客户端原地更新；飞书可选加「活动结束日期」「隐藏日程」两列，缺失时按单日全天 + 可见兜底 |
 | **1.18.0** | 2026-09-10 | 位置雷达：`/api/presence/*`（心跳/在线名单/下线，D1 存储，`PRESENCE_APP_TOKEN` 鉴权）+ 管理台「位置地图」全量在线地图（复用 `ADMIN_TOKEN`）；iOS App 双坐标上报（GCJ-02 / WGS-84） |
 | **1.17.0** | 2026-09-09 | 新增 `/api/members/find-code` 识别码找回：姓名 + 至少两项信息强匹配，禁查过滤，唯一命中才回社员识别码（no-store） |
 | **1.16.0** | 2026-09-07 | 管理台改「左选表 · 中铺表 · 右看行」三栏：左栏切 4 张数据表，中间表格铺满，点行从右滑出该条完整字段 |

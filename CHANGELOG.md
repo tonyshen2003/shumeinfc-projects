@@ -1,5 +1,22 @@
 # 更新日志
 
+## 1.19.0 - 2026-09-28
+- 新增 **活动日历订阅源** `GET /calendar/activities.ics`（iCalendar / RFC 5545），社员可在系统日历、Google 日历等客户端订阅社团活动
+  - 输出为**全天事件**：`DTSTART;VALUE=DATE` + `DTEND`（结束日 +1，iCal 排他结束）
+  - 默认窗口「近 365 天 + 全部未来」；支持 `from=<4位年份>`、`all=1`（全量）、`type=<项目类型>` 过滤
+  - `UID` = `act-<record_id>@host`，record_id 是飞书记录主键且稳定不变 → 客户端按 UID 原地更新，不会重复堆积
+  - `DTSTAMP` 取快照时间而非请求时间：内容未变时客户端不必重刷
+  - `Content-Type: text/calendar; charset=utf-8`；CRLF 行尾、75 octets 折叠（按 UTF-8 码点边界，不切断中文）；文本按 RFC 5545 转义 `\ ; ,` 与换行
+  - 随附 `X-WR-CALNAME:树莓社活动` 与 `REFRESH-INTERVAL` / `X-PUBLISHED-TTL: PT4H`，避免订阅后日历名显示成一串 URL
+  - 错误时返回「合法空日历」而非 HTML 错误页，避免污染客户端订阅状态
+  - 边缘缓存 5 分钟（复用 `_cache/` 前缀 key，与活动列表接口同模式）
+- 活动项目快照 `activity_projects_v1` 新增两个可选字段，**飞书对应列未创建时自动兜底、不影响线上**：
+  - `endDate`（飞书「活动结束日期」，日期型，可空）：留空或早于开始日 → 按单日全天输出
+  - `hidden`（飞书「隐藏日程」，复选框）：勾上 → 该活动不进日历；未勾 = 正常进日历（反向语义，开箱即用）
+  - 地点为空的活动不输出 `LOCATION`（不写"待定"，196 条中 114 条无地点）
+- 隐私：订阅链接为**无鉴权公开链接**，输出只含活动名/日期/地点/类型/时长/简介，不含任何社员姓名、识别码或参与名单
+- 方案与调研见 `docs/calendar-subscription-plan.md`
+
 ## 1.18.0 - 2026-09-10
 - 新增「位置雷达」后端（Cloudflare D1）：
   - `POST /api/presence/heartbeat`：在线位置心跳，App 每 60s 上报一次，同时携带社员编号与 GCJ-02 / WGS-84 双坐标
