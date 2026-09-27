@@ -9,6 +9,7 @@
   - `Content-Type: text/calendar; charset=utf-8`；CRLF 行尾、75 octets 折叠（按 UTF-8 码点边界，不切断中文）；文本按 RFC 5545 转义 `\ ; ,` 与换行
   - 随附 `X-WR-CALNAME:树莓社活动` 与 `REFRESH-INTERVAL` / `X-PUBLISHED-TTL: PT4H`，避免订阅后日历名显示成一串 URL
   - 错误时返回「合法空日历」而非 HTML 错误页，避免污染客户端订阅状态
+  - 路由同时放行 `GET` 与 `HEAD`：不少客户端/中间件先用 HEAD 探测，若落到静态资源兜底会拿到 500
   - 边缘缓存 5 分钟（复用 `_cache/` 前缀 key，与活动列表接口同模式）
 - 活动项目快照 `activity_projects_v1` 新增两个可选字段，**飞书对应列未创建时自动兜底、不影响线上**：
   - `endDate`（飞书「活动结束日期」，日期型，可空）：留空或早于开始日 → 按单日全天输出

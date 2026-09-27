@@ -11,6 +11,7 @@
  * GET /api/activities/detail?id= → 活动详情（只出统计数字与照片，不出参与人名单）[2026-09-03]
  * GET /api/photo?token=&w=       → 活动照片代理 + 缩放（边缘缓存 7 天，不写 KV）[2026-09-03]
  * GET /calendar/activities.ics   → 活动日历订阅源（iCalendar，全天事件，公开链接，边缘缓存 5 分钟）[2026-09-28]
+ *   同时支持 HEAD（客户端探测用；落到静态兜底会返回 500，故必须显式放行）
  *   from=<年份>|all=1|type=<类型>；飞书「活动结束日期」「隐藏日程」两列缺失时按单日全天 + 可见兜底
  * GET /api/proof-files           → 社员证明文件目录（全量，无资格过滤）[2026-09-06]
  * GET /api/file?token=           → 社员证明附件原样代理 PDF（白名单，边缘缓存 7 天）[2026-09-06]
@@ -2029,7 +2030,8 @@ export default {
     if (url.pathname === "/api/activities") return handleActivities(request, env, ctx);
     if (url.pathname === "/api/activities/detail") return handleActivityDetail(request, env, ctx);
     if (url.pathname === "/api/photo") return handlePhoto(request, env, ctx);
-    if (url.pathname === "/calendar/activities.ics" && request.method === "GET") {
+    // 同时放行 HEAD：很多客户端/中间件先用 HEAD 探测，落到静态兜底会拿到 500
+    if (url.pathname === "/calendar/activities.ics" && (request.method === "GET" || request.method === "HEAD")) {
       return handleCalendarIcs(request, env, ctx);
     }
     if (url.pathname === "/api/refresh" && request.method === "POST") return handleRefresh(request, env);
