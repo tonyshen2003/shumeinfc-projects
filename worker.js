@@ -12,7 +12,7 @@
  * GET /api/photo?token=&w=       → 活动照片代理 + 缩放（边缘缓存 7 天，不写 KV）[2026-09-03]
  * GET /calendar/activities.ics   → 活动日历订阅源（iCalendar，全天事件，公开链接，边缘缓存 5 分钟）[2026-09-28]
  *   同时支持 HEAD（客户端探测用；落到静态兜底会返回 500，故必须显式放行）
- *   from=<年份>|all=1|type=<类型>；飞书「活动结束日期」「隐藏日程」两列缺失时按单日全天 + 可见兜底
+ *   from=<年份>|all=1|type=<类型>；飞书「活动开始日期」「活动结束日期」「隐藏日程」三列均可缺省（各有兜底）
  * GET /api/proof-files           → 社员证明文件目录（全量，无资格过滤）[2026-09-06]
  * GET /api/file?token=           → 社员证明附件原样代理 PDF（白名单，边缘缓存 7 天）[2026-09-06]
  *   资格（发布时间 >= 入社日期）由微信云函数 proofs 本地比较，joinDate 随 /api/members/detail 下发
@@ -847,8 +847,8 @@ function attachmentsOf(fields, key) {
 }
 
 /** 项目表行 → 活动项目列表（完整展示字段）。封面优先，无封面用相册首图兜底。
- *  2026-09-28：新增 endDate（活动结束日期，可空）与 hidden（隐藏日程复选框），供日历订阅源使用；
- *  两列在飞书表里可能尚未创建，缺失时 endDate 为空、hidden 为 false，日历按「单日全天且可见」兜底。 */
+ *  2026-09-28：新增 startDate（活动开始日期）/ endDate（活动结束日期）/ hidden（隐藏日程复选框），供日历订阅源使用；
+ *  三列在飞书表里可能尚未创建，缺失时 startDate/endDate 为空、hidden 为 false，日历按「单日全天且可见」兜底。 */
 async function buildActivityProjectSnapshot(env) {
   const rows = await fetchTableRecords(env, ACTIVITY_TABLE_ID);
   const items = [];
@@ -864,7 +864,8 @@ async function buildActivityProjectSnapshot(env) {
       name,
       type: text(f, "项目类型"),
       date: dateText(f["主要活动日期"]),
-      // 日历订阅用：结束日期留空 → 按单日处理；「隐藏日程」勾选 → 不进日历
+      // 日历订阅用：开始日期留空 → 回退「主要活动日期」；结束日期留空 → 按单日处理；「隐藏日程」勾选 → 不进日历
+      startDate: dateText(f["活动开始日期"]),
       endDate: dateText(f["活动结束日期"]),
       hidden: f["隐藏日程"] === true,
       place: text(f, "活动地点/形式"),
@@ -1355,11 +1356,13 @@ async function handleActivityDetail(request, env, ctx) {
 //   type=<项目类型> 只输出某一类型（精确匹配）
 // 数据源：活动项目快照 activity_projects_v1（与 /api/activities 同源）
 // 输出规则：
-//   · 「隐藏日程」勾选的活动不输出；两列缺失时按「单日全天 + 可见」兜底
+//   · 开始日期优先「活动开始日期」，未填则回退「主要活动日期」
+//   · 「隐藏日程」勾选的活动不输出；三列缺失时按「单日全天 + 可见」兜底
 //   · 无结束日期（或早于开始日）→ DTEND = 开始日 + 1，即单日全天
 //   · 无地点 → 不输出 LOCATION 行，不写"待定"
 //   · UID = act-<record_id>@host，record_id 稳定 → 客户端原地更新而非重复堆积
 //   · 全为 VALUE=DATE 全天事件，不引用 TZID，故不内嵌 VTIMEZONE
+//   · 不输出 URL / ATTENDEE：本活动无独立详情页，指向首页属语义错误（2026-09-28 移除）
 // 边缘缓存 5 分钟；缓存 key 只含白名单参数（all / type / from），避免 query 碎片。
 // ============================================================
 
@@ -1409,6 +1412,9 @@ function icsStamp(ms) {
   return new Date(n).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 }
 
+/** 日历用开始日期：优先「活动开始日期」，未填则回退「主要活动日期」。 */
+const icsStartOf = (i) => (i && (i.startDate || i.date)) || "";
+
 /** 活动列表 → iCalendar 文本（纯函数，便于单独验证）。 */
 function buildIcsBody(items, host, stamp) {
   const L = [];
@@ -1424,8 +1430,9 @@ function buildIcsBody(items, host, stamp) {
   L.push("X-PUBLISHED-TTL:PT4H");
 
   for (const i of items) {
-    const start = icsDateVal(i.date);
-    const endRaw = i.endDate && i.endDate >= i.date ? i.endDate : i.date;
+    const startRaw = icsStartOf(i);
+    const endRaw = i.endDate && i.endDate >= startRaw ? i.endDate : startRaw;
+    const start = icsDateVal(startRaw);
     const end = icsNextDay(endRaw);
     if (!start || !end) continue;
 
@@ -1435,9 +1442,6 @@ function buildIcsBody(items, host, stamp) {
     if (i.hoursPer > 0) desc.push("人均时长：" + i.hoursPer + " 小时");
     if (i.isVolunteer) desc.push("计入志愿时长");
     if (i.intro) { if (desc.length) desc.push(""); desc.push(i.intro); }
-    // H5 暂无独立活动详情页，先回首页；后续若加详情页改这里即可
-    if (desc.length) desc.push("");
-    desc.push("活动详情：https://" + host + "/");
 
     L.push("BEGIN:VEVENT");
     L.push("UID:act-" + i.id + "@" + host);
@@ -1448,9 +1452,8 @@ function buildIcsBody(items, host, stamp) {
     L.push("DTEND;VALUE=DATE:" + end);
     L.push("SUMMARY:" + icsText(i.name));
     if (i.place) L.push("LOCATION:" + icsText(i.place));
-    L.push("DESCRIPTION:" + icsText(desc.join("\n")));
+    if (desc.length) L.push("DESCRIPTION:" + icsText(desc.join("\n")));
     if (i.type) L.push("CATEGORIES:" + icsText(i.type));
-    L.push("URL;VALUE=URI:https://" + host + "/");
     L.push("TRANSP:TRANSPARENT");
     L.push("END:VEVENT");
   }
@@ -1483,8 +1486,8 @@ async function handleCalendarIcs(request, env, ctx) {
     else fromDate = new Date(Date.now() - 365 * 86400000 + 8 * 3600 * 1000).toISOString().slice(0, 10);
 
     const items = (projSnap.items || [])
-      .filter((i) => i.hidden !== true && i.date && (!type || i.type === type) && (!fromDate || i.date >= fromDate))
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+      .filter((i) => i.hidden !== true && icsStartOf(i) && (!type || i.type === type) && (!fromDate || icsStartOf(i) >= fromDate))
+      .sort((a, b) => (icsStartOf(a) < icsStartOf(b) ? -1 : icsStartOf(a) > icsStartOf(b) ? 1 : 0));
 
     const host = url.host;
     // DTSTAMP 用快照时间而非请求时间：内容未变时客户端不必重刷
