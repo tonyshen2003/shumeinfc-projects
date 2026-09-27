@@ -83,6 +83,9 @@ start.sh         # 本地 HTTPS 静态服务器（Web NFC 需要安全上下文�
 - 附件代理三层白名单互相隔离：avatar=成员快照、photo=活动项目快照、file=证明目录；不要跨域复用 token。
 - Cloudflare Image Resizing **已开启**（/api/photo 依赖），README 旧版「不启用」表述已作废。
 - 每次修改页面内容/样式/交互后，同步更新页面底部版本号（`APP_VERSION` 与 `APP_UPDATED_AT`）。
+- **缓存命中的响应头会被 Cloudflare 改写**（2026-09-28 实测）：凡是从 Worker `caches.default` 返回的响应（`cf-cache-status: HIT`），`Cache-Control: max-age` 会被统一改写成 **18000 秒（5 小时）**；MISS 时保持代码里的原值（如 300）。`/api/activities` 与 `/calendar/activities.ics` 均如此，属既有行为。排查"改了数据为什么不更新"时先想到这一层，别误判成 Worker 缓存没失效。
+- **不存在的路径走 `env.ASSETS.fetch` 兜底会返回 500**（不是 404，实测 `/nonexistent.ics`）。因此新增路由若按方法收窄（如只放行 GET），**必须同时放行 HEAD**，否则 HEAD 探测会落到该兜底拿到 500（`/calendar/activities.ics` 曾踩过）。
+- 订阅类接口（`/calendar/activities.ics`）只输出公开字段，**不含社员姓名/识别码/参与名单**；新增字段前先确认不会把个人数据带进公开链接。
 
 ## 兼容性
 

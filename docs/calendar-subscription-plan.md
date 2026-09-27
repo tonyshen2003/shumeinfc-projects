@@ -479,6 +479,7 @@ webcal://nfc.raspjam.com/calendar/activities.ics
 - **日历名称**：「树莓社活动」（来自 `X-WR-CALNAME`），不会出现一长串 URL
 - **每条活动**：全天条，标题 = 项目名称；有地点时显示地点；点开详情有类型、人均时长、简介与回链
 - **刷新**：建议值 4 小时（`REFRESH-INTERVAL` / `X-PUBLISHED-TTL`），实际由客户端决定 —— Apple 日历较快，Google 日历约 24 小时
+  - 线上实测（2026-09-28）：响应命中 Worker 缓存时（`cf-cache-status: HIT`），Cloudflare 会把 `Cache-Control: max-age` 统一改写成 **18000 秒（5 小时）**；未命中时才是代码里的 300。`/api/activities` 同样如此，属既有 zone 行为，非本接口引入
 
 ### 各客户端添加方式
 
