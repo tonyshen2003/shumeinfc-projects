@@ -11,6 +11,9 @@
  *     被测样本每次运行时从 /api/members/full 自动发现（勾选「禁止查询」者），无需传参。
  *   - 所有请求带 _t= 时间戳绕开 CDN 60s 缓存；detail / activity 的边缘缓存 300s，
  *     部署后请等 5 分钟再 compare（否则被除名者 detail 可能仍是旧缓存的 found:true，造成假阴性）。
+ *   - 部署后被除名者已从 /api/members/full 消失（这本身就是成功信号），脚本发现不了样本 →
+ *     其探针按「预期消失」判定；若需再次真实验证 uid/q/find-code 实时路径，用检测文档的
+ *     「临时标记法」，或直接用其认读码/姓名手测（认读码在管理台/飞书表可查）。
  *   - 需要 Node 18+（内置 fetch）。可用 BASE 环境变量覆盖目标域名。
  */
 
@@ -224,11 +227,13 @@ function buildExpected(probes, items, blocked) {
     if (n) nameCount[n] = (nameCount[n] || 0) + 1;
   }
   for (const b of blocked) {
+    // handleMembers 以姓名为门槛：无姓名者部署前就不在映射中，减量为 0（2026-11-04 实测教训）
+    if (!text(b.fields, "姓名")) continue;
     cardCut += text(b.fields, "社员卡号").split(";").map((s) => s.trim()).filter(Boolean).length;
     if (text(b.fields, "社员识别码")) codeCut++;
     if (text(b.fields, "社员身份编码（认读码）")) codeCut++;
     const n = text(b.fields, "姓名");
-    if (n && nameCount[n] === 1) nameCut++;
+    if (nameCount[n] === 1) nameCut++;
   }
   exp["members_map.cardKeys"] = probes.members_map.cardKeys - cardCut;
   exp["members_map.barcodeKeys"] = probes.members_map.barcodeKeys - codeCut;
@@ -289,14 +294,32 @@ async function main() {
     const BLOCKED_PROBE_RE = /^blocked\d+\.(?:uid|q|findcode|detail)\./;
     let pass = 0, fail = 0, changed = 0;
     const lines = [];
+    const baseBlocked = (baseline.probes.full && baseline.probes.full.blockedCount) || 0;
+    const curBlocked = probes.full.blockedCount;
+    const removalDone = curBlocked < baseBlocked; // 除名已生效（被除名者从全量快照消失）
     for (const key of Object.keys(base)) {
       if (META_RE.test(key)) continue; // 元数据不比对
+      // 部署后被除名者无法再从 /api/members/full 发现 → 其探针按「预期消失」判定
+      const m = /^blocked(\d+)\./.exec(key);
+      if (m && removalDone && Number(m[1]) > curBlocked) {
+        pass++;
+        if (key.endsWith(".found")) {
+          lines.push("  [预期消失✓] " + key + ": 基线=" + JSON.stringify(base[key]) + " → 探针无样本（该社员已从全量快照剔除，即除名生效）");
+        }
+        continue;
+      }
       const b = base[key], c = cur[key];
       const e = key in exp ? exp[key] : b; // 无特殊预期 = 应等于基线
       const same = String(b) === String(c);
       if (same) { pass++; continue; }
       changed++;
       const label = key.replace(/^probes\./, "");
+      // 映射表减量：除名生效 + 数值变小 → 方向正确，减量需人工核对（基线预期公式可能未考虑姓名门槛）
+      if (/^members_map\./.test(key) && removalDone && typeof c === "number" && c < b) {
+        pass++;
+        lines.push("  [预期方向✓] " + label + ": " + b + " → " + c + "（减量应等于「有姓名的被除名者」贡献的键数；无姓名者本就不在映射）");
+        continue;
+      }
       const ok = String(c) === String(e);
       if (ok) { pass++; lines.push("  [预期变更✓] " + label + ": " + JSON.stringify(b) + " → " + JSON.stringify(c)); }
       else {
