@@ -1,0 +1,192 @@
+{
+  "meta": {
+    "capturedAt": "2026-11-03T23:43:36.512Z",
+    "base": "https://nfc.raspjam.com",
+    "note": "v1.20.0 除名功能部署前基线"
+  },
+  "probes": {
+    "full": {
+      "status": 200,
+      "total": 691,
+      "blockedCount": 3
+    },
+    "members_map": {
+      "status": 200,
+      "cardKeys": 34,
+      "barcodeKeys": 1369,
+      "infoKeys": 681
+    },
+    "blocked1": {
+      "nameUnique": false,
+      "hasUid": false,
+      "hasCode": true,
+      "detail": {
+        "status": 200,
+        "found": false
+      }
+    },
+    "blocked2": {
+      "nameUnique": false,
+      "hasUid": false,
+      "hasCode": true,
+      "detail": {
+        "status": 200,
+        "found": false
+      }
+    },
+    "blocked3": {
+      "nameUnique": true,
+      "hasUid": false,
+      "hasCode": true,
+      "q": {
+        "status": 200,
+        "found": true
+      },
+      "findcode": {
+        "status": 200,
+        "found": false
+      },
+      "detail": {
+        "status": 200,
+        "found": false
+      }
+    },
+    "norm": {
+      "uid": {
+        "status": 200,
+        "found": true
+      },
+      "detail": {
+        "status": 200,
+        "found": true,
+        "activityCount": 6
+      },
+      "findcode": {
+        "status": 200,
+        "found": true
+      },
+      "avatar": {
+        "status": 200
+      }
+    },
+    "activities": {
+      "status": 200,
+      "total": 206,
+      "sampled": 12,
+      "stats": [
+        {
+          "id": "reczz28SwFCHxxbw",
+          "status": 200,
+          "people": 4,
+          "totalHours": 24,
+          "volunteerHours": 24
+        },
+        {
+          "id": "recvuaqYsx9zyO",
+          "status": 200,
+          "people": 11,
+          "totalHours": 22,
+          "volunteerHours": 0
+        },
+        {
+          "id": "recvshdKtNJanX",
+          "status": 200,
+          "people": 13,
+          "totalHours": 104,
+          "volunteerHours": 102
+        },
+        {
+          "id": "recvsmWjY2eHpt",
+          "status": 200,
+          "people": 3,
+          "totalHours": 18,
+          "volunteerHours": 0
+        },
+        {
+          "id": "recv1A0yeQlPa2",
+          "status": 200,
+          "people": 1,
+          "totalHours": 2,
+          "volunteerHours": 0
+        },
+        {
+          "id": "recuUV3XnlN58g",
+          "status": 200,
+          "people": 6,
+          "totalHours": 48,
+          "volunteerHours": 48
+        },
+        {
+          "id": "recuzcZdBXHo13",
+          "status": 200,
+          "people": 15,
+          "totalHours": 90,
+          "volunteerHours": 90
+        },
+        {
+          "id": "recuqxYihNwCI9",
+          "status": 200,
+          "people": 37,
+          "totalHours": 222,
+          "volunteerHours": 222
+        },
+        {
+          "id": "recuqxYihNdVsI",
+          "status": 200,
+          "people": 5,
+          "totalHours": 25,
+          "volunteerHours": 25
+        },
+        {
+          "id": "recvsmWjY2rNGz",
+          "status": 200,
+          "people": 0,
+          "totalHours": 0,
+          "volunteerHours": 0
+        },
+        {
+          "id": "recvsmWjY2Y4C8",
+          "status": 200,
+          "people": 0,
+          "totalHours": 0,
+          "volunteerHours": 0
+        },
+        {
+          "id": "recutERz3Jfulk",
+          "status": 200,
+          "people": 3,
+          "totalHours": 9,
+          "volunteerHours": 9
+        }
+      ]
+    },
+    "photo": {
+      "status": 200
+    },
+    "ics": {
+      "status": 200,
+      "vevents": 206
+    },
+    "proof_files": {
+      "status": 200,
+      "count": 13
+    }
+  },
+  "expected": {
+    "full.total": 688,
+    "full.blockedCount": 0,
+    "members_map.cardKeys": 34,
+    "members_map.barcodeKeys": 1363,
+    "members_map.infoKeys": 680,
+    "blocked1.detail.found": false,
+    "blocked1.detail.status": 200,
+    "blocked2.detail.found": false,
+    "blocked2.detail.status": 200,
+    "blocked3.q.found": false,
+    "blocked3.q.status": 200,
+    "blocked3.findcode.found": false,
+    "blocked3.findcode.status": 200,
+    "blocked3.detail.found": false,
+    "blocked3.detail.status": 200
+  }
+}

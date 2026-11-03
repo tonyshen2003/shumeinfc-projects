@@ -61,7 +61,7 @@
 - **NFC 刷卡签到 / 二维码扫码签到** — 识别社员卡号或识别码，新卡登记自动关联
 - **离线可用** — H5 24h 批量缓存、App 24h 快照；查询三级降级（单条 → 批量 → 在线）
 - **飞书通知 + WPS 同步** — 签到成功由 Worker 异步推送飞书机器人卡片 + 写入 WPS 多维表
-- **社员隐私开关** — 飞书表勾选「禁止查询」，公开档案页查不到（签到/App 快照不受影响）
+- **除名开关（「禁止查询」）** — 勾选即视为查无此人：App 快照 / H5 离线缓存 / 查人 / 档案 / 识别码找回全线生效；历史活动统计与头像白名单有意保留
 - **社员档案** — `/api/members/detail` 单人脱敏档案（无登录密码/QQ/电话/身份证/卡号），供网页与小程序档案页；含活动参与记录
 - **活动列表/详情/照片墙** — 小程序「活动」tab：184 个活动项目、年份/类型筛选、封面色块占位、图片墙缩略图转存云存储（只出统计数字，不出参与人名单）
 - **社员证明文件** — 小程序证明页：文件目录 + PDF 下载；资格判定（发布时间 ≥ 入社日期）在微信云函数本地完成
@@ -72,12 +72,12 @@
 
 | 方法 | 路径 | 数据源 | 说明 |
 |---|---|---|---|
-| GET | `/api/members/full` | KV 快照 | 全量原始记录（含 `record_id`、附件 tmp_url），供 App 24h 本地快照 |
-| GET | `/api/members` | KV 快照 | 卡号/识别码/姓名映射（cardMap/barcodeMap/infoMap），供 H5 离线缓存；CDN 60s |
+| GET | `/api/members/full` | KV 快照 | 全量原始记录（含 `record_id`、附件 tmp_url），供 App 24h 本地快照；勾选「禁止查询」的社员一律不下发（除名） |
+| GET | `/api/members` | KV 快照 | 卡号/识别码/姓名映射（cardMap/barcodeMap/infoMap），供 H5 离线缓存；CDN 60s；勾选「禁止查询」的社员不出 |
 | GET | `/api/members/detail?code=<识别码>` | KV 快照 + Cache API 300s | 单人**脱敏**档案（含 activities 参与记录、avatarProxy、joinDate）；勾选「禁止查询」→ `found:false`（不缓存，即时生效）；CORS * |
 | GET | `/api/members/find-code?name=&grade=&clazz=&dept=&seq=` | KV 快照（no-store） | 识别码找回：姓名 + 至少两项补充信息强匹配；勾选「禁止查询」→ `found:false`；唯一命中才回「社员识别码」+ 社员编号，多命中只出脱敏候选，响应不缓存 |
-| GET | `/api/member?uid=<卡号>` | KV 优先+实时兜底 | 按卡号/识别码/认读码查人（签到用）；查无返回 HTTP 500 + `found:false`（既有行为） |
-| GET | `/api/member?q=<姓名>` | KV 优先+实时兜底 | 姓名/别名/编号/识别码/认读码/序号搜索（精确匹配） |
+| GET | `/api/member?uid=<卡号>` | KV 优先+实时兜底 | 按卡号/识别码/认读码查人（签到用）；查无返回 HTTP 500 + `found:false`（既有行为）；禁查社员按查无处理 |
+| GET | `/api/member?q=<姓名>` | KV 优先+实时兜底 | 姓名/别名/编号/识别码/认读码/序号搜索（精确匹配）；禁查社员按查无处理 |
 | GET | `/api/avatar?token=<file_token>` | 边缘缓存 1d + KV 永久 | 头像图片代理直链；白名单=成员快照「头像/个人照片」token；飞书删图仍可访问 |
 | GET | `/api/activities` | 双 KV 聚合 + Cache 300s | 活动列表：year（4 位/`early`≤2023）/type/q/limit/offset 筛选 + facets 全量筛选项；cover 为 photo w=400 直链 |
 | GET | `/api/activities/detail?id=<recordId>` | 双 KV 聚合 + Cache 300s | 活动详情：**无 participants 字段**（隐私定案）；stats 参与人次/总时长/志愿时长；photos thumb w400/full w1200 |
@@ -275,9 +275,11 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 飞书多维表「社员卡号」字段支持 `;` 分隔多个卡号。查询时 Worker 先用 `CONTAINS` 粗筛，再在 JS 侧按分号做整卡号精确匹配，避免短卡号作为子串误命中其他成员的长卡号。
 
-### 「禁止查询」隐私开关
+### 「禁止查询」＝除名开关
 
-勾选后仅 `/api/members/detail` 返回 `found:false`（且该响应不缓存，取消勾选立即恢复）；签到查人 / App 快照 / 头像代理均不受影响。活动接口不输出参与人名单，天然无泄露面。
+勾选后该社员在**所有对外查询出口**一律查无此人：`/api/members/full`（App 快照）、`/api/members`（H5 离线映射）、`/api/member?uid|q`（KV 与实时兜底两路都过滤）、`/api/members/detail`、`/api/members/find-code`，以及签到服务端重查人（`member:null`，签到记录回退前端兜底姓名）。取消勾选立即恢复（members/full 受 CDN 60s 影响，detail 不缓存即时生效）。
+
+**有意保留**：活动统计聚合（人次/时长含其历史参与，避免历史活动数字缩水）与头像白名单不受影响；活动接口本身不输出参与人名单。
 
 ### 识别码找回（`/api/members/find-code`）
 
@@ -287,6 +289,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.20.0** | 2026-11-04 | 「禁止查询」升级为除名语义：`/api/members/full`、`/api/members`、`/api/member`（KV+实时兜底）全线过滤，查无此人；活动统计与头像白名单保留 |
 | **1.19.1** | 2026-09-28 | 日历订阅源调整：移除指向首页的假详情链接（`URL` 与 DESCRIPTION 的「活动详情」行）；新增可选列「活动开始日期」，未填回退「主要活动日期」；输出体积约 91KB → 75KB |
 | **1.19.0** | 2026-09-28 | 活动日历订阅：`GET /calendar/activities.ics` 输出 iCalendar（全天事件、公开链接、边缘缓存 5 分钟）；`UID` 用 `act-<record_id>@host` 保证客户端原地更新；飞书可选加「活动结束日期」「隐藏日程」两列，缺失时按单日全天 + 可见兜底 |
 | **1.18.0** | 2026-09-10 | 位置雷达：`/api/presence/*`（心跳/在线名单/下线，D1 存储，`PRESENCE_APP_TOKEN` 鉴权）+ 管理台「位置地图」全量在线地图（复用 `ADMIN_TOKEN`）；iOS App 双坐标上报（GCJ-02 / WGS-84） |

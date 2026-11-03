@@ -1,6 +1,6 @@
 # AGENTS.md — 项目说明（给 AI 协作者 / 开发者）
 
-> 最后更新：2026-09-09。本文档描述当前真实架构，与 README.md / worker.js 一致。
+> 最后更新：2026-11-04。本文档描述当前真实架构，与 README.md / worker.js 一致。
 > 若文档与代码不一致，**以代码为准**，并顺手修正文档。
 
 ## 项目是什么
@@ -40,10 +40,10 @@ start.sh         # 本地 HTTPS 静态服务器（Web NFC 需要安全上下文�
 
 | 类别 | 端点 | 数据源/缓存 |
 |---|---|---|
-| 读 | GET /api/members · /api/members/full | KV members_full（CDN 60s） |
+| 读 | GET /api/members · /api/members/full | KV members_full（CDN 60s）；禁查社员（除名）不下发 |
 | 读 | GET /api/members/detail?code= | KV + 边缘缓存 300s；禁查→found:false；avatarProxy；joinDate |
 | 读 | GET /api/members/find-code | KV（no-store）；姓名 + ≥2 项强匹配；禁查→found:false；唯一命中才回识别码 |
-| 读 | GET /api/member?uid=｜q= | KV 优先 → 实时兜底飞书 |
+| 读 | GET /api/member?uid=｜q= | KV 优先 → 实时兜底飞书；禁查社员（除名）按查无处理 |
 | 读 | GET /api/activities · /api/activities/detail?id= | activity_projects_v1 + activity_records_v3 聚合；300s |
 | 读 | GET /api/avatar | L1 1d + L2 KV 永久 |
 | 读 | GET /api/photo | L1 7d（cf.image 缩放，不写 KV） |
@@ -77,6 +77,7 @@ start.sh         # 本地 HTTPS 静态服务器（Web NFC 需要安全上下文�
 ## 约定与坑
 
 - **文档同步义务**：改动 Worker 后同步更新：worker.js 头注释（=接口全集）→ README（接口表/KV 表/版本表）→ CHANGELOG（版本条目）。改 H5 页面后更新 index.html 顶部 `APP_VERSION`/`APP_UPDATED_AT`。
+- **「禁止查询」＝除名语义（1.20.0，2026-11-04）**：所有对外查询出口（members/full、members、member 的 KV+实时兜底两路、detail、find-code、签到服务端重查人）对勾选者一律查无此人；**活动统计聚合与头像白名单有意保留**其历史数据（避免历史活动数字缩水）。KV 快照 members_full 存储不变，过滤在出口。改动前该字段仅影响 detail/find-code —— 如果将来需要「隐私豁免但保留查人」的语义，必须另设字段，不要复用这个。
 - `docs/api-baseline/` 含社员全量原始数据（含登录密码列等敏感信息），**禁止推送 / 部署 / 外发**；对比接口用 `docs/api-baseline/00-grab.sh` 重放。
 - 读接口缓存形态三种（KV 快照 / Cache API 边缘 / CDN 头），描述缓存时按接口精确说明，不要笼统写「全部 KV 优先」。
 - 查人接口 `?q=` 查无返回 HTTP 500 + found:false 是**既有行为**（API 基线已记录），不要当 bug "修复" 成 404。

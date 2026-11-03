@@ -1,11 +1,11 @@
 /**
  * Cloudflare Worker — 静态站点 + 成员查询 API
- * GET /api/members              → 返回全部成员（供前端离线缓存）
- * GET /api/members/full         → 返回全部成员原始记录（含 record_id，供 App 本地快照）
+ * GET /api/members              → 返回全部成员（供前端离线缓存；禁查社员不出）[2026-11-04]
+ * GET /api/members/full         → 返回全部成员原始记录（含 record_id，供 App 本地快照；禁查社员不出）[2026-11-04]
  * GET /api/members/detail?code= → 单人脱敏档案（禁查过滤 + avatarProxy + joinDate + activities）[2026-09-06]
  * GET /api/members/find-code    → 识别码找回：姓名 + 至少两项强匹配，唯一命中才回社员识别码 [2026-09-09]
- * GET /api/member?uid=<卡号>     → 查询飞书多维表
- * GET /api/member?q=<姓名>       → 搜索飞书多维表
+ * GET /api/member?uid=<卡号>     → 查询飞书多维表（禁查社员按查无处理）[2026-11-04]
+ * GET /api/member?q=<姓名>       → 搜索飞书多维表（禁查社员按查无处理）[2026-11-04]
  * GET /api/avatar?token=<token>  → 头像代理直链（边缘缓存 1 天 + KV 永久，飞书删图仍可访问）
  * GET /api/activities            → 活动列表（年份/类型/关键词筛选 + 分页 + 筛选项）[2026-09-03]
  * GET /api/activities/detail?id= → 活动详情（只出统计数字与照片，不出参与人名单）[2026-09-03]
@@ -16,6 +16,8 @@
  * GET /api/proof-files           → 社员证明文件目录（全量，无资格过滤）[2026-09-06]
  * GET /api/file?token=           → 社员证明附件原样代理 PDF（白名单，边缘缓存 7 天）[2026-09-06]
  *   资格（发布时间 >= 入社日期）由微信云函数 proofs 本地比较，joinDate 随 /api/members/detail 下发
+ * 「禁止查询」＝除名语义 [2026-11-04]：勾选后所有对外查询出口（members/full · members · member 两路 · detail · find-code）
+ *   一律查无此人；签到服务端重查人回 member:null；活动统计聚合与头像白名单有意保留（历史数据不缩水）。
  * POST /api/checkin             → 签到提交（写 WPS + 发飞书通知）
  * POST /api/refresh             → 触发刷新（飞书自动化 HTTP 调用，拉全量写 KV）
  * 位置雷达（App 在线状态，D1 存储；PRESENCE_APP_TOKEN 鉴权）[2026-09-10]
@@ -181,6 +183,7 @@ async function findMemberByUid(env, uid) {
 
     for (const item of data.data.items) {
       const f = item.fields;
+      if (isBlocked(f)) continue; // 禁查=除名，按查无处理（含签到服务端重查人）[2026-11-04]
       const cards = (text(f, "社员卡号") || "")
         .split(";").map(s => s.trim().toUpperCase());
       const barcode = text(f, "社员识别码").toUpperCase();
@@ -213,6 +216,7 @@ async function handleMember(request, env) {
           const f = item.fields;
           const name = text(f, "姓名");
           if (!name) continue;
+          if (isBlocked(f)) continue; // 禁查=除名，KV 路径查无此人，自然落到实时兜底（兜底同样过滤）[2026-11-04]
           if (uid) {
             const cards = (text(f, "社员卡号") || "").split(";").map(s => s.trim().toUpperCase());
             const barcode = text(f, "社员识别码").toUpperCase();
@@ -241,8 +245,10 @@ async function handleMember(request, env) {
     if (!resp.ok) return Response.json({ found: false }, { status: 502 });
     const data = await resp.json();
     if (data.code !== 0 || !data.data?.items?.length) return Response.json({ found: false });
+    const qf = data.data.items[0].fields;
+    if (isBlocked(qf)) return Response.json({ found: false }); // 禁查=除名 [2026-11-04]
 
-    return Response.json({ found: true, member: buildMember(data.data.items[0].fields) });
+    return Response.json({ found: true, member: buildMember(qf) });
   } catch (e) {
     return Response.json({ found: false }, { status: 500 });
   }
@@ -545,6 +551,7 @@ async function handleMembers(env) {
       const f = item.fields;
       const name = text(f, "姓名");
       if (!name) continue;
+      if (isBlocked(f)) continue; // 禁查=除名：卡号/姓名映射不含该社员，H5 对其卡走新卡登记流程 [2026-11-04]
       const cid = text(f, "社员卡号");
       const bid = text(f, "社员识别码");
       const rid = text(f, "社员身份编码（认读码）");
@@ -912,14 +919,16 @@ function round1(n) { return Math.round(n * 10) / 10; }
 
 // ============================================================
 // [API] 全量成员快照：优先 KV 命中，返回最新快照
-// 供 DeepMei App 本地缓存 24h。
+// 供 DeepMei App 本地缓存 24h；勾选「禁止查询」的社员不下发（除名）[2026-11-04]。
 // ============================================================
 async function handleMembersFull(env) {
   if (!env.SHUMEI_KV) return Response.json({ error: "Missing KV binding" }, { status: 500 });
   if (!env.FEISHU_APP_ID) return Response.json({ error: "Missing env vars" }, { status: 500 });
   try {
     const snap = await getSnapshot(env);
-    return Response.json({ updatedAt: snap.updatedAt, items: snap.items }, {
+    // 禁查=除名 [2026-11-04]：出口过滤，App 快照不含勾选「禁止查询」的社员（KV 存储保持原样）
+    const items = snap.items.filter((it) => !isBlocked(it.fields));
+    return Response.json({ updatedAt: snap.updatedAt, items }, {
       headers: { "Cache-Control": "public, max-age=60" },
     });
   } catch (e) {
@@ -931,10 +940,10 @@ async function handleMembersFull(env) {
 // [API] 单人档案：按社员识别码返回脱敏完整档案（公开给网页）
 // GET /api/members/detail?code=SM201809A00100201
 // 只输出展示字段，不含 登录密码/QQ/电话/身份证/卡号 等敏感数据；
-// 勾选「禁止查询」复选框的成员返回 found:false（签到查人 / App 快照 / 头像代理不受影响）；
+// 勾选「禁止查询」复选框的成员返回 found:false（2026-11-04 起为全线除名语义，见 isBlocked 注释）；
 // 有附件时输出 avatarProxy（/api/avatar 代理直链）并跳过飞书换取；
 // 头像仅取自「头像」字段，不再用「个人照片」兜底；无头像时返回空（由前端占位处理）。
-// /api/members/full 保持不变（App 等其它服务继续使用）。
+// /api/members/full 自 2026-11-04 起同样在出口剔除禁查社员（除名语义）。
 // ============================================================
 function num(fields, key) {
   const v = fields[key];
@@ -958,7 +967,9 @@ function avatarTokenOf(fields) {
 
 /**
  * 「禁止查询」复选框（飞书多维表字段，勾选 = true）：
- * 勾选后仅 detail 档案查询返回未找到；签到查人 / App 快照 / 头像代理均不受影响。
+ * 语义 = 除名（2026-11-04 起）：所有对外查询出口一律视为查无此人
+ * （members/full · members 基础版 · member 的 KV 与实时兜底两路 · detail · find-code · 签到服务端重查人）。
+ * 活动统计聚合与头像白名单有意保留其历史数据（避免历史活动人次/时长缩水）。
  * 未勾选时字段值可能为 false 或整列缺失，一律视为可查。
  */
 function isBlocked(fields) {
