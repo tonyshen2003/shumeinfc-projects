@@ -1,5 +1,14 @@
 # 更新日志
 
+## 1.21.0 - 2026-11-08
+- 新增 `GET /api/members/birthday?code=<识别码>`：生日判定，**只回 `{isBirthday}`**，不下发生日日期/年份/年龄
+  - 鉴权：`Authorization: Bearer <BIRTHDAY_TOKEN>`（独立 Secret，仅微信云函数服务端调用；不面向客户端）
+  - 数据源：`members_full` KV 快照的 `生日` 字段；复用 `dateText` 的北京时间解析；2 月 29 日生日在平年按 2 月 28 日
+  - 禁查社员一律 `false`；响应 `Cache-Control: no-store`
+  - 微信云函数 `member` 新增 `action: "birthday"`：先校验当前 openid 的 `binding` 是否匹配该识别码，再带 Secret 调本端点，只把布尔值透传给小程序
+  - 小程序端只在社员卡页本人已绑定时展示一行问候 + 卡面印章；不存生日、不显示年龄
+- 文档：同步 worker 头注释 / README 接口表 / 环境变量表 / 版本表 / AGENTS 接口速览
+
 ## 1.20.0 - 2026-11-04
 - **「禁止查询」语义升级：隐私豁免 → 全线除名**。勾选该复选框的社员（当前 3 人，均为被开除社员）在所有对外查询出口一律按查无此人处理：
   - `/api/members/full`：App 快照不再包含禁查社员（出口过滤；KV 快照 `members_full` 存储保持原样，CDN 60s 后生效）

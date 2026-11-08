@@ -36,12 +36,13 @@ public/          # 旧静态数据（members.js 等，已废弃，仅历史参�
 start.sh         # 本地 HTTPS 静态服务器（Web NFC 需要安全上下文）
 ```
 
-## 接口速览（18 条，详见 README.md）
+## 接口速览（19 条，详见 README.md）
 
 | 类别 | 端点 | 数据源/缓存 |
 |---|---|---|
 | 读 | GET /api/members · /api/members/full | KV members_full（CDN 60s）；禁查社员（除名）不下发 |
 | 读 | GET /api/members/detail?code= | KV + 边缘缓存 300s；禁查→found:false；avatarProxy；joinDate |
+| 读 | GET /api/members/birthday?code= | KV 快照（no-store）；Bearer BIRTHDAY_TOKEN；只回 isBirthday |
 | 读 | GET /api/members/find-code | KV（no-store）；姓名 + ≥2 项强匹配；禁查→found:false；唯一命中才回识别码 |
 | 读 | GET /api/member?uid=｜q= | KV 优先 → 实时兜底飞书；禁查社员（除名）按查无处理 |
 | 读 | GET /api/activities · /api/activities/detail?id= | activity_projects_v1 + activity_records_v3 聚合；300s |

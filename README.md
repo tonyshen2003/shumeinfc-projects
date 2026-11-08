@@ -63,6 +63,7 @@
 - **飞书通知 + WPS 同步** — 签到成功由 Worker 异步推送飞书机器人卡片 + 写入 WPS 多维表
 - **除名开关（「禁止查询」）** — 勾选即视为查无此人：App 快照 / H5 离线缓存 / 查人 / 档案 / 识别码找回全线生效；历史活动统计与头像白名单有意保留
 - **社员档案** — `/api/members/detail` 单人脱敏档案（无登录密码/QQ/电话/身份证/卡号），供网页与小程序档案页；含活动参与记录
+- **生日判定** — 仅服务端调用的 `/api/members/birthday`，只回布尔值，供小程序在本人绑定后显示生日问候
 - **活动列表/详情/照片墙** — 小程序「活动」tab：184 个活动项目、年份/类型筛选、封面色块占位、图片墙缩略图转存云存储（只出统计数字，不出参与人名单）
 - **社员证明文件** — 小程序证明页：文件目录 + PDF 下载；资格判定（发布时间 ≥ 入社日期）在微信云函数本地完成
 - **活动日历订阅** — `GET /calendar/activities.ics` 输出 iCalendar 订阅源，社员用系统/Google 日历订阅后自动看到社团活动；全天事件，公开链接不含任何社员个人信息
@@ -75,6 +76,7 @@
 | GET | `/api/members/full` | KV 快照 | 全量原始记录（含 `record_id`、附件 tmp_url），供 App 24h 本地快照；勾选「禁止查询」的社员一律不下发（除名） |
 | GET | `/api/members` | KV 快照 | 卡号/识别码/姓名映射（cardMap/barcodeMap/infoMap），供 H5 离线缓存；CDN 60s；勾选「禁止查询」的社员不出 |
 | GET | `/api/members/detail?code=<识别码>` | KV 快照 + Cache API 300s | 单人**脱敏**档案（含 activities 参与记录、avatarProxy、joinDate）；勾选「禁止查询」→ `found:false`（不缓存，即时生效）；CORS * |
+| GET | `/api/members/birthday?code=<识别码>` | KV 快照（no-store） | 生日判定（仅云函数服务端调用，Bearer `BIRTHDAY_TOKEN`）；只回 `{isBirthday}`，不下发生日/年份/年龄；禁查社员 `false` |
 | GET | `/api/members/find-code?name=&grade=&clazz=&dept=&seq=` | KV 快照（no-store） | 识别码找回：姓名 + 至少两项补充信息强匹配；勾选「禁止查询」→ `found:false`；唯一命中才回「社员识别码」+ 社员编号，多命中只出脱敏候选，响应不缓存 |
 | GET | `/api/member?uid=<卡号>` | KV 优先+实时兜底 | 按卡号/识别码/认读码查人（签到用）；查无返回 HTTP 500 + `found:false`（既有行为）；禁查社员按查无处理 |
 | GET | `/api/member?q=<姓名>` | KV 优先+实时兜底 | 姓名/别名/编号/识别码/认读码/序号搜索（精确匹配）；禁查社员按查无处理 |
@@ -176,7 +178,7 @@
 ```
 ├── index.html          # H5 签到页（样式 + 交互 + 逻辑；NFC/扫码/新卡登记）
 ├── admin.html          # 内部管理台（左栏选表 / 中间 AG Grid 铺满 / 右侧行详情抽屉 + 一键全量刷新，需 ADMIN_TOKEN）
-├── worker.js           # Cloudflare Worker（18 条公开 API + 5 条管理 API + KV/D1，见文件头注释）
+├── worker.js           # Cloudflare Worker（19 条公开 API + 5 条管理 API + KV/D1，见文件头注释）
 ├── wrangler.jsonc      # Wrangler 部署配置（KV 绑定 / Cron 30 * * * * / routes）
 ├── .wranglerignore     # 部署排除规则（*.md / *.csv / api-baseline 等）
 ├── start.sh            # 本地开发启动脚本（HTTPS 静态服务器）
@@ -219,6 +221,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 | `WPS_WEBHOOK` | **Secret** | WPS 多维表 Webhook（签到记录写入） |
 | `REFRESH_TOKEN` | **Secret** | `/api/refresh` 鉴权 token（自己生成的长随机串） |
 | `ADMIN_TOKEN` | **Secret** | `/api/admin/*` 管理端点鉴权 token（admin.html 登录口令；与 REFRESH_TOKEN 分开，权限隔离） |
+| `BIRTHDAY_TOKEN` | **Secret** | 生日判定端点鉴权 token（与微信云函数同名环境变量保持一致） |
 
 **KV 命名空间：** 需在 Dashboard 创建（如 `shumei-members`），把 Namespace ID 填入 `wrangler.jsonc` 的 `kv_namespaces[0].id`。
 
@@ -289,6 +292,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.21.0** | 2026-11-08 | 新增 `/api/members/birthday`：服务端到服务端的生日判定，只回 `isBirthday`；2 月 29 日平年按 2 月 28 日 |
 | **1.20.0** | 2026-11-04 | 「禁止查询」升级为除名语义：`/api/members/full`、`/api/members`、`/api/member`（KV+实时兜底）全线过滤，查无此人；活动统计与头像白名单保留 |
 | **1.19.1** | 2026-09-28 | 日历订阅源调整：移除指向首页的假详情链接（`URL` 与 DESCRIPTION 的「活动详情」行）；新增可选列「活动开始日期」，未填回退「主要活动日期」；输出体积约 91KB → 75KB |
 | **1.19.0** | 2026-09-28 | 活动日历订阅：`GET /calendar/activities.ics` 输出 iCalendar（全天事件、公开链接、边缘缓存 5 分钟）；`UID` 用 `act-<record_id>@host` 保证客户端原地更新；飞书可选加「活动结束日期」「隐藏日程」两列，缺失时按单日全天 + 可见兜底 |

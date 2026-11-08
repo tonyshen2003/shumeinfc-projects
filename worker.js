@@ -3,6 +3,7 @@
  * GET /api/members              → 返回全部成员（供前端离线缓存；禁查社员不出）[2026-11-04]
  * GET /api/members/full         → 返回全部成员原始记录（含 record_id，供 App 本地快照；禁查社员不出）[2026-11-04]
  * GET /api/members/detail?code= → 单人脱敏档案（禁查过滤 + avatarProxy + joinDate + activities）[2026-09-06]
+ * GET /api/members/birthday?code= → 生日判定（Bearer BIRTHDAY_TOKEN；只回 isBirthday，不下发生日）[2026-11-08]
  * GET /api/members/find-code    → 识别码找回：姓名 + 至少两项强匹配，唯一命中才回社员识别码 [2026-09-09]
  * GET /api/member?uid=<卡号>     → 查询飞书多维表（禁查社员按查无处理）[2026-11-04]
  * GET /api/member?q=<姓名>       → 搜索飞书多维表（禁查社员按查无处理）[2026-11-04]
@@ -1052,6 +1053,46 @@ async function handleMemberDetail(request, env, ctx) {
 }
 
 // ============================================================
+// [API] 生日判定（2026-11-08）
+// GET /api/members/birthday?code=<识别码>
+//   鉴权：Authorization: Bearer <BIRTHDAY_TOKEN>（仅云函数服务端调用，不面向客户端）
+//   只回 { isBirthday }：不下发生日日期/年份/年龄；禁查社员一律 false
+//   2 月 29 日生日在平年按 2 月 28 日处理
+// ============================================================
+function isBirthdayToday(fields) {
+  const b = dateText(fields["生日"]);
+  if (!b) return false;
+  const today = dateText(Date.now());
+  const [, bm, bd] = b.split("-").map(Number);
+  const [ty, tm, td] = today.split("-").map(Number);
+  if (bm === 2 && bd === 29) {
+    const leap = (ty % 4 === 0 && ty % 100 !== 0) || ty % 400 === 0;
+    return leap ? tm === 2 && td === 29 : tm === 2 && td === 28;
+  }
+  return bm === tm && bd === td;
+}
+
+async function handleMemberBirthday(request, env) {
+  const NO_STORE = { "Cache-Control": "no-store" };
+  const auth = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!env.BIRTHDAY_TOKEN || auth !== env.BIRTHDAY_TOKEN) {
+    return Response.json({ isBirthday: false, error: "forbidden" }, { status: 403, headers: NO_STORE });
+  }
+  const code = (new URL(request.url).searchParams.get("code") || "").trim().toUpperCase().replace(/:/g, "");
+  if (!code) return Response.json({ isBirthday: false }, { headers: NO_STORE });
+  try {
+    const snap = await getSnapshot(env);
+    const hit = snap.items.find((it) => text(it.fields, "社员识别码").toUpperCase() === code);
+    return Response.json(
+      { isBirthday: Boolean(hit) && !isBlocked(hit.fields) && isBirthdayToday(hit.fields) },
+      { headers: NO_STORE }
+    );
+  } catch (e) {
+    return Response.json({ isBirthday: false, error: e.message }, { status: 500, headers: NO_STORE });
+  }
+}
+
+// ============================================================
 // [API] 社员证明文件目录（全量，2026-09-06；同日增 owner 资料负责人）
 // GET /api/proof-files → { found, files:[{title,owner,publishedAt,files:[{name,size,fileToken}]}] }
 // 职责只到「给出文档目录」为止：
@@ -2034,6 +2075,9 @@ export default {
     if (url.pathname === "/api/members") return handleMembers(env);
     if (url.pathname === "/api/members/full") return handleMembersFull(env);
     if (url.pathname === "/api/members/detail") return handleMemberDetail(request, env, ctx);
+    if (url.pathname === "/api/members/birthday" && (request.method === "GET" || request.method === "HEAD")) {
+      return handleMemberBirthday(request, env);
+    }
     if (url.pathname === "/api/members/find-code" && request.method === "GET") {
       return handleMemberFindCode(request, env);
     }
