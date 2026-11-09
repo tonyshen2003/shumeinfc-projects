@@ -60,6 +60,16 @@ function text(fields, key) {
   return (v && v.text) || "";
 }
 
+/** 多选字段 → 字符串数组（兼容 [{text}] / ["x"] / "x" 三种形态）。
+ *  与 text() 的区别：不 join，保留每一选项，供前端逐条渲染标签。
+ *  技能是开放集合（后续会不断新增），这里不做任何枚举校验。 */
+function multiOf(v) {
+  const arr = Array.isArray(v) ? v : v ? [v] : [];
+  return arr
+    .map((t) => String((t && t.text !== undefined ? t.text : t) || "").trim())
+    .filter(Boolean);
+}
+
 /** 社团职务为多选字段，统一用 " / " 分隔（与 DeepMei App 快照格式一致）。 */
 function positionText(fields) {
   const v = fields["社团职务"];
@@ -884,6 +894,12 @@ async function buildActivityProjectSnapshot(env) {
       isVolunteer: f["计入志愿时长"] === true,
       cover: coverAtt[0] || photos[0] || null,
       photos,
+      // 招募（2026-11）：技能为多选（开放集合）、状态为单选；历史活动这些字段为空
+      skills: multiOf(f["相关技能"]),
+      recruit: text(f, "招募宣传"),
+      recruitOwner: text(f, "招募负责人"),
+      newbieFriendly: f["面向零基础招募"] === true,
+      recruitStatus: text(f, "招募状态"),
     });
   }
   items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -1304,6 +1320,10 @@ async function handleActivities(request, env, ctx) {
         photoCount: photos.length + (separate ? 1 : 0),
         people: st.people,
         cover: i.cover ? `https://${host}/api/photo?token=${encodeURIComponent(i.cover.token)}&w=400` : "",
+        // 招募：列表只带卡片要用的轻字段，招募宣传/负责人等长文本留给详情接口
+        skills: i.skills || [],
+        newbieFriendly: i.newbieFriendly === true,
+        recruitStatus: i.recruitStatus || "",
       };
     });
 
@@ -1387,6 +1407,12 @@ async function handleActivityDetail(request, env, ctx) {
       record: item.record,
       hoursPer: item.hoursPer,
       isVolunteer: item.isVolunteer,
+      // 招募（详情带全量：卡片用不到的宣传文案与负责人只在这里下发）
+      skills: item.skills || [],
+      recruit: item.recruit || "",
+      recruitOwner: item.recruitOwner || "",
+      newbieFriendly: item.newbieFriendly === true,
+      recruitStatus: item.recruitStatus || "",
       photos,
       stats: { people, totalHours: round1(totalHours), volunteerHours: round1(volunteerHours) },
     };

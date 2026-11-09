@@ -81,8 +81,8 @@
 | GET | `/api/member?uid=<卡号>` | KV 优先+实时兜底 | 按卡号/识别码/认读码查人（签到用）；查无返回 HTTP 500 + `found:false`（既有行为）；禁查社员按查无处理 |
 | GET | `/api/member?q=<姓名>` | KV 优先+实时兜底 | 姓名/别名/编号/识别码/认读码/序号搜索（精确匹配）；禁查社员按查无处理 |
 | GET | `/api/avatar?token=<file_token>` | 边缘缓存 1d + KV 永久 | 头像图片代理直链；白名单=成员快照「头像/个人照片」token；飞书删图仍可访问 |
-| GET | `/api/activities` | 双 KV 聚合 + Cache 300s | 活动列表：year（4 位/`early`≤2023）/type/q/limit/offset 筛选 + facets 全量筛选项；cover 为 photo w=400 直链 |
-| GET | `/api/activities/detail?id=<recordId>` | 双 KV 聚合 + Cache 300s | 活动详情：**无 participants 字段**（隐私定案）；stats 参与人次/总时长/志愿时长；photos thumb w400/full w1200 |
+| GET | `/api/activities` | 双 KV 聚合 + Cache 300s | 活动列表：year（4 位/`early`≤2023）/type/q/limit/offset 筛选 + facets 全量筛选项；cover 为 photo w=400 直链；招募轻字段 `skills`（字符串数组）/`newbieFriendly`/`recruitStatus` |
+| GET | `/api/activities/detail?id=<recordId>` | 双 KV 聚合 + Cache 300s | 活动详情：**无 participants 字段**（隐私定案）；stats 参与人次/总时长/志愿时长；photos thumb w400/full w1200；招募全量字段 `skills`/`recruit`/`recruitOwner`/`newbieFriendly`/`recruitStatus` |
 | GET | `/api/photo?token=&w=` | 边缘缓存 7d（不写 KV） | 活动照片代理 + cf.image 缩放，w∈[200,400,800,1200] 非法回退 800，fmt=jpeg/webp |
 | GET | `/calendar/activities.ics` | KV 快照 + Cache 300s | 活动日历订阅源（iCalendar / RFC 5545）：`from=<年份>`（默认近 365 天+未来）、`all=1`、`type=<类型>`；公开链接，只出活动名/日期/地点/简介 |
 | GET | `/api/proof-files` | file_catalog_v1（惰性 60min） | 社员证明文件目录（title/owner/publishedAt/file）；出口仅放行「内容类型=社员证明」；资格判定在云函数侧 |
@@ -292,6 +292,7 @@ sh start.sh             # 启动 HTTPS 静态服务器（Web NFC 要求安全上
 
 | 版本 | 日期 | 里程碑 |
 |---|---|---|
+| **1.22.0** | 2026-11-09 | 活动招募字段：「相关技能」（多选→数组，开放集合）/「招募状态」（单选）/「面向零基础招募」（复选框）随活动列表下发；「招募宣传」「招募负责人」仅详情下发；新增 `multiOf()` 保留多选项而不 join |
 | **1.21.0** | 2026-11-08 | 新增 `/api/members/birthday`：服务端到服务端的生日判定，只回 `isBirthday`；2 月 29 日平年按 2 月 28 日 |
 | **1.20.0** | 2026-11-04 | 「禁止查询」升级为除名语义：`/api/members/full`、`/api/members`、`/api/member`（KV+实时兜底）全线过滤，查无此人；活动统计与头像白名单保留 |
 | **1.19.1** | 2026-09-28 | 日历订阅源调整：移除指向首页的假详情链接（`URL` 与 DESCRIPTION 的「活动详情」行）；新增可选列「活动开始日期」，未填回退「主要活动日期」；输出体积约 91KB → 75KB |
