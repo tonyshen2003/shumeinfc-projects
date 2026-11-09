@@ -906,11 +906,23 @@ async function buildActivityProjectSnapshot(env) {
   return { updatedAt: Date.now(), items };
 }
 
-/** 读活动项目快照；未命中时实时拉取并写回 KV（与 getSnapshot 同模式）。 */
+/**
+ * 活动项目快照自愈窗口（2026-11-09）：正常由 cron（每小时 :30）刷新，90 分钟内不会触发；
+ * cron 漏跑 / 刷新口令失效 / 飞书自动化被关时，读接口自己回源重建。
+ * 不加这道闸的风险：云函数每 30 分钟换一份本地快照，syncedAt 一直是新的，
+ * 但拉到的还是同一份旧 KV —— 看起来在刷新，其实内容永久停在某一版，且没有任何告警。
+ */
+const ACTIVITY_PROJECTS_TTL = 90 * 60 * 1000;
+
+/** 读活动项目快照；未命中或超过自愈窗口时实时拉取并写回 KV（与 getSnapshot 同模式）。 */
 async function getActivityProjectSnapshot(env) {
   try {
     const cached = await env.SHUMEI_KV.get(ACTIVITY_PROJECTS_KV_KEY, "json");
-    if (cached && Array.isArray(cached.items) && cached.items.length) return cached;
+    if (cached && Array.isArray(cached.items) && cached.items.length) {
+      const age = Date.now() - Number(cached.updatedAt || 0);
+      // age < 0 表示时间戳异常（未来时间），也重建一次让它自愈到当前时间
+      if (age >= 0 && age < ACTIVITY_PROJECTS_TTL) return cached;
+    }
   } catch (e) { /* KV 不可用时走实时 */ }
   const fresh = await buildActivityProjectSnapshot(env);
   try { await env.SHUMEI_KV.put(ACTIVITY_PROJECTS_KV_KEY, JSON.stringify(fresh)); } catch (e) {}

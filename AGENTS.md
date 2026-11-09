@@ -18,7 +18,7 @@
 - **KV 缓存（SHUMEI_KV）**：读接口 KV 快照优先，避免频繁实时访问飞书（慢 + 有配额）
 - KV 现有 6 类 key：`members_full` / `activity_records_v3` / `activity_projects_v1` / `file_catalog_v1`（惰性 60min）/ `avatar_img_<token>`（永久）/ `last_refresh_at`（30s 冷却）
 - 附件（头像/活动照片/证明文件）走 **token 白名单 + 边缘缓存** 代理；`/api/photo` 用 cf.image 缩放（已开启），`/api/avatar` 与 `/api/file` 原样直出
-- 快照刷新三通道：Cron（`30 * * * *`）兜底 → 飞书自动化「记录变更→HTTP /api/refresh」即时 → 读接口冷启动自愈（KV 空则实时拉取回填）
+- 快照刷新三通道：Cron（`30 * * * *`）兜底 → 飞书自动化「记录变更→HTTP /api/refresh」即时 → 读接口自愈（KV 空即回填；`activity_projects_v1` 另有 90 分钟超龄自愈，防 cron 失效后永久陈旧）
 
 ## 文件结构
 
